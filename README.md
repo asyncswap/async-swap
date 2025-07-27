@@ -33,7 +33,7 @@ forge install
 > cast wallet import --mnemonic "test test test test test test test test test test test junk" anvil
 > ```
 >
-> - This will allow you to use `--account anvil` in the deploys scripts in [`./start_script.sh`](./start_script.sh)
+> - This will allow you to use `--account anvil` in the deploys scripts in [`.dev/start_script.sh`](./dev/start_script.sh)
 
 Run local anvil node
 
@@ -48,7 +48,7 @@ anvil --block-time 13
 Run deployment script
 
 ```sh
-./start_script.sh # scripts that you use --account setup of you choice
+./dev/start_script.sh # scripts that you use --account setup of you choice
 ```
 
 > [!NOTE]
@@ -80,10 +80,10 @@ bun run dev
 
 > [!Tip]
 >
-> - If you need typescript abi for your contracts on frontend or indexer use this script [`./generateAbi.sh`](./generateAbi.sh)
+> - If you need typescript abi for your contracts on frontend or indexer use this script [`./dev/generateAbi.sh`](./dev/generateAbi.sh)
 >
 > ```sh
-> ./generateAbi.sh
+> ./dev/generateAbi.sh
 > ```
 
 Go to [http://localhost:42069](http://localhost:42069) to query orders from hook events

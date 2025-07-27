@@ -53,7 +53,7 @@ jobs:
 
       - name: Generate and patch docs
         run: |
-          bash build-docs.sh
+          bash dev/build-docs.sh
 
       - name: Deploy to GitHub Pages
         env:
