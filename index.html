@@ -185,7 +185,7 @@ We suggest you set up local anvil account with cast.</p>
 <pre><code class="language-sh">cast wallet import --mnemonic "test test test test test test test test test test test junk" anvil
 </code></pre>
 <ul>
-<li>This will allow you to use <code>--account anvil</code> in the deploys scripts in <a href="./start_script.sh"><code>./start_script.sh</code></a></li>
+<li>This will allow you to use <code>--account anvil</code> in the deploys scripts in <a href="./dev/start_script.sh"><code>.dev/start_script.sh</code></a></li>
 </ul>
 </blockquote>
 <p>Run local anvil node</p>
@@ -195,7 +195,7 @@ anvil --block-time 13
 </code></pre>
 <h2 id="local-deployment"><a class="header" href="#local-deployment">Local Deployment</a></h2>
 <p>Run deployment script</p>
-<pre><code class="language-sh">./start_script.sh # scripts that you use --account setup of you choice
+<pre><code class="language-sh">./dev/start_script.sh # scripts that you use --account setup of you choice
 </code></pre>
 <blockquote>
 <p>[!NOTE]</p>
@@ -220,9 +220,9 @@ anvil --block-time 13
 <blockquote>
 <p>[!Tip]</p>
 <ul>
-<li>If you need typescript abi for your contracts on frontend or indexer use this script <a href="./generateAbi.sh"><code>./generateAbi.sh</code></a></li>
+<li>If you need typescript abi for your contracts on frontend or indexer use this script <a href="./dev/generateAbi.sh"><code>./dev/generateAbi.sh</code></a></li>
 </ul>
-<pre><code class="language-sh">./generateAbi.sh
+<pre><code class="language-sh">./dev/generateAbi.sh
 </code></pre>
 </blockquote>
 <p>Go to <a href="http://localhost:42069">http://localhost:42069</a> to query orders from hook events</p>
