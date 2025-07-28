@@ -2,7 +2,7 @@
 pragma solidity 0.8.26;
 
 import { FFIHelper } from "./FFIHelper.sol";
-import { AsyncSwapCSMM } from "@async-swap/AsyncSwapCSMM.sol";
+import { AsyncSwap } from "@async-swap/AsyncSwap.sol";
 import { console } from "forge-std/Test.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
@@ -15,7 +15,7 @@ import { PoolKey } from "v4-core/types/PoolKey.sol";
 contract IntializePool is FFIHelper {
 
   IPoolManager manager;
-  AsyncSwapCSMM hook;
+  AsyncSwap hook;
   Currency currency0;
   Currency currency1;
   PoolKey key;
@@ -25,7 +25,7 @@ contract IntializePool is FFIHelper {
   function setUp() public {
     manager = IPoolManager(_getDeployedPoolManager());
     (address _hook,) = _getDeployedHook();
-    hook = AsyncSwapCSMM(_hook);
+    hook = AsyncSwap(_hook);
   }
 
   function run() public {

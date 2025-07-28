@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import { FFIHelper } from "./FFIHelper.sol";
-import { AsyncSwapCSMM } from "@async-swap/AsyncSwapCSMM.sol";
+import { AsyncSwap } from "@async-swap/AsyncSwap.sol";
 import { Router } from "@async-swap/router.sol";
 import { console } from "forge-std/Test.sol";
 import { IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
@@ -13,7 +13,7 @@ import { HookMiner } from "v4-periphery/src/utils/HookMiner.sol";
 contract DeployHookScript is FFIHelper {
 
   IPoolManager manager;
-  AsyncSwapCSMM public hook;
+  AsyncSwap public hook;
   Router router;
 
   function setUp() public {
@@ -31,10 +31,10 @@ contract DeployHookScript is FFIHelper {
 
     /// @dev compute create2 salt
     (address hookAddress, bytes32 salt) =
-      HookMiner.find(CREATE2_FACTORY, hookFlags, type(AsyncSwapCSMM).creationCode, abi.encode(address(manager)));
+      HookMiner.find(CREATE2_FACTORY, hookFlags, type(AsyncSwap).creationCode, abi.encode(address(manager)));
 
     /// @dev deploy hook
-    hook = new AsyncSwapCSMM{ salt: salt }(manager);
+    hook = new AsyncSwap{ salt: salt }(manager);
     assert(address(hook) == hookAddress);
 
     router = new Router(manager, hook);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import { AsyncSwapCSMM } from "@async-swap/AsyncSwapCSMM.sol";
+import { AsyncSwap } from "@async-swap/AsyncSwap.sol";
 import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
 import { Script, console } from "forge-std/Script.sol";
 import { stdJson } from "forge-std/Test.sol";
@@ -130,7 +130,7 @@ contract FFIHelper is Script {
     (address hook,) = _getDeployedHook();
     Currency currency0 = Currency.wrap(address(uint160(keyTopics[2])));
     Currency currency1 = Currency.wrap(address(uint160(keyTopics[3])));
-    PoolKey memory key = PoolKey(currency0, currency1, LPFeeLibrary.DYNAMIC_FEE_FLAG, 60, AsyncSwapCSMM(hook));
+    PoolKey memory key = PoolKey(currency0, currency1, LPFeeLibrary.DYNAMIC_FEE_FLAG, 60, AsyncSwap(hook));
     return key;
   }
 

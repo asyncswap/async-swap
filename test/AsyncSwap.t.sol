@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import { SetupHook } from "./SetupHook.sol";
-import { AsyncSwapCSMM } from "@async-swap/AsyncSwapCSMM.sol";
+import { AsyncSwap } from "@async-swap/AsyncSwap.sol";
 import { IRouter } from "@async-swap/interfaces/IRouter.sol";
 import { AsyncFiller } from "@async-swap/libraries/AsyncFiller.sol";
 import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
@@ -13,7 +13,7 @@ import { CurrencyLibrary } from "v4-core/types/Currency.sol";
 import { PoolKey } from "v4-core/types/PoolKey.sol";
 
 /// @title Async CSMM test contract
-contract AsyncCsmmTest is SetupHook {
+contract AsyncSwapTest is SetupHook {
 
   using CurrencyLibrary for Currency;
   using AsyncFiller for AsyncOrder;

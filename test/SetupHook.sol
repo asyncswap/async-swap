@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import { AsyncSwapCSMM } from "@async-swap/AsyncSwapCSMM.sol";
+import { AsyncSwap } from "@async-swap/AsyncSwap.sol";
 import { Router } from "@async-swap/router.sol";
 import { Test, console } from "forge-std/Test.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
@@ -19,7 +19,7 @@ contract SetupHook is Test {
   address owner = makeAddr("deployer");
   IPoolManager manager;
   PoolKey key;
-  AsyncSwapCSMM hook;
+  AsyncSwap hook;
   MockERC20 token0;
   MockERC20 token1;
   Currency currency0;
@@ -66,8 +66,8 @@ contract SetupHook is Test {
         | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
     );
     vm.startPrank(owner);
-    deployCodeTo("AsyncSwapCSMM.sol", abi.encode(manager, owner), address(hookFlags));
-    hook = AsyncSwapCSMM(address(hookFlags));
+    deployCodeTo("AsyncSwap.sol", abi.encode(manager, owner), address(hookFlags));
+    hook = AsyncSwap(address(hookFlags));
   }
 
   function deployTokens() public {

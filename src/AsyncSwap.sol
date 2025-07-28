@@ -21,7 +21,7 @@ import { BaseHook } from "v4-periphery/src/utils/BaseHook.sol";
 /// @title Async Swap CSMM Contract
 /// @author Async Labs
 /// @notice This contract implemIAsyncAMMsync Constant Sum Market Maker (CSMM) functionality.
-contract AsyncSwapCSMM is BaseHook, IAsyncSwapAMM {
+contract AsyncSwap is BaseHook, IAsyncSwapAMM {
 
   using SafeCast for *;
   using CurrencySettler for Currency;
