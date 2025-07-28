@@ -12,7 +12,7 @@ import { PoolSwapTest } from "v4-core/test/PoolSwapTest.sol";
 import { CurrencyLibrary } from "v4-core/types/Currency.sol";
 import { PoolKey } from "v4-core/types/PoolKey.sol";
 
-/// @title Async CSMM test contract
+/// @title Async Swap test contract
 contract AsyncSwapTest is SetupHook {
 
   using CurrencyLibrary for Currency;

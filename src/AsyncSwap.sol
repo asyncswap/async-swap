@@ -18,9 +18,9 @@ import { PoolId } from "v4-core/types/PoolId.sol";
 import { PoolIdLibrary, PoolKey } from "v4-core/types/PoolKey.sol";
 import { BaseHook } from "v4-periphery/src/utils/BaseHook.sol";
 
-/// @title Async Swap CSMM Contract
+/// @title Async Swap Contract
 /// @author Async Labs
-/// @notice This contract implemIAsyncAMMsync Constant Sum Market Maker (CSMM) functionality.
+/// @notice Async swap AMM
 contract AsyncSwap is BaseHook, IAsyncSwapAMM {
 
   using SafeCast for *;
