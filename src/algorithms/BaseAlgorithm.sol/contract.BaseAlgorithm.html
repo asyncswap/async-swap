@@ -162,13 +162,13 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="basealgorithm"><a class="header" href="#basealgorithm">BaseAlgorithm</a></h1>
-<p><a href="https://github.com/asyncswap/async-swap/blob/7df33d8b6b77d8f5b12915c359a63593cf0a1496/src/algorithms/BaseAlgorithm.sol">Git Source</a></p>
+<p><a href="https://github.com/asyncswap/async-swap/blob/55a9275713d909e1d5c8546bf34e88f6485821ab/src/algorithms/BaseAlgorithm.sol">Git Source</a></p>
 <p><strong>Inherits:</strong>
 <a href="/src/interfaces/IAlgorithm.sol/interface.IAlgorithm.html">IAlgorithm</a></p>
 <h2 id="state-variables"><a class="header" href="#state-variables">State Variables</a></h2>
-<h3 id="hookaddress"><a class="header" href="#hookaddress">hookAddress</a></h3>
+<h3 id="hookaddress"><a class="header" href="#hookaddress">HOOKADDRESS</a></h3>
 <p>The address of the hook that will call this algorithm.</p>
-<pre><code class="language-solidity">address public immutable hookAddress;
+<pre><code class="language-solidity">address public immutable HOOKADDRESS;
 </code></pre>
 <h2 id="functions"><a class="header" href="#functions">Functions</a></h2>
 <h3 id="constructor"><a class="header" href="#constructor">constructor</a></h3>
@@ -182,7 +182,11 @@
 </div>
 <h3 id="onlyhook"><a class="header" href="#onlyhook">onlyHook</a></h3>
 <p>Modifier to restrict access to the hook address.</p>
+<p><em>only hook contract can call</em></p>
 <pre><code class="language-solidity">modifier onlyHook();
+</code></pre>
+<h3 id="_checkcallerishookcontract"><a class="header" href="#_checkcallerishookcontract">_checkCallerIsHookContract</a></h3>
+<pre><code class="language-solidity">function _checkCallerIsHookContract() internal view;
 </code></pre>
 <h3 id="name"><a class="header" href="#name">name</a></h3>
 <p>Returns the name of the ordering algorithm.</p>

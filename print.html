@@ -249,13 +249,13 @@ anvil --block-time 13
 <li><a href="src/algorithms/vgsr.sol/contract.VGSR.html">VGSR</a></li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="basealgorithm"><a class="header" href="#basealgorithm">BaseAlgorithm</a></h1>
-<p><a href="https://github.com/asyncswap/async-swap/blob/7df33d8b6b77d8f5b12915c359a63593cf0a1496/src/algorithms/BaseAlgorithm.sol">Git Source</a></p>
+<p><a href="https://github.com/asyncswap/async-swap/blob/55a9275713d909e1d5c8546bf34e88f6485821ab/src/algorithms/BaseAlgorithm.sol">Git Source</a></p>
 <p><strong>Inherits:</strong>
 <a href="src/algorithms/BaseAlgorithm.sol//src/interfaces/IAlgorithm.sol/interface.IAlgorithm.html">IAlgorithm</a></p>
 <h2 id="state-variables"><a class="header" href="#state-variables">State Variables</a></h2>
-<h3 id="hookaddress"><a class="header" href="#hookaddress">hookAddress</a></h3>
+<h3 id="hookaddress"><a class="header" href="#hookaddress">HOOKADDRESS</a></h3>
 <p>The address of the hook that will call this algorithm.</p>
-<pre><code class="language-solidity">address public immutable hookAddress;
+<pre><code class="language-solidity">address public immutable HOOKADDRESS;
 </code></pre>
 <h2 id="functions"><a class="header" href="#functions">Functions</a></h2>
 <h3 id="constructor"><a class="header" href="#constructor">constructor</a></h3>
@@ -269,7 +269,11 @@ anvil --block-time 13
 </div>
 <h3 id="onlyhook"><a class="header" href="#onlyhook">onlyHook</a></h3>
 <p>Modifier to restrict access to the hook address.</p>
+<p><em>only hook contract can call</em></p>
 <pre><code class="language-solidity">modifier onlyHook();
+</code></pre>
+<h3 id="_checkcallerishookcontract"><a class="header" href="#_checkcallerishookcontract">_checkCallerIsHookContract</a></h3>
+<pre><code class="language-solidity">function _checkCallerIsHookContract() internal view;
 </code></pre>
 <h3 id="name"><a class="header" href="#name">name</a></h3>
 <p>Returns the name of the ordering algorithm.</p>
@@ -299,7 +303,7 @@ anvil --block-time 13
 <tr><td><code>amount</code></td><td><code>uint256</code></td><td>The amount of the order being processed.</td></tr>
 </tbody></table>
 </div><div style="break-before: page; page-break-before: always;"></div><h1 id="algorithm2"><a class="header" href="#algorithm2">Algorithm2</a></h1>
-<p><a href="https://github.com/asyncswap/async-swap/blob/7df33d8b6b77d8f5b12915c359a63593cf0a1496/src/algorithms/algorithm-2.sol">Git Source</a></p>
+<p><a href="https://github.com/asyncswap/async-swap/blob/55a9275713d909e1d5c8546bf34e88f6485821ab/src/algorithms/algorithm-2.sol">Git Source</a></p>
 <p><strong>Inherits:</strong>
 <a href="src/algorithms/algorithm-2.sol//src/algorithms/BaseAlgorithm.sol/contract.BaseAlgorithm.html">BaseAlgorithm</a>, <a href="src/algorithms/algorithm-2.sol//src/utils/TransientStorage.sol/contract.TransientStorage.html">TransientStorage</a></p>
 <p><strong>Author:</strong>
@@ -386,7 +390,7 @@ cumulatedVolume += nextTxBuyXVolume
 <tr><td><code>amount</code></td><td><code>uint256</code></td><td>The amount of the order being processed.</td></tr>
 </tbody></table>
 </div><div style="break-before: page; page-break-before: always;"></div><h1 id="clvr"><a class="header" href="#clvr">CLVR</a></h1>
-<p><a href="https://github.com/asyncswap/async-swap/blob/7df33d8b6b77d8f5b12915c359a63593cf0a1496/src/algorithms/clvr.sol">Git Source</a></p>
+<p><a href="https://github.com/asyncswap/async-swap/blob/55a9275713d909e1d5c8546bf34e88f6485821ab/src/algorithms/clvr.sol">Git Source</a></p>
 <p><strong>Inherits:</strong>
 <a href="src/algorithms/clvr.sol//src/algorithms/BaseAlgorithm.sol/contract.BaseAlgorithm.html">BaseAlgorithm</a></p>
 <p><strong>Author:</strong>
@@ -421,7 +425,7 @@ reference: https://arxiv.org/abs/2408.02634</p>
 </div>
 <h3 id="orderingrule-2"><a class="header" href="#orderingrule-2">orderingRule</a></h3>
 <p>Executes the transaction ordering algorithm.</p>
-<pre><code class="language-solidity">function orderingRule(bool zeroForOne, uint256 amount) external override;
+<pre><code class="language-solidity">function orderingRule(bool zeroForOne, uint256 amount) external override onlyHook;
 </code></pre>
 <p><strong>Parameters</strong></p>
 <div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
@@ -429,7 +433,7 @@ reference: https://arxiv.org/abs/2408.02634</p>
 <tr><td><code>amount</code></td><td><code>uint256</code></td><td>The amount of the order being processed.</td></tr>
 </tbody></table>
 </div><div style="break-before: page; page-break-before: always;"></div><h1 id="gmd"><a class="header" href="#gmd">GMD</a></h1>
-<p><a href="https://github.com/asyncswap/async-swap/blob/7df33d8b6b77d8f5b12915c359a63593cf0a1496/src/algorithms/gmd.sol">Git Source</a></p>
+<p><a href="https://github.com/asyncswap/async-swap/blob/55a9275713d909e1d5c8546bf34e88f6485821ab/src/algorithms/gmd.sol">Git Source</a></p>
 <p><strong>Inherits:</strong>
 <a href="src/algorithms/gmd.sol//src/algorithms/BaseAlgorithm.sol/contract.BaseAlgorithm.html">BaseAlgorithm</a></p>
 <p><strong>Author:</strong>
@@ -461,7 +465,7 @@ gpt-description: https://chatgpt.com/share/68558f98-3fd0-8003-8cec-d54a575fc688<
 </div>
 <h3 id="orderingrule-3"><a class="header" href="#orderingrule-3">orderingRule</a></h3>
 <p>Executes the transaction ordering algorithm.</p>
-<pre><code class="language-solidity">function orderingRule(bool zeroForOne, uint256 amount) external override;
+<pre><code class="language-solidity">function orderingRule(bool zeroForOne, uint256 amount) external override onlyHook;
 </code></pre>
 <p><strong>Parameters</strong></p>
 <div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
@@ -469,7 +473,7 @@ gpt-description: https://chatgpt.com/share/68558f98-3fd0-8003-8cec-d54a575fc688<
 <tr><td><code>amount</code></td><td><code>uint256</code></td><td>The amount of the order being processed.</td></tr>
 </tbody></table>
 </div><div style="break-before: page; page-break-before: always;"></div><h1 id="gsr"><a class="header" href="#gsr">GSR</a></h1>
-<p><a href="https://github.com/asyncswap/async-swap/blob/7df33d8b6b77d8f5b12915c359a63593cf0a1496/src/algorithms/gsr.sol">Git Source</a></p>
+<p><a href="https://github.com/asyncswap/async-swap/blob/55a9275713d909e1d5c8546bf34e88f6485821ab/src/algorithms/gsr.sol">Git Source</a></p>
 <p><strong>Inherits:</strong>
 <a href="src/algorithms/gsr.sol//src/algorithms/BaseAlgorithm.sol/contract.BaseAlgorithm.html">BaseAlgorithm</a></p>
 <p><strong>Author:</strong>
@@ -515,7 +519,7 @@ The GSR algorithm is a transaction ordering rule that follows the following prin
 </div>
 <h3 id="orderingrule-4"><a class="header" href="#orderingrule-4">orderingRule</a></h3>
 <p>Executes the transaction ordering algorithm.</p>
-<pre><code class="language-solidity">function orderingRule(bool zeroForOne, uint256 amount) external pure override;
+<pre><code class="language-solidity">function orderingRule(bool zeroForOne, uint256 amount) external override onlyHook;
 </code></pre>
 <p><strong>Parameters</strong></p>
 <div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
@@ -523,7 +527,7 @@ The GSR algorithm is a transaction ordering rule that follows the following prin
 <tr><td><code>amount</code></td><td><code>uint256</code></td><td>The amount of the order being processed.</td></tr>
 </tbody></table>
 </div><div style="break-before: page; page-break-before: always;"></div><h1 id="vgsr"><a class="header" href="#vgsr">VGSR</a></h1>
-<p><a href="https://github.com/asyncswap/async-swap/blob/7df33d8b6b77d8f5b12915c359a63593cf0a1496/src/algorithms/vgsr.sol">Git Source</a></p>
+<p><a href="https://github.com/asyncswap/async-swap/blob/55a9275713d909e1d5c8546bf34e88f6485821ab/src/algorithms/vgsr.sol">Git Source</a></p>
 <p><strong>Inherits:</strong>
 <a href="src/algorithms/vgsr.sol//src/algorithms/BaseAlgorithm.sol/contract.BaseAlgorithm.html">BaseAlgorithm</a></p>
 <p><strong>Author:</strong>
@@ -557,7 +561,7 @@ Async Labs</p>
 </div>
 <h3 id="orderingrule-5"><a class="header" href="#orderingrule-5">orderingRule</a></h3>
 <p>Executes the transaction ordering algorithm.</p>
-<pre><code class="language-solidity">function orderingRule(bool zeroForOne, uint256 amount) external pure override;
+<pre><code class="language-solidity">function orderingRule(bool zeroForOne, uint256 amount) external override onlyHook;
 </code></pre>
 <p><strong>Parameters</strong></p>
 <div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
@@ -572,7 +576,7 @@ Async Labs</p>
 <li><a href="src/interfaces/IRouter.sol/interface.IRouter.html">IRouter</a></li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="ialgorithm"><a class="header" href="#ialgorithm">IAlgorithm</a></h1>
-<p><a href="https://github.com/asyncswap/async-swap/blob/7df33d8b6b77d8f5b12915c359a63593cf0a1496/src/interfaces/IAlgorithm.sol">Git Source</a></p>
+<p><a href="https://github.com/asyncswap/async-swap/blob/55a9275713d909e1d5c8546bf34e88f6485821ab/src/interfaces/IAlgorithm.sol">Git Source</a></p>
 <p><strong>Author:</strong>
 Async Labs</p>
 <p>This interface defines the functions for transaction ordering algorithms used in the Async Swap AMM hook.</p>
@@ -605,7 +609,7 @@ Async Labs</p>
 <tr><td><code>&lt;none&gt;</code></td><td><code>string</code></td><td>The version of the algorithm as a string.</td></tr>
 </tbody></table>
 </div><div style="break-before: page; page-break-before: always;"></div><h1 id="iasyncswapamm"><a class="header" href="#iasyncswapamm">IAsyncSwapAMM</a></h1>
-<p><a href="https://github.com/asyncswap/async-swap/blob/7df33d8b6b77d8f5b12915c359a63593cf0a1496/src/interfaces/IAsyncSwapAMM.sol">Git Source</a></p>
+<p><a href="https://github.com/asyncswap/async-swap/blob/55a9275713d909e1d5c8546bf34e88f6485821ab/src/interfaces/IAsyncSwapAMM.sol">Git Source</a></p>
 <p><strong>Inherits:</strong>
 <a href="src/interfaces/IAsyncSwapAMM.sol//src/interfaces/IAsyncSwapOrder.sol/interface.IAsyncSwapOrder.html">IAsyncSwapOrder</a></p>
 <p><strong>Author:</strong>
@@ -646,7 +650,7 @@ Async Labs</p>
 <tr><td><code>executor</code></td><td><code>address</code></td><td></td></tr>
 </tbody></table>
 </div><div style="break-before: page; page-break-before: always;"></div><h1 id="iasyncswaporder"><a class="header" href="#iasyncswaporder">IAsyncSwapOrder</a></h1>
-<p><a href="https://github.com/asyncswap/async-swap/blob/7df33d8b6b77d8f5b12915c359a63593cf0a1496/src/interfaces/IAsyncSwapOrder.sol">Git Source</a></p>
+<p><a href="https://github.com/asyncswap/async-swap/blob/55a9275713d909e1d5c8546bf34e88f6485821ab/src/interfaces/IAsyncSwapOrder.sol">Git Source</a></p>
 <p><strong>Author:</strong>
 Async Labs</p>
 <p>This interface defines the functions for the Async Swap orders.</p>
@@ -718,7 +722,7 @@ Async Labs</p>
 <pre><code class="language-solidity">error ZeroFillOrder();
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="irouter"><a class="header" href="#irouter">IRouter</a></h1>
-<p><a href="https://github.com/asyncswap/async-swap/blob/7df33d8b6b77d8f5b12915c359a63593cf0a1496/src/interfaces/IRouter.sol">Git Source</a></p>
+<p><a href="https://github.com/asyncswap/async-swap/blob/55a9275713d909e1d5c8546bf34e88f6485821ab/src/interfaces/IRouter.sol">Git Source</a></p>
 <p><strong>Author:</strong>
 Async Labs</p>
 <p>This interface defines the functions for the Router contract, which allows users to swap tokens and fill
@@ -775,7 +779,7 @@ orders using async orders.</p>
 <li><a href="src/libraries/AsyncFiller.sol/library.AsyncFiller.html">AsyncFiller</a></li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="asyncfiller"><a class="header" href="#asyncfiller">AsyncFiller</a></h1>
-<p><a href="https://github.com/asyncswap/async-swap/blob/7df33d8b6b77d8f5b12915c359a63593cf0a1496/src/libraries/AsyncFiller.sol">Git Source</a></p>
+<p><a href="https://github.com/asyncswap/async-swap/blob/55a9275713d909e1d5c8546bf34e88f6485821ab/src/libraries/AsyncFiller.sol">Git Source</a></p>
 <p><strong>Author:</strong>
 Async Labs</p>
 <p>This library provides functionality for filling async swap orders in the Uniswap V4 pool.</p>
@@ -862,7 +866,7 @@ Async Labs</p>
 <li><a href="src/types/AsyncOrder.sol/struct.AsyncOrder.html">AsyncOrder</a></li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="asyncorder-1"><a class="header" href="#asyncorder-1">AsyncOrder</a></h1>
-<p><a href="https://github.com/asyncswap/async-swap/blob/7df33d8b6b77d8f5b12915c359a63593cf0a1496/src/types/AsyncOrder.sol">Git Source</a></p>
+<p><a href="https://github.com/asyncswap/async-swap/blob/55a9275713d909e1d5c8546bf34e88f6485821ab/src/types/AsyncOrder.sol">Git Source</a></p>
 <p>Represents an async order for a swap in the Uniswap V4 pool.</p>
 <pre><code class="language-solidity">struct AsyncOrder {
   PoolKey key;
@@ -885,7 +889,7 @@ Async Labs</p>
 <li><a href="src/utils/TransientStorage.sol/contract.TransientStorage.html">TransientStorage</a></li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="transientstorage"><a class="header" href="#transientstorage">TransientStorage</a></h1>
-<p><a href="https://github.com/asyncswap/async-swap/blob/7df33d8b6b77d8f5b12915c359a63593cf0a1496/src/utils/TransientStorage.sol">Git Source</a></p>
+<p><a href="https://github.com/asyncswap/async-swap/blob/55a9275713d909e1d5c8546bf34e88f6485821ab/src/utils/TransientStorage.sol">Git Source</a></p>
 <p><strong>Author:</strong>
 Async Labs</p>
 <p>This contract provides functions to interact with the transient storage.</p>
@@ -909,7 +913,7 @@ Async Labs</p>
 <tr><td><code>value</code></td><td><code>bytes32</code></td><td>The value to store in the transient storage.</td></tr>
 </tbody></table>
 </div><div style="break-before: page; page-break-before: always;"></div><h1 id="asyncswap"><a class="header" href="#asyncswap">AsyncSwap</a></h1>
-<p><a href="https://github.com/asyncswap/async-swap/blob/7df33d8b6b77d8f5b12915c359a63593cf0a1496/src/AsyncSwap.sol">Git Source</a></p>
+<p><a href="https://github.com/asyncswap/async-swap/blob/55a9275713d909e1d5c8546bf34e88f6485821ab/src/AsyncSwap.sol">Git Source</a></p>
 <p><strong>Inherits:</strong>
 BaseHook, <a href="src/AsyncSwap.sol//src/interfaces/IAsyncSwapAMM.sol/interface.IAsyncSwapAMM.html">IAsyncSwapAMM</a></p>
 <p><strong>Author:</strong>
@@ -1017,7 +1021,7 @@ Async Labs</p>
 <pre><code class="language-solidity">error UnsupportedLiquidity();
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="router"><a class="header" href="#router">Router</a></h1>
-<p><a href="https://github.com/asyncswap/async-swap/blob/7df33d8b6b77d8f5b12915c359a63593cf0a1496/src/router.sol">Git Source</a></p>
+<p><a href="https://github.com/asyncswap/async-swap/blob/55a9275713d909e1d5c8546bf34e88f6485821ab/src/router.sol">Git Source</a></p>
 <p><strong>Inherits:</strong>
 <a href="src/router.sol//src/interfaces/IRouter.sol/interface.IRouter.html">IRouter</a></p>
 <p><strong>Author:</strong>
@@ -1059,6 +1063,9 @@ the PoolManager and Async Swap hook.</p>
 <h3 id="onlypoolmanager"><a class="header" href="#onlypoolmanager">onlyPoolManager</a></h3>
 <p>Only allow the PoolManager to call certain functions.</p>
 <pre><code class="language-solidity">modifier onlyPoolManager();
+</code></pre>
+<h3 id="_checkcallerispoolmanager"><a class="header" href="#_checkcallerispoolmanager">_checkCallerIsPoolManager</a></h3>
+<pre><code class="language-solidity">function _checkCallerIsPoolManager() internal view;
 </code></pre>
 <h3 id="swap-1"><a class="header" href="#swap-1">swap</a></h3>
 <p>Swaps tokens using an async order.</p>
