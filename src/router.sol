@@ -42,8 +42,12 @@ contract Router is IRouter {
 
   /// Only allow the PoolManager to call certain functions.
   modifier onlyPoolManager() {
-    require(msg.sender == address(POOLMANAGER));
+    _checkCallerIsPoolManager();
     _;
+  }
+
+  function _checkCallerIsPoolManager() internal view {
+    require(msg.sender == address(POOLMANAGER), "Caller is not PoolManager");
   }
 
   /// @inheritdoc IRouter
