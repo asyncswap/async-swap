@@ -23,7 +23,7 @@ contract GMD is BaseAlgorithm {
   }
 
   /// @inheritdoc IAlgorithm
-  function orderingRule(bool zeroForOne, uint256 amount) external override {
+  function orderingRule(bool zeroForOne, uint256 amount) external override onlyHook {
     /// TODO: Implement the GMD algorithm logic here.
   }
 

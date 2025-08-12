@@ -6,18 +6,23 @@ import { IAlgorithm } from "@async-swap/interfaces/IAlgorithm.sol";
 contract BaseAlgorithm is IAlgorithm {
 
   /// @notice The address of the hook that will call this algorithm.
-  address public immutable hookAddress;
+  address public immutable HOOKADDRESS;
 
   /// @notice Constructor to set the hook address.
   /// @param _hookAddress The address of the hook that will call this algorithm.
   constructor(address _hookAddress) {
-    hookAddress = _hookAddress;
+    HOOKADDRESS = _hookAddress;
   }
 
   /// @notice Modifier to restrict access to the hook address.
+  /// @dev only hook contract can call
   modifier onlyHook() {
-    require(msg.sender == hookAddress, "Only hook can call this function");
+    _checkCallerIsHookContract();
     _;
+  }
+
+  function _checkCallerIsHookContract() internal view {
+    require(msg.sender == HOOKADDRESS, "Only hook can call this function");
   }
 
   /// @inheritdoc IAlgorithm

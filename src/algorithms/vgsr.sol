@@ -24,7 +24,7 @@ contract VGSR is BaseAlgorithm {
   }
 
   /// @inheritdoc IAlgorithm
-  function orderingRule(bool zeroForOne, uint256 amount) external pure override {
+  function orderingRule(bool zeroForOne, uint256 amount) external override onlyHook {
     /// TODO: Implement the VGSR algorithm logic here.
   }
 
