@@ -5,12 +5,10 @@ import { IAsyncSwapAMM } from "@async-swap/interfaces/IAsyncSwapAMM.sol";
 import { IRouter } from "@async-swap/interfaces/IRouter.sol";
 import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
 import { CurrencySettler } from "@uniswap/v4-core/test/utils/CurrencySettler.sol";
-import { console } from "forge-std/Test.sol";
 import { IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
 import { IERC20Minimal } from "v4-core/interfaces/external/IERC20Minimal.sol";
 import { SafeCast } from "v4-core/libraries/SafeCast.sol";
 import { Currency, CurrencyLibrary } from "v4-core/types/Currency.sol";
-import { PoolKey } from "v4-core/types/PoolKey.sol";
 
 /// @title Router Contract
 /// @author Async Labs
@@ -23,9 +21,9 @@ contract Router is IRouter {
   using SafeCast for *;
 
   /// PoolManager contract to interact with the pools.
-  IPoolManager immutable poolManager;
+  IPoolManager immutable POOLMANAGER;
   /// Async Swap Hook contract to execute async orders.
-  IAsyncSwapAMM immutable hook;
+  IAsyncSwapAMM immutable HOOK;
 
   /// keccak256("Router.ActionType") - 1
   bytes32 constant ACTION_LOCATION = 0xf3b150ebf41dad0872df6788629edb438733cb4a5c9ea779b1b1f3614faffc69;
@@ -38,13 +36,13 @@ contract Router is IRouter {
   /// @param _poolManager The PoolManager contract that manages the pools.
   /// @param _hook The Async CSMM hook contract that executes async orders.
   constructor(IPoolManager _poolManager, IAsyncSwapAMM _hook) {
-    poolManager = _poolManager;
-    hook = _hook;
+    POOLMANAGER = _poolManager;
+    HOOK = _hook;
   }
 
   /// Only allow the PoolManager to call certain functions.
   modifier onlyPoolManager() {
-    require(msg.sender == address(poolManager));
+    require(msg.sender == address(POOLMANAGER));
     _;
   }
 
@@ -58,7 +56,7 @@ contract Router is IRouter {
       tstore(ASYNC_FILLER_LOCATION, onBehalf)
     }
 
-    poolManager.unlock(abi.encode(SwapCallback(ActionType.Swap, order)));
+    POOLMANAGER.unlock(abi.encode(SwapCallback(ActionType.Swap, order)));
   }
 
   /// @inheritdoc IRouter
@@ -70,7 +68,7 @@ contract Router is IRouter {
       tstore(ASYNC_FILLER_LOCATION, onBehalf)
     }
 
-    poolManager.unlock(abi.encode(SwapCallback(ActionType.FillOrder, order)));
+    POOLMANAGER.unlock(abi.encode(SwapCallback(ActionType.FillOrder, order)));
   }
 
   /// Callback handler to unlock the PoolManager after a swap or fill order.
@@ -93,7 +91,7 @@ contract Router is IRouter {
     if (action == 0) {
       SwapCallback memory orderData = abi.decode(data, (SwapCallback));
 
-      poolManager.swap(
+      POOLMANAGER.swap(
         orderData.order.key,
         IPoolManager.SwapParams(
           orderData.order.zeroForOne, -orderData.order.amountIn.toInt256(), orderData.order.sqrtPrice
@@ -101,7 +99,7 @@ contract Router is IRouter {
         abi.encode(user, asyncFiller)
       );
       Currency specified = orderData.order.zeroForOne ? orderData.order.key.currency0 : orderData.order.key.currency1;
-      specified.settle(poolManager, user, orderData.order.amountIn, false); // transfer
+      specified.settle(POOLMANAGER, user, orderData.order.amountIn, false); // transfer
     }
 
     /// @notice Handle Async Order Fill
@@ -110,8 +108,8 @@ contract Router is IRouter {
       SwapCallback memory orderData = abi.decode(data, (SwapCallback));
       Currency currency = orderData.order.zeroForOne ? orderData.order.key.currency1 : orderData.order.key.currency0;
       assert(IERC20Minimal(Currency.unwrap(currency)).transferFrom(user, asyncFiller, orderData.order.amountIn));
-      assert(IERC20Minimal(Currency.unwrap(currency)).approve(address(hook), orderData.order.amountIn));
-      hook.executeOrder(orderData.order, abi.encode(asyncFiller));
+      assert(IERC20Minimal(Currency.unwrap(currency)).approve(address(HOOK), orderData.order.amountIn));
+      HOOK.executeOrder(orderData.order, abi.encode(asyncFiller));
     }
 
     return "";

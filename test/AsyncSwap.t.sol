@@ -2,21 +2,14 @@
 pragma solidity ^0.8.13;
 
 import { SetupHook } from "./SetupHook.sol";
-import { AsyncSwap } from "@async-swap/AsyncSwap.sol";
-import { IRouter } from "@async-swap/interfaces/IRouter.sol";
-import { AsyncFiller } from "@async-swap/libraries/AsyncFiller.sol";
 import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
-import { console } from "forge-std/Test.sol";
-import { Currency, IHooks, IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
-import { PoolSwapTest } from "v4-core/test/PoolSwapTest.sol";
+import { Currency } from "v4-core/interfaces/IPoolManager.sol";
 import { CurrencyLibrary } from "v4-core/types/Currency.sol";
-import { PoolKey } from "v4-core/types/PoolKey.sol";
 
 /// @title Async Swap test contract
 contract AsyncSwapTest is SetupHook {
 
   using CurrencyLibrary for Currency;
-  using AsyncFiller for AsyncOrder;
 
   address asyncFiller = makeAddr("asyncFiller");
   address user = makeAddr("user");

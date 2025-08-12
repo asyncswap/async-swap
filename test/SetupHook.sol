@@ -3,10 +3,10 @@ pragma solidity ^0.8.13;
 
 import { AsyncSwap } from "@async-swap/AsyncSwap.sol";
 import { Router } from "@async-swap/router.sol";
-import { Test, console } from "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { PoolManager } from "v4-core/PoolManager.sol";
-import { Currency, IHooks, IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
+import { Currency, IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
 import { Hooks } from "v4-core/libraries/Hooks.sol";
 import { LPFeeLibrary } from "v4-core/libraries/LPFeeLibrary.sol";
 import { PoolId } from "v4-core/types/PoolId.sol";

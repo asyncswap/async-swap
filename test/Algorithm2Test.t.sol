@@ -2,9 +2,7 @@
 pragma solidity ^0.8.13;
 
 import { SetupHook } from "./SetupHook.sol";
-import { Algorithm2 } from "@async-swap/algorithms/algorithm-2.sol";
 import { IAlgorithm } from "@async-swap/interfaces/IAlgorithm.sol";
-import "forge-std/Test.sol";
 
 contract Algorithm2Test is SetupHook {
 
@@ -12,7 +10,7 @@ contract Algorithm2Test is SetupHook {
 
   function setUp() public override {
     super.setUp();
-    algorithm = hook.algorithm();
+    algorithm = hook.ALGORITHM();
   }
 
   /// this should test the intialized algoritm was selected
