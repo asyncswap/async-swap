@@ -3,8 +3,7 @@ pragma solidity 0.8.26;
 
 import { Algorithm2 } from "@async-swap/algorithms/algorithm-2.sol";
 import { IAlgorithm } from "@async-swap/interfaces/IAlgorithm.sol";
-import { IAsyncSwapAMM, IAsyncSwapOrder } from "@async-swap/interfaces/IAsyncSwapAMM.sol";
-import { IRouter } from "@async-swap/interfaces/IRouter.sol";
+import { IAsyncSwapAMM } from "@async-swap/interfaces/IAsyncSwapAMM.sol";
 import { AsyncFiller } from "@async-swap/libraries/AsyncFiller.sol";
 import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
 import { CurrencySettler } from "@uniswap/v4-core/test/utils/CurrencySettler.sol";
@@ -12,7 +11,7 @@ import { IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
 import { Hooks } from "v4-core/libraries/Hooks.sol";
 import { LPFeeLibrary } from "v4-core/libraries/LPFeeLibrary.sol";
 import { SafeCast } from "v4-core/libraries/SafeCast.sol";
-import { BeforeSwapDelta, BeforeSwapDeltaLibrary, toBeforeSwapDelta } from "v4-core/types/BeforeSwapDelta.sol";
+import { BeforeSwapDelta, toBeforeSwapDelta } from "v4-core/types/BeforeSwapDelta.sol";
 import { Currency } from "v4-core/types/Currency.sol";
 import { PoolId } from "v4-core/types/PoolId.sol";
 import { PoolIdLibrary, PoolKey } from "v4-core/types/PoolKey.sol";
@@ -31,7 +30,7 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
   /// @notice Mapping to store async orders.
   mapping(PoolId poolId => AsyncFiller.State) public asyncOrders;
   /// Ordering algortim
-  IAlgorithm public immutable algorithm;
+  IAlgorithm public immutable ALGORITHM;
 
   /// Event emitted when a swap is executed.
   /// @param id The poolId of the pool where the swap occurred.
@@ -56,14 +55,14 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
   /// Initializes the Async Swap Hook contract with the PoolManager address and sets an transaction ordering algorithm.
   /// @param poolManager The address of the PoolManager contract.
   constructor(IPoolManager poolManager) BaseHook(poolManager) {
-    algorithm = new Algorithm2(address(this));
+    ALGORITHM = new Algorithm2(address(this));
   }
 
   /// @inheritdoc BaseHook
   function _beforeInitialize(address, PoolKey calldata key, uint160) internal virtual override returns (bytes4) {
     require(key.fee == LPFeeLibrary.DYNAMIC_FEE_FLAG, "Dude use dynamic fees flag");
     /// set algorithm for the pool being initialized
-    asyncOrders[key.toId()].algorithm = algorithm;
+    asyncOrders[key.toId()].algorithm = ALGORITHM;
     asyncOrders[key.toId()].poolManager = poolManager;
     return this.beforeInitialize.selector;
   }
