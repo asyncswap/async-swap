@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IAsyncSwapAMM } from "@async-swap/interfaces/IAsyncSwapAMM.sol";
 import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
 
 /// @title Router Interface

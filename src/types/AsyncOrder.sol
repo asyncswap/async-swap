@@ -2,7 +2,7 @@
 pragma solidity ^0.8.26;
 
 import { AsyncFiller } from "@async-swap/libraries/AsyncFiller.sol";
-import { PoolIdLibrary, PoolKey } from "v4-core/types/PoolKey.sol";
+import { PoolKey } from "v4-core/types/PoolKey.sol";
 
 using AsyncFiller for AsyncOrder global;
 

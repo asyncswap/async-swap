@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { IAsyncSwapOrder } from "@async-swap/interfaces/IAsyncSwapOrder.sol";
 import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
-import { PoolKey } from "v4-core/types/PoolKey.sol";
 
 /// @title Async Swap AMM Interface
 /// @author Async Labs

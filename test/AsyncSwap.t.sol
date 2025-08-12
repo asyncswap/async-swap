@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import { SetupHook } from "./SetupHook.sol";
+import { SetupHook } from "./SetupHook.t.sol";
 import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
 import { Currency } from "v4-core/interfaces/IPoolManager.sol";
 import { CurrencyLibrary } from "v4-core/types/Currency.sol";

@@ -3,7 +3,6 @@ pragma solidity ^0.8.26;
 
 import { BaseAlgorithm } from "./BaseAlgorithm.sol";
 import { IAlgorithm } from "@async-swap/interfaces/IAlgorithm.sol";
-import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
 import { TransientStorage } from "@async-swap/utils/TransientStorage.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
