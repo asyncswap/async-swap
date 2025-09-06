@@ -7,8 +7,8 @@ import { IAlgorithm } from "@async-swap/interfaces/IAlgorithm.sol";
 
 // Mock implementation for testing BaseAlgorithm
 contract MockAlgorithm is BaseAlgorithm {
-  
-  constructor(address _hookAddress) BaseAlgorithm(_hookAddress) {}
+
+  constructor(address _hookAddress) BaseAlgorithm(_hookAddress) { }
 
   function name() external pure override returns (string memory) {
     return "MockAlgorithm";
@@ -22,6 +22,7 @@ contract MockAlgorithm is BaseAlgorithm {
     // Mock implementation - just emit an event or do nothing
     // This allows us to test the BaseAlgorithm functionality
   }
+
 }
 
 contract BaseAlgorithmTest is SetupHook {
@@ -100,36 +101,36 @@ contract BaseAlgorithmTest is SetupHook {
 
 // Test contract for BaseAlgorithm without overrides
 contract UnimplementedAlgorithm is BaseAlgorithm {
-  
-  constructor(address _hookAddress) BaseAlgorithm(_hookAddress) {}
-  
+
+  constructor(address _hookAddress) BaseAlgorithm(_hookAddress) { }
+
   // Don't override the virtual functions to test base revert behavior
+
 }
 
 contract BaseAlgorithmUnimplementedTest is SetupHook {
-  
+
   UnimplementedAlgorithm unimplementedAlgorithm;
-  
+
   function setUp() public override {
     super.setUp();
     unimplementedAlgorithm = new UnimplementedAlgorithm(address(hook));
   }
-  
+
   function testNameNotImplemented() public {
     vm.expectRevert("BaseAlgorithm: Not implemented");
     unimplementedAlgorithm.name();
   }
-  
+
   function testVersionNotImplemented() public {
     vm.expectRevert("BaseAlgorithm: Not implemented");
     unimplementedAlgorithm.version();
   }
-  
+
   function testOrderingRuleNotImplemented() public {
     vm.prank(address(hook));
     vm.expectRevert("BaseAlgorithm: Ordering rule not implemented!");
     unimplementedAlgorithm.orderingRule(true, 1000);
   }
-  
 
 }

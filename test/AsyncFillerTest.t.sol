@@ -213,7 +213,7 @@ contract AsyncFillerTest is SetupHook {
     uint256 swapAmount1 = 1000;
     uint256 swapAmount2 = 800;
     address testUser2 = makeAddr("testUser2");
-    
+
     topUp(testUser2, swapAmount2);
 
     // Create first async order and set router as executor
@@ -240,7 +240,7 @@ contract AsyncFillerTest is SetupHook {
 
     vm.startPrank(testExecutor);
     token1.approve(address(router), swapAmount1 + swapAmount2);
-    
+
     router.fillOrder(fillOrder1, abi.encode(address(router)));
     router.fillOrder(fillOrder2, abi.encode(address(router)));
     vm.stopPrank();

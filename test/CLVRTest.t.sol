@@ -2,9 +2,10 @@
 pragma solidity ^0.8.13;
 
 import { SetupHook } from "./SetupHook.t.sol";
+
+import { BaseAlgorithm } from "@async-swap/algorithms/BaseAlgorithm.sol";
 import { CLVR } from "@async-swap/algorithms/clvr.sol";
 import { IAlgorithm } from "@async-swap/interfaces/IAlgorithm.sol";
-import { BaseAlgorithm } from "@async-swap/algorithms/BaseAlgorithm.sol";
 
 contract CLVRTest is SetupHook {
 
