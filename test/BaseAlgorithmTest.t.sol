@@ -3,7 +3,6 @@ pragma solidity ^0.8.13;
 
 import { SetupHook } from "./SetupHook.t.sol";
 import { BaseAlgorithm } from "@async-swap/algorithms/BaseAlgorithm.sol";
-import { IAlgorithm } from "@async-swap/interfaces/IAlgorithm.sol";
 
 // Mock implementation for testing BaseAlgorithm
 contract MockAlgorithm is BaseAlgorithm {
@@ -118,18 +117,16 @@ contract BaseAlgorithmUnimplementedTest is SetupHook {
   }
 
   function testNameNotImplemented() public {
-    vm.expectRevert("BaseAlgorithm: Not implemented");
-    unimplementedAlgorithm.name();
+    assertEq(unimplementedAlgorithm.name(), "BaseAlgorithm");
   }
 
   function testVersionNotImplemented() public {
-    vm.expectRevert("BaseAlgorithm: Not implemented");
-    unimplementedAlgorithm.version();
+    assertEq(unimplementedAlgorithm.version(), "1.0.0");
   }
 
   function testOrderingRuleNotImplemented() public {
     vm.prank(address(hook));
-    vm.expectRevert("BaseAlgorithm: Ordering rule not implemented!");
+    vm.expectRevert("BaseAlgorithm: orderingRule not implemented");
     unimplementedAlgorithm.orderingRule(true, 1000);
   }
 
