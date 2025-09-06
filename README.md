@@ -12,11 +12,14 @@ Batch auctions have been advocated for preventing manipulative behaviors either 
 
 ## Install
 
+ljs: install Foundry first https://github.com/foundry-rs/foundry
+
 To install dependencies in all our packages in `packages/*`
 
 ```bash
 bun install
 ```
+ljs: problem with bun install
 
 Install foundry dependencies (v4-periphery)
 
