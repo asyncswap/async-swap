@@ -20,6 +20,8 @@
   },
   "type": "module",
   "dependencies": {
-    "concurrently": "^9.1.2"
+    "@wagmi/cli": "^2.5.1",
+    "concurrently": "^9.1.2",
+    "viem": "^2.37.3"
   }
 }
