@@ -28,11 +28,6 @@ contract AsyncSwapTest is SetupHook {
     vm.stopPrank();
   }
 
-  function topUp(address _user, uint256 amount) public ownerAction {
-    token0.transfer(_user, amount);
-    token1.transfer(_user, amount);
-  }
-
   function swap(address _user, address _asyncFiller, AsyncOrder memory order) public {
     vm.startPrank(_user);
     if (order.zeroForOne) {

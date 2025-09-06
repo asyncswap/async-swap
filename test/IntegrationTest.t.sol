@@ -21,11 +21,6 @@ contract IntegrationTest is SetupHook {
     topUp(charlie, 50 ether);
   }
 
-  function topUp(address _user, uint256 amount) public ownerAction {
-    token0.transfer(_user, amount);
-    token1.transfer(_user, amount);
-  }
-
   function testCompleteSwapAndFillWorkflow() public {
     uint256 swapAmount = 2 ether;
 

@@ -20,11 +20,6 @@ contract RouterTest is SetupHook {
     topUp(testUser2, 10 ether);
   }
 
-  function topUp(address _user, uint256 amount) public ownerAction {
-    token0.transfer(_user, amount);
-    token1.transfer(_user, amount);
-  }
-
   function testSwapWithValidExecutor() public {
     uint256 swapAmount = 1000;
 

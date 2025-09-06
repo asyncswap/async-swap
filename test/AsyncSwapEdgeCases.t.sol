@@ -24,11 +24,6 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
     topUp(testExecutor, 10 ether);
   }
 
-  function topUp(address _user, uint256 amount) public ownerAction {
-    token0.transfer(_user, amount);
-    token1.transfer(_user, amount);
-  }
-
   function testUnsupportedLiquidityRevert() public {
     IPoolManager.ModifyLiquidityParams memory params =
       IPoolManager.ModifyLiquidityParams({ tickLower: -60, tickUpper: 60, liquidityDelta: 1000, salt: 0x0 });

@@ -19,11 +19,6 @@ contract AsyncFillerTest is SetupHook {
     topUp(testExecutor, 10 ether);
   }
 
-  function topUp(address _user, uint256 amount) public ownerAction {
-    token0.transfer(_user, amount);
-    token1.transfer(_user, amount);
-  }
-
   function testIsExecutorTrue() public {
     // First create an async order to establish executor relationship
     vm.startPrank(testUser);

@@ -52,6 +52,13 @@ contract SetupHook is Test {
     token1.mint(owner, 2 ** 128 - 1);
   }
 
+  function topUp(address _user, uint256 amount) public ownerAction {
+    bool transfer0 = token0.transfer(_user, amount);
+    require(transfer0, "transfer0 did not succeed");
+    bool transfer1 = token1.transfer(_user, amount);
+    require(transfer1, "transfer1 did not succeed");
+  }
+
   function deployPoolManager() public {
     manager = new PoolManager(owner);
   }
