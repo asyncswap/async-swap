@@ -3,7 +3,7 @@ import { http, getAddress, hexToNumber } from "viem";
 import type { Hex } from "viem";
 import DeployPoolManager from "../../broadcast/00_DeployPoolManager.s.sol/31337/run-latest.json";
 import DeployHook from "../../broadcast/01_DeployHook.s.sol/31337/run-latest.json";
-import { AsyncSwapCSMMAbi } from "./abis/AsyncSwapCSMM";
+import { AsyncSwapAbi } from "./abis/AsyncSwap";
 import { PoolManagerAbi } from "./abis/PoolManagerAbi";
 
 const poolManagerAddress = getAddress(
@@ -43,7 +43,7 @@ export default createConfig({
 					startBlock: hookStartBlock,
 				},
 			},
-			abi: AsyncSwapCSMMAbi,
+			abi: AsyncSwapAbi,
 		},
 	},
 });
