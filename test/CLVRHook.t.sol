@@ -4,7 +4,7 @@ pragma solidity ^0.8.13;
 import { SetupHook } from "./SetupHook.t.sol";
 import { IAlgorithm } from "@async-swap/interfaces/IAlgorithm.sol";
 
-contract Algorithm2Test is SetupHook {
+contract CLVRHookTest is SetupHook {
 
   IAlgorithm algorithm;
 
