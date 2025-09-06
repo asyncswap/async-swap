@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.8.26;
 
-import { Algorithm2 } from "@async-swap/algorithms/algorithm-2.sol";
+import { CLVR } from "@async-swap/algorithms/clvr.sol";
 import { IAlgorithm } from "@async-swap/interfaces/IAlgorithm.sol";
 import { IAsyncSwapAMM } from "@async-swap/interfaces/IAsyncSwapAMM.sol";
 import { AsyncFiller } from "@async-swap/libraries/AsyncFiller.sol";
@@ -39,7 +39,6 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
   /// @param amount1 The amount of currency1 taken in the swap (negative for exact input).
   /// @param hookLPfeeAmount0 Fee amount taken for LP in currency0.
   /// @param hookLPfeeAmount1 Fee amount taken for LP in currency1.
-
   event HookSwap(
     bytes32 indexed id,
     address indexed sender,
@@ -55,7 +54,7 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
   /// Initializes the Async Swap Hook contract with the PoolManager address and sets an transaction ordering algorithm.
   /// @param poolManager The address of the PoolManager contract.
   constructor(IPoolManager poolManager) BaseHook(poolManager) {
-    ALGORITHM = new Algorithm2(address(this));
+    ALGORITHM = new CLVR(address(this));
   }
 
   /// @inheritdoc BaseHook
