@@ -116,11 +116,11 @@ contract BaseAlgorithmUnimplementedTest is SetupHook {
     unimplementedAlgorithm = new UnimplementedAlgorithm(address(hook));
   }
 
-  function testNameNotImplemented() public {
+  function testNameNotImplemented() public view {
     assertEq(unimplementedAlgorithm.name(), "BaseAlgorithm");
   }
 
-  function testVersionNotImplemented() public {
+  function testVersionNotImplemented() public view {
     assertEq(unimplementedAlgorithm.version(), "1.0.0");
   }
 
