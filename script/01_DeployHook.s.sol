@@ -4,7 +4,6 @@ pragma solidity ^0.8.13;
 import { FFIHelper } from "./FFIHelper.sol";
 import { AsyncSwap } from "@async-swap/AsyncSwap.sol";
 import { Router } from "@async-swap/router.sol";
-import { console } from "forge-std/Test.sol";
 import { IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
 import { Hooks } from "v4-core/libraries/Hooks.sol";
 import { HookMiner } from "v4-periphery/src/utils/HookMiner.sol";

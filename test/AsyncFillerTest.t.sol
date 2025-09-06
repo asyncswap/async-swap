@@ -2,7 +2,6 @@
 pragma solidity ^0.8.13;
 
 import { SetupHook } from "./SetupHook.t.sol";
-import { CLVR } from "@async-swap/algorithms/clvr.sol";
 import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
 import { Currency, CurrencyLibrary } from "v4-core/PoolManager.sol";
 

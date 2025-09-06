@@ -2,13 +2,8 @@
 pragma solidity ^0.8.13;
 
 import { SetupHook } from "./SetupHook.t.sol";
-
-import { IAsyncSwapAMM } from "@async-swap/interfaces/IAsyncSwapAMM.sol";
-import { Router } from "@async-swap/router.sol";
 import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
-import { Currency } from "v4-core/interfaces/IPoolManager.sol";
-
-import { IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
+import { Currency } from "v4-core/types/Currency.sol";
 import { CurrencyLibrary } from "v4-core/types/Currency.sol";
 
 contract RouterTest is SetupHook {

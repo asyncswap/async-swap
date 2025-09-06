@@ -3,10 +3,8 @@ pragma solidity 0.8.26;
 
 import { AsyncSwap } from "@async-swap/AsyncSwap.sol";
 import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
-import { Script, console } from "forge-std/Script.sol";
+import { Script } from "forge-std/Script.sol";
 import { stdJson } from "forge-std/Test.sol";
-import { IHooks } from "v4-core/interfaces/IHooks.sol";
-import { IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
 import { LPFeeLibrary } from "v4-core/libraries/LPFeeLibrary.sol";
 import { Currency } from "v4-core/types/Currency.sol";
 import { PoolId } from "v4-core/types/PoolId.sol";

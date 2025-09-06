@@ -3,7 +3,6 @@ pragma solidity 0.8.26;
 
 import { FFIHelper } from "./FFIHelper.sol";
 import { AsyncSwap } from "@async-swap/AsyncSwap.sol";
-import { console } from "forge-std/Test.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
 import { LPFeeLibrary } from "v4-core/libraries/LPFeeLibrary.sol";

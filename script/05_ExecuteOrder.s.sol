@@ -4,10 +4,8 @@ pragma solidity 0.8.26;
 import { FFIHelper } from "./FFIHelper.sol";
 import { Router } from "@async-swap/router.sol";
 import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
-import { console } from "forge-std/Test.sol";
 import { IERC20Minimal } from "v4-core/interfaces/external/IERC20Minimal.sol";
 import { Currency } from "v4-core/types/Currency.sol";
-import { PoolKey } from "v4-core/types/PoolKey.sol";
 
 contract ExecuteAsyncOrderScript is FFIHelper {
 
