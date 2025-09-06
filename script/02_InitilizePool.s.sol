@@ -10,7 +10,6 @@ import { Currency } from "v4-core/types/Currency.sol";
 import { PoolKey } from "v4-core/types/PoolKey.sol";
 
 /// @notice Scripts to intialize pool
-
 contract IntializePool is FFIHelper {
 
   IPoolManager manager;
@@ -18,8 +17,8 @@ contract IntializePool is FFIHelper {
   Currency currency0;
   Currency currency1;
   PoolKey key;
-  uint24 FEE = LPFeeLibrary.DYNAMIC_FEE_FLAG;
-  int24 TICK_SPACING = 60;
+  uint24 fee = LPFeeLibrary.DYNAMIC_FEE_FLAG;
+  int24 tickSpacing = 60;
 
   function setUp() public {
     manager = IPoolManager(_getDeployedPoolManager());
@@ -52,7 +51,7 @@ contract IntializePool is FFIHelper {
     }
 
     /// @dev set poolkey
-    key = PoolKey(currency0, currency1, FEE, TICK_SPACING, hook);
+    key = PoolKey(currency0, currency1, fee, tickSpacing, hook);
 
     /// @dev initialize pool
     uint160 sqrtPriceX96 = 79228162514264337593543950336; // 1_1 (2 ** 96)

@@ -224,8 +224,8 @@ contract RouterTest is SetupHook {
     vm.stopPrank();
 
     // Record balances before fill
-    uint256 filler_balance0_before = token0.balanceOf(testUser2);
-    uint256 filler_balance1_before = token1.balanceOf(testUser2);
+    uint256 fillerBalance0Before = token0.balanceOf(testUser2);
+    uint256 fillerBalance1Before = token1.balanceOf(testUser2);
 
     // Fill order
     AsyncOrder memory fillOrder =
@@ -237,8 +237,8 @@ contract RouterTest is SetupHook {
     vm.stopPrank();
 
     // Verify balance changes
-    assertEq(token1.balanceOf(testUser2), filler_balance1_before - swapAmount);
-    assertEq(token0.balanceOf(testUser2), filler_balance0_before); // Should be unchanged
+    assertEq(token1.balanceOf(testUser2), fillerBalance1Before - swapAmount);
+    assertEq(token0.balanceOf(testUser2), fillerBalance0Before); // Should be unchanged
     // User should receive claimable tokens in manager
     assertEq(manager.balanceOf(testUser, currency0.toId()), uint256(swapAmount));
   }
