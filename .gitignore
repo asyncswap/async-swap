@@ -15,3 +15,6 @@ docs/
 
 .DS_Store
 node_modules
+
+# start script
+dev/start.sh
