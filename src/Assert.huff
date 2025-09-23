@@ -1,0 +1,37 @@
+#define error Error(string)
+#define error Panic(uint256)
+
+/// @params a
+/// @params b
+#define macro ASSERT_EQ() = takes (2) returns (0) {
+    // Takes:                // [value1, value2]
+    eq assert_continue jumpi // []
+    0x01                     // [panic_code]
+    __ERROR(Panic)           // [panic_sig, panic_code]
+    0x00                     // [panic_sig_offset, panic_sig, panic_code]
+    mstore                   // [panic_code]
+    0x04                     // [panic_code_offset, panic_code]
+    mstore                   // []
+    0x24                     // [revert_size]
+    0x00                     // [revert_offset, revert_size]
+    revert                   // []
+    assert_continue:
+}
+
+/// @params a condition
+/// @params b message_length
+/// @params c message
+#define macro REQUIRE() = takes (3) returns (0) {
+    // Takes:                 [condition, message_length, message]
+    require_continue jumpi // [message_length, message]
+    __ERROR(Error)         // [error_selector, message_length, message]
+    0x00 mstore            // [message_length, message]
+    0x20 0x04 mstore       // [message_length, message]
+    0x24 mstore            // [message]
+    0x44 mstore            // []
+    0x64 0x00 revert
+
+    require_continue:
+        pop                 // []
+        pop                 // []
+}

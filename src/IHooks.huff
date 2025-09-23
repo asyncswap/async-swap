@@ -1,0 +1,30 @@
+#include "./Assert.huff"
+
+#define constant afterAddLiquidity     = __FUNC_SIG("afterAddLiquidity(address,(address,address,uint24,int24,address),(int24,int24,int256,bytes32),int256,int256,bytes)")
+#define constant afterDonate           = __FUNC_SIG("afterDonate(address,(address,address,uint24,int24,address),uint256,uint256,bytes)")
+#define constant afterInitialize       = __FUNC_SIG("afterInitialize(address,(address,address,uint24,int24,address),uint160,int24)")
+#define constant afterRemoveLiquidity  = __FUNC_SIG("afterRemoveLiquidity(address,(address,address,uint24,int24,address),(int24,int24,int256,bytes32),int256,int256,bytes)")
+#define constant afterSwap             = __FUNC_SIG("afterSwap(address,(address,address,uint24,int24,address),(bool,int256,uint160),int256,bytes)")
+#define constant beforeAddLiquidity    = __FUNC_SIG("beforeAddLiquidity(address,(address,address,uint24,int24,address),(int24,int24,int256,bytes32),bytes)")
+#define constant beforeDonate          = __FUNC_SIG("beforeDonate(address,(address,address,uint24,int24,address),uint256,uint256,bytes)")
+#define constant beforeInitialize      = __FUNC_SIG("beforeInitialize(address,(address,address,uint24,int24,address),uint160)")
+#define constant beforeRemoveLiquidity = __FUNC_SIG("beforeRemoveLiquidity(address,(address,address,uint24,int24,address),(int24,int24,int256,bytes32),bytes)")
+#define constant beforeSwap            = __FUNC_SIG("beforeSwap(address,(address,address,uint24,int24,address),(bool,int256,uint160),bytes)")
+#define constant getHookPermissions    = __FUNC_SIG("getHookPermissions()")
+#define constant poolManager           = __FUNC_SIG("poolManager()")
+
+#define test TEST_IHOOKS_SELECTORS() = {
+	[afterAddLiquidity]			0x9f063efc ASSERT_EQ()
+	[afterDonate]						0xe1b4af69 ASSERT_EQ()
+	[afterInitialize]				0x6fe7e6eb ASSERT_EQ()
+	[afterRemoveLiquidity]	0x6c2bbe7e ASSERT_EQ()
+	[afterSwap]							0xb47b2fb1 ASSERT_EQ()
+	[beforeAddLiquidity]		0x259982e5 ASSERT_EQ()
+	[beforeDonate]					0xb6a8b0fa ASSERT_EQ()
+	[beforeInitialize]			0xdc98354e ASSERT_EQ()
+	[beforeRemoveLiquidity] 0x21d0ee70 ASSERT_EQ()
+	[beforeSwap]						0x575e24b4 ASSERT_EQ()
+	[getHookPermissions]		0xc4e833ce ASSERT_EQ()
+	[poolManager]						0xdc4c90d3 ASSERT_EQ()
+}
+

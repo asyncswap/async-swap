@@ -1,0 +1,32 @@
+#include "./Assert.huff"
+
+//'####:'##::: ##:'########:'########:'########::'########::::'###:::::'######::'########:
+//. ##:: ###:: ##:... ##..:: ##.....:: ##.... ##: ##.....::::'## ##:::'##... ##: ##.....::
+//: ##:: ####: ##:::: ##:::: ##::::::: ##:::: ##: ##::::::::'##:. ##:: ##:::..:: ##:::::::
+//: ##:: ## ## ##:::: ##:::: ######::: ########:: ######:::'##:::. ##: ##::::::: ######:::
+//: ##:: ##. ####:::: ##:::: ##...:::: ##.. ##::: ##...:::: #########: ##::::::: ##...::::
+//: ##:: ##:. ###:::: ##:::: ##::::::: ##::. ##:: ##::::::: ##.... ##: ##::: ##: ##:::::::
+//'####: ##::. ##:::: ##:::: ########: ##:::. ##: ##::::::: ##:::: ##:. ######:: ########:
+//....::..::::..:::::..:::::........::..:::::..::..::::::::..:::::..:::......:::........::
+//
+#define constant ALGORITHM          = __FUNC_SIG("ALGORITHM()") // "7cd88050"
+#define constant asyncOrder	    = __FUNC_SIG("asyncOrder(bytes32,address,bool)") // "b9586732"
+#define constant asyncOrders	    = __FUNC_SIG("asyncOrders(bytes32)") // "43719eae"
+#define constant calculateHookFee   = __FUNC_SIG("calculateHookFee(uint256)") // "aa223bd0"
+#define constant calculatePoolFee   = __FUNC_SIG("calculatePoolFee(uint24,uint256)") // "d6a522ca"
+#define constant executeOrder	    = __FUNC_SIG("executeOrder(((address,address,uint24,int24,address),address,bool,uint256,uint160),bytes)") // "caf6c3b1"
+#define constant executeOrders	    = __FUNC_SIG("executeOrders(((address,address,uint24,int24,address),address,bool,uint256,uint160)[],bytes)") // "fb249c0a"
+#define constant getHookPermissions = __FUNC_SIG("getHookPermissions()") // "c4e833ce"
+#define constant isExecutor	    = __FUNC_SIG("isExecutor(bytes32,address,address)") // "6ca34978"
+
+#define test TEST_IASYNCSWAP_SELECTORS() = {
+    [ALGORITHM]          0x7cd88050 ASSERT_EQ()
+    [asyncOrder]         0xb9586732 ASSERT_EQ()
+    [asyncOrders]        0x43719eae ASSERT_EQ()
+    [calculateHookFee]   0xaa223bd0 ASSERT_EQ()
+    [calculatePoolFee]   0xd6a522ca ASSERT_EQ()
+    [executeOrder]       0xcaf6c3b1 ASSERT_EQ()
+    [executeOrders]      0xfb249c0a ASSERT_EQ()
+    [getHookPermissions] 0xc4e833ce ASSERT_EQ()
+    [isExecutor]         0x6ca34978 ASSERT_EQ()
+}

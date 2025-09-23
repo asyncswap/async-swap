@@ -1,0 +1,336 @@
+#include "./IHooks.huff"
+#include "./Assert.huff"
+#include "./IAsyncSwap.huff"
+
+//.sSSSSs.    .sSSSSs.    .sSSSSs.    .sSSSSs.                     SsSSs.    
+//SSSSSSSSSs. SSSSSSSSSs. SSSSSSSSSs. SSSSSSSSSs.      .sSSS s.      SSSSs   
+//S SSS SSSSS S SSS SSSSS S SSS SSSS' S SSS SSSS'      S SSS SSSs.   S SSS   
+//S  SS SSSS' S  SS SSSSS S  SS       S  SS            S  SS SSSSS   S  SS   
+//S..SSsSSSa. S..SSsSSSSS S..SSsss    S..SSsss         S..SS SSSSS   S..SS   
+//S:::S SSSSS S:::S SSSSS S:::SSSS    S:::SSSS          S::S SSSS    S:::S   
+//S;;;S SSSSS S;;;S SSSSS S;;;S       S;;;S              S;S SSS     S;;;S   
+//S%%%S SSSSS S%%%S SSSSS S%%%S       S%%%S               SS SS      S%%%S   
+//SSSSS SSSSS SSSSS SSSSS SSSSS       SSSSS                SsS     SsSSSSSsS 
+//
+//    r   fGr
+//  rr  GrGGrG
+//rrr       GraG
+//r          GfrrraGa
+//r             GaarrrrrrGr
+//              GrarrrrrGrG
+//               GaGfra GraG
+//               Ga ar    ff
+//               Ga  Gr    G
+//              fr   af    Gr
+//             Gr    Gr    G
+//_mmsaki 2025 ________________
+
+//'########:'##::: ##:'########:'########::'##:::'##:
+// ##.....:: ###:: ##:... ##..:: ##.... ##:. ##:'##::
+// ##::::::: ####: ##:::: ##:::: ##:::: ##::. ####:::
+// ######::: ## ## ##:::: ##:::: ########::::. ##::::
+// ##...:::: ##. ####:::: ##:::: ##.. ##:::::: ##::::
+// ##::::::: ##:. ###:::: ##:::: ##::. ##::::: ##::::
+// ########: ##::. ##:::: ##:::: ##:::. ##:::: ##::::
+//........::..::::..:::::..:::::..:::::..:::::..:::::
+//
+#define macro MAIN() = {
+	0x00 calldataload     // [calldata]
+	0xE0 shr              // [func_sig]
+	FUNCTION_DISPATCHER()
+	// Returns:           // [func_sig]
+}
+
+#define macro CONSTRUCTOR() = takes (0) returns (0) {
+	0x20											   // [size] - byte size to copy
+	0x20 codesize sub					   // [offset, size] - offset in the code to copy from
+	0x00											   // [mem, offset, size] - offset in memory to copy to
+	codecopy									   // []
+	0x00 mload								   // [poolManager]
+	[POOL_MANAGER_LOC] sstore    // []
+	0x20											   // [size] - byte size to copy
+	0x40 codesize sub					   // [offset, size] - offset in the code to copy from
+	0x00											   // [mem, offset, size] - offset in memory to copy to
+	codecopy									   // []
+	0x00 mload								   // [owner]
+	[OWNER_LOC] sstore           // []
+	0x20											   // [size] - byte size to copy
+	0x60 codesize sub					   // [offset, size] - offset in the code to copy from
+	0x00											   // [mem, offset, size] - offset in memory to copy to
+	codecopy									   // []
+	0x00 mload								   // [owner]
+	[CONTRACT_PAUSED_LOC] sstore // []
+}
+
+//'########::'####::'######::'########:::::'###::::'########::'######::'##::::'##:
+// ##.... ##:. ##::'##... ##: ##.... ##:::'## ##:::... ##..::'##... ##: ##:::: ##:
+// ##:::: ##:: ##:: ##:::..:: ##:::: ##::'##:. ##::::: ##:::: ##:::..:: ##:::: ##:
+// ##:::: ##:: ##::. ######:: ########::'##:::. ##:::: ##:::: ##::::::: #########:
+// ##:::: ##:: ##:::..... ##: ##.....::: #########:::: ##:::: ##::::::: ##.... ##:
+// ##:::: ##:: ##::'##::: ##: ##:::::::: ##.... ##:::: ##:::: ##::: ##: ##:::: ##:
+// ########::'####:. ######:: ##:::::::: ##:::: ##:::: ##::::. ######:: ##:::: ##:
+//........:::....:::......:::..:::::::::..:::::..:::::..::::::......:::..:::::..::
+//
+#define macro FUNCTION_DISPATCHER() = takes (1) returns (0) {
+	/// Takes: [function_selector]
+	dup1 [beforeInitialize]   eq BEFORE_INITIALIZE    jumpi
+	dup1 [beforeAddLiquidity] eq BEFORE_ADD_LIQUIDITY jumpi
+	dup1 [beforeSwap]         eq BEFORE_SWAP          jumpi
+	dup1 [getHookPermissions] eq GET_HOOK_PERMISSIONS jumpi
+	dup1 [poolManager]        eq POOL_MANAGER         jumpi
+	dup1 [pause]              eq PAUSE                jumpi
+
+	no_match jump
+
+	BEFORE_INITIALIZE:
+		beforeInitialize()
+	BEFORE_ADD_LIQUIDITY:
+		beforeAddLiquidity()
+	BEFORE_SWAP:
+		beforeSwap()
+	GET_HOOK_PERMISSIONS:
+		getHookPermissions()
+	POOL_MANAGER:
+		poolManager()
+	PAUSE:
+		pause()
+	no_match:
+		stop
+}
+
+//:'######::'########::'#######::'########:::::'###:::::'######:::'########:
+//'##... ##:... ##..::'##.... ##: ##.... ##:::'## ##:::'##... ##:: ##.....::
+// ##:::..::::: ##:::: ##:::: ##: ##:::: ##::'##:. ##:: ##:::..::: ##:::::::
+//. ######::::: ##:::: ##:::: ##: ########::'##:::. ##: ##::'####: ######:::
+//:..... ##:::: ##:::: ##:::: ##: ##.. ##::: #########: ##::: ##:: ##...::::
+//'##::: ##:::: ##:::: ##:::: ##: ##::. ##:: ##.... ##: ##::: ##:: ##:::::::
+//. ######::::: ##::::. #######:: ##:::. ##: ##:::: ##:. ######::: ########:
+//:......::::::..::::::.......:::..:::::..::..:::::..:::......::::........::
+//
+#define constant CONTRACT_PAUSED_LOC = FREE_STORAGE_POINTER()
+#define constant OWNER_LOC           = FREE_STORAGE_POINTER()
+#define constant POOL_MANAGER_LOC    = FREE_STORAGE_POINTER()
+
+//'####:'##::: ##:'########:'########:'########::'########::::'###:::::'######::'########:
+//. ##:: ###:: ##:... ##..:: ##.....:: ##.... ##: ##.....::::'## ##:::'##... ##: ##.....::
+//: ##:: ####: ##:::: ##:::: ##::::::: ##:::: ##: ##::::::::'##:. ##:: ##:::..:: ##:::::::
+//: ##:: ## ## ##:::: ##:::: ######::: ########:: ######:::'##:::. ##: ##::::::: ######:::
+//: ##:: ##. ####:::: ##:::: ##...:::: ##.. ##::: ##...:::: #########: ##::::::: ##...::::
+//: ##:: ##:. ###:::: ##:::: ##::::::: ##::. ##:: ##::::::: ##.... ##: ##::: ##: ##:::::::
+//'####: ##::. ##:::: ##:::: ########: ##:::. ##: ##::::::: ##:::: ##:. ######:: ########:
+//....::..::::..:::::..:::::........::..:::::..::..::::::::..:::::..:::......:::........::
+//
+#define constant ALGORITHM           = __FUNC_SIG("ALGORITHM()") // "7cd88050"
+#define constant asyncOrder	         = __FUNC_SIG("asyncOrder(bytes32,address,bool)") // "b9586732"
+#define constant asyncOrders	       = __FUNC_SIG("asyncOrders(bytes32)") // "43719eae"
+#define constant calculateHookFee    = __FUNC_SIG("calculateHookFee(uint256)") // "aa223bd0"
+#define constant calculatePoolFee    = __FUNC_SIG("calculatePoolFee(uint24,uint256)") // "d6a522ca"
+#define constant executeOrder	       = __FUNC_SIG("executeOrder(((address,address,uint24,int24,address),address,bool,uint256,uint160),bytes)") // "caf6c3b1"
+#define constant executeOrders	     = __FUNC_SIG("executeOrders(((address,address,uint24,int24,address),address,bool,uint256,uint160)[],bytes)") // "fb249c0a"
+#define constant getHookPermissions  = __FUNC_SIG("getHookPermissions()") // "c4e833ce"
+#define constant isExecutor	         = __FUNC_SIG("isExecutor(bytes32,address,address)") // "6ca34978"
+#define constant pause	             = __FUNC_SIG("pause()") // ""
+
+//'##::::'##::'#######::'########::'####:'########:'####:'########:'########::
+// ###::'###:'##.... ##: ##.... ##:. ##:: ##.....::. ##:: ##.....:: ##.... ##:
+// ####'####: ##:::: ##: ##:::: ##:: ##:: ##:::::::: ##:: ##::::::: ##:::: ##:
+// ## ### ##: ##:::: ##: ##:::: ##:: ##:: ######:::: ##:: ######::: ########::
+// ##. #: ##: ##:::: ##: ##:::: ##:: ##:: ##...::::: ##:: ##...:::: ##.. ##:::
+// ##:.:: ##: ##:::: ##: ##:::: ##:: ##:: ##:::::::: ##:: ##::::::: ##::. ##::
+// ##:::: ##:. #######:: ########::'####: ##:::::::'####: ########: ##:::. ##:
+//..:::::..:::.......:::........:::....::..::::::::....::........::..:::::..::
+//
+#define macro onlyPoolManager() = takes (0) returns (1) {
+	__RIGHTPAD(__BYTES("NOT POOL MANAGER!")) // [message]
+	0x11                                     // [message_length, message]
+	[POOL_MANAGER_LOC] sload                 // [poolManager, message_length, message]
+	caller                                   // [caller, poolManager, message_length, message]
+	eq                                       // [condition, message_length, message]
+	REQUIRE()
+	0x01
+	// Returns: [onlyPoolManager]
+}
+
+#define macro onlyOwner() = takes (0) returns (1) {
+	__RIGHTPAD(__BYTES("NOT OWNER!")) // [message]
+	0x0a                              // [message_length, message]
+	[OWNER_LOC] sload                 // [owner, message_length, message]
+	caller                            // [caller, owner, message_length, message]
+	eq                                // [condition, message_length, message]
+	REQUIRE()
+	0x01
+	// Returns: [onlyOwner]
+}
+
+#define macro isPaused() = takes (0) returns (1) {
+	[CONTRACT_PAUSED_LOC] sload              // [paused]
+	0x01                                     // [0x01, paused]
+	eq                                       // [condition]
+	// Returns: [is_paused]
+}
+
+#define macro notPaused() = takes (0) returns (1) {
+	[CONTRACT_PAUSED_LOC] sload              // [paused]
+	0x00                                     // [0x00, paused]
+	eq                                       // [condition]
+	// Returns: [not_paused]
+}
+
+//'##::::'##::'#######:::'#######::'##:::'##::'######::
+// ##:::: ##:'##.... ##:'##.... ##: ##::'##::'##... ##:
+// ##:::: ##: ##:::: ##: ##:::: ##: ##:'##::: ##:::..::
+// #########: ##:::: ##: ##:::: ##: #####::::. ######::
+// ##.... ##: ##:::: ##: ##:::: ##: ##. ##::::..... ##:
+// ##:::: ##: ##:::: ##: ##:::: ##: ##:. ##::'##::: ##:
+// ##:::: ##:. #######::. #######:: ##::. ##:. ######::
+//..:::::..:::.......::::.......:::..::::..:::......:::
+//
+#define macro beforeInitialize() = takes (1) returns (1) {
+	// Takes: [function_selector]           // [func_sig]
+	onlyPoolManager()                       // [onlyPoolManager, func_sig] <- check caller
+	0x01 eq BEFORE_INITIALIZE_SUCCESS jumpi // [func_sig]
+	0x00 0x00 revert                        // []
+
+	BEFORE_INITIALIZE_SUCCESS:
+		/// return function selector
+		__RIGHTPAD([beforeInitialize])
+		0x00 mstore
+		0x20 0x00 return
+}
+
+/// @params a function selector
+#define macro beforeAddLiquidity() = takes (1) returns (1) {
+	// Takes: [function_selector]         // [func_sig]
+	onlyPoolManager()                     // [onlyPoolManager] <- check caller
+	notPaused()                           // [notPaused, onlyPoolManager] <- check not paused
+	eq BEFORE_ADD_LIQUIDITY_SUCCESS jumpi // [func_sig]
+	0x00 0x00 revert                      // []
+
+	/// When contract is not paused
+	BEFORE_ADD_LIQUIDITY_SUCCESS:
+		__RIGHTPAD([beforeAddLiquidity])    // return function selector
+		0x00 mstore
+		0x20 0x00 return
+}
+
+#define macro beforeSwap() = takes (1) returns (1) {
+	// Takes: [func_selector]    // [func_sig]
+	onlyPoolManager()            // [onlyPoolManager, func_sig] <- check caller
+	notPaused()                  // [notPaused, onlyPoolManager, func_sig] <- check not paused
+	eq BEFORE_SWAP_SUCCESS jumpi // [func_sig]
+	0x00 0x00 revert             // []
+
+	BEFORE_SWAP_SUCCESS:
+		__RIGHTPAD([beforeSwap])   // return function selector
+		0x00 mstore
+		0x20 0x00 return
+}
+
+//'########::'##::::'##:'########::'##:::::::'####::'######::
+// ##.... ##: ##:::: ##: ##.... ##: ##:::::::. ##::'##... ##:
+// ##:::: ##: ##:::: ##: ##:::: ##: ##:::::::: ##:: ##:::..::
+// ########:: ##:::: ##: ########:: ##:::::::: ##:: ##:::::::
+// ##.....::: ##:::: ##: ##.... ##: ##:::::::: ##:: ##:::::::
+// ##:::::::: ##:::: ##: ##:::: ##: ##:::::::: ##:: ##::: ##:
+// ##::::::::. #######:: ########:: ########:'####:. ######::
+//..::::::::::.......:::........:::........::....:::......:::
+
+#define macro pause() = takes (1) returns (1) {
+	// Takes: [func_sig]              // [func_sig]
+	onlyOwner()                       // [onlyOwner, func_sig]
+	notPaused() CAN_PAUSE jumpi       // [onlyOwner, func_sig]
+
+	__RIGHTPAD(__BYTES("ALREADY PAUSED!")) // [message]
+	0x0f                                   // [message_length, message]
+	0x00                                   // [condition, message_length, message]
+	REQUIRE()
+
+	CAN_PAUSE:
+		0x01 [CONTRACT_PAUSED_LOC] sstore // [paused, onlyOwner, func_sig]
+		0x01 0x00 mstore                  // []
+		0x20 0x00 return                  // [paused]
+	// Returns: Pased
+}
+
+#define macro poolManager() = takes (1) returns (1) {
+	// Takes: [func_sig]     // [func_sig]
+	[POOL_MANAGER_LOC] sload // [poolManager, func_sig]
+	0x00 mstore              // [func_sig]
+	0x20 0x00 return         // []
+}
+
+#define macro getHookPermissions() = takes (1) returns (1) {
+	// Takes: [func_sig]     // [func_sig]
+	0x01 0x000 mstore	// beforeInitialize: true,
+	0x00 0x020 mstore	// afterInitialize: false,
+	0x01 0x040 mstore	// beforeAddLiquidity: true,
+	0x00 0x060 mstore	// afterAddLiquidity: false,
+	0x00 0x080 mstore	// beforeRemoveLiquidity: false,
+	0x00 0x0a0 mstore	// afterRemoveLiquidity: false,
+	0x01 0x0c0 mstore	// beforeSwap: true,
+	0x00 0x0e0 mstore	// afterSwap: false,
+	0x00 0x100 mstore	// beforeDonate: false,
+	0x00 0x120 mstore	// afterDonate: false,
+	0x01 0x140 mstore	// beforeSwapReturnDelta: true,
+	0x00 0x160 mstore	// afterSwapReturnDelta: false,
+	0x00 0x180 mstore	// afterAddLiquidityReturnDelta: false,
+	0x00 0x1a0 mstore	// afterRemoveLiquidityReturnDelta: false
+	/// return permissions
+	0x0e 0x20 mul
+	0x00 return
+}
+
+//'########:'########::'######::'########:
+//... ##..:: ##.....::'##... ##:... ##..::
+//::: ##:::: ##::::::: ##:::..::::: ##::::
+//::: ##:::: ######:::. ######::::: ##::::
+//::: ##:::: ##...:::::..... ##:::: ##::::
+//::: ##:::: ##:::::::'##::: ##:::: ##::::
+//::: ##:::: ########:. ######::::: ##::::
+//:::..:::::........:::......::::::..:::::
+//
+// Test:
+// hnc src/AsyncSwap.huff test --sender 0x0000000000000000000000000000000000000000
+//
+// debug:
+// hnc src/AsyncSwap.huff test --sender 0x0000000000000000000000000000000000000000 \
+// --debug -m TEST_BEFORE_SWAP
+// 
+#[calldata("0xdc98354e")]
+#define test TEST_BEFORE_INITIALIZE() = {
+	beforeInitialize()
+}
+
+#[calldata("0x575e24b4")]
+#define test TEST_BEFORE_SWAP() = {
+	beforeSwap()
+}
+
+#[calldata("0x259982e5")]
+#define test TEST_BEFORE_ADD_LIQUIDITY() = {
+	beforeAddLiquidity()
+}
+
+#[calldata("0xc4e833ce")]
+#define test TEST_GET_HOOK_PERMISSIONS() = {
+	getHookPermissions()
+}
+
+#[calldata("0xdc4c90d3")]
+#define test TEST_POOL_MANAGER() = {
+	poolManager()
+}
+
+#[calldata("0x575e24b4")]
+#define test TEST_SWAP_WHEN_PAUSED() = {
+	// fails when paused
+	0x00 [CONTRACT_PAUSED_LOC] sstore
+	MAIN()
+}
+
+#[calldata("0x259982e5")]
+#define test TEST_ADD_LIQ_WHEN_PAUSED() = {
+	// fails when paused
+	0x00 [CONTRACT_PAUSED_LOC] sstore
+	MAIN()
+}

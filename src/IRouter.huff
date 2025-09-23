@@ -1,0 +1,11 @@
+#include "./Assert.huff"
+
+#define constant fillOrder      = __FUNC_SIG("fillOrder(((address,address,uint24,int24,address),address,bool,uint256,uint160),bytes)") // "23ee3f42"
+#define constant swap		= __FUNC_SIG("swap(((address,address,uint24,int24,address),address,bool,uint256,uint160),bytes)") // "fa3eeee0"
+#define constant unlockCallback = __FUNC_SIG("unlockCallback(bytes)") // "91dd7346"
+
+#define test TEST_ROUTER_SELECTORS() = {
+    [fillOrder]	      0x23ee3f42 ASSERT_EQ()
+    [swap]            0xfa3eeee0 ASSERT_EQ()
+    [unlockCallback] 0x91dd7346 ASSERT_EQ()
+}
