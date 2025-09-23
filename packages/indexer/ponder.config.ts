@@ -1,8 +1,8 @@
 import { createConfig } from "ponder";
 import { http, getAddress, hexToNumber } from "viem";
 import type { Hex } from "viem";
-import DeployPoolManager from "../../broadcast/00_DeployPoolManager.s.sol/31337/run-latest.json";
-import DeployHook from "../../broadcast/01_DeployHook.s.sol/31337/run-latest.json";
+import DeployPoolManager from "../../broadcast/00_DeployPoolManager.s.sol/130/run-latest.json";
+import DeployHook from "../../broadcast/01_DeployHook.s.sol/130/run-latest.json";
 import { AsyncSwapAbi } from "./abis/AsyncSwap";
 import { PoolManagerAbi } from "./abis/PoolManagerAbi";
 
@@ -20,8 +20,8 @@ const hookStartBlock = hexToNumber(DeployHook.receipts[0]?.blockNumber as Hex);
 
 export default createConfig({
 	networks: {
-		anvil: {
-			chainId: 31337,
+		unichain: {
+			chainId: 130,
 			transport: http("http://127.0.0.1:8545"),
 			disableCache: true,
 		},
@@ -29,18 +29,18 @@ export default createConfig({
 	contracts: {
 		PoolManager: {
 			network: {
-				anvil: {
-					address: poolManagerAddress,
-					startBlock: poolManagerStartBlock,
+				unichain: {
+					address: "0x1F98400000000000000000000000000000000004",
+					startBlock: 27859493, // poolManagerStartBlock,
 				},
 			},
 			abi: PoolManagerAbi,
 		},
 		CsmmHook: {
 			network: {
-				anvil: {
+				unichain: {
 					address: hookAddress,
-					startBlock: hookStartBlock,
+					startBlock: 27859493, // hookStartBlock,
 				},
 			},
 			abi: AsyncSwapAbi,
