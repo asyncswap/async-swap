@@ -31,10 +31,10 @@ forge install
 >
 > - This will allow you to use `--account anvil` in the deploys scripts in [`.dev/start_script.sh`](./dev/start_script.sh)
 
-Run local anvil node
+Run local anvil node with Unichain fork
 
 ```sh
-anvil
+anvil --fork-url https://unichain.drpc.org
 # or simulate block mining and finality
 anvil --block-time 13
 ```
@@ -64,6 +64,13 @@ Run tests
 
 ```sh
 forge test -vvvv
+```
+
+Huff tests:
+
+```sh
+# sender is poolManager address
+hnc src/AsyncSwap.huff test --sender 0x0000000000000000000000000000000000000000
 ```
 
 ## Offchain Indexer
