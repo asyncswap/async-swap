@@ -1,0 +1,14 @@
+{
+  "lib/forge-std": {
+    "rev": "3b20d60d14b343ee4f908cb8079495c07f5e8981"
+  },
+  "lib/v4-periphery": {
+    "rev": "9628c36b4f5083d19606e63224e4041fe748edae"
+  },
+  "lib/foundry-huff-neo": {
+    "tag": {
+      "name": "v1.0.1",
+      "rev": "de579feef26995833160fb8efa54a9f27a80672d"
+    }
+  }
+}

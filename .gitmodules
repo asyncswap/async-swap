@@ -4,3 +4,6 @@
 [submodule "lib/v4-periphery"]
 	path = lib/v4-periphery
 	url = https://github.com/uniswap/v4-periphery
+[submodule "lib/foundry-huff-neo"]
+	path = lib/foundry-huff-neo
+	url = https://github.com/cakevm/foundry-huff-neo
