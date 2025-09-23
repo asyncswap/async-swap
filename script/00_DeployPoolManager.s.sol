@@ -16,7 +16,7 @@ contract DeployPoolManager is FFIHelper {
     if (chain == SelectChain.Anvil) {
       manager = new PoolManager(ANVIL_OWNER);
     } else {
-      manager = new PoolManager(OWNER);
+      // don't deploy pool manager use deployed address
     }
   }
 
