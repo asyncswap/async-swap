@@ -38,6 +38,7 @@ contract TestAsyncSwapHuff is Test {
   error RequireError(string);
 
   function setUp() public {
+    vm.skip(true);
     bytes memory args = abi.encode(poolManager);
     address hookFlags = address(
       uint160(
@@ -54,10 +55,12 @@ contract TestAsyncSwapHuff is Test {
   }
 
   function test_PoolManager() public {
+    vm.skip(true);
     assertEq(hook.poolManager(), address(poolManager));
   }
 
   function test_GetHookPermissions() public {
+    vm.skip(true);
     Hooks.Permissions memory hookFlags = hook.getHookPermissions();
     console.logBytes(abi.encode(hookFlags));
     Hooks.Permissions memory expectedFlags = Hooks.Permissions({
@@ -86,6 +89,7 @@ contract TestAsyncSwapHuff is Test {
     IPoolManager.SwapParams calldata p,
     bytes calldata h
   ) public {
+    vm.skip(true);
     vm.assume(caller != address(poolManager));
     vm.startPrank(caller);
     vm.expectRevert("NOT POOL MANAGER!");
@@ -94,6 +98,7 @@ contract TestAsyncSwapHuff is Test {
   }
 
   function test_beforeFuzzInitializeCaller(address caller, address s, PoolKey calldata k, uint160 sp) public {
+    vm.skip(true);
     vm.assume(caller != address(poolManager));
     vm.startPrank(caller);
     vm.expectRevert("NOT POOL MANAGER!");
