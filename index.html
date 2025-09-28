@@ -185,7 +185,7 @@
 <ul>
 <li><a href="src/AsyncSwap.sol">AsyncCSMM - hook contract</a></li>
 <li><a href="src/router.sol">Router - add liquidity, swap &amp; fill async orders</a></li>
-<li><a href="https://frontend-mu-one-27.vercel.app/">Live Demo Frontend</a></li>
+<li><a href="https://asyncswap.org">Live Demo Frontend</a></li>
 <li><a href="https://www.loom.com/share/b66cfb28f41b452c8cb6debceea35631?sid=962ac2ae-c2d4-49ff-b621-b99428b44ff9">Video Walkthrough</a></li>
 <li><a href="https://www.loom.com/share/15839f36efaf42e48642b5f1269c6709?sid=ab37fb1b-a31a-4519-9973-d34a7777360f">Transaction Ordering rules walkthorugh video</a></li>
 </ul>
@@ -206,8 +206,8 @@ We suggest you set up local anvil account with cast.</p>
 <li>This will allow you to use <code>--account anvil</code> in the deploys scripts in <a href="./dev/start_script.sh"><code>.dev/start_script.sh</code></a></li>
 </ul>
 </blockquote>
-<p>Run local anvil node</p>
-<pre><code class="language-sh">anvil
+<p>Run local anvil node with Unichain fork</p>
+<pre><code class="language-sh">anvil --fork-url https://unichain.drpc.org
 # or simulate block mining and finality
 anvil --block-time 13
 </code></pre>
@@ -230,6 +230,10 @@ anvil --block-time 13
 <h2 id="testing"><a class="header" href="#testing">Testing</a></h2>
 <p>Run tests</p>
 <pre><code class="language-sh">forge test -vvvv
+</code></pre>
+<p>Huff tests:</p>
+<pre><code class="language-sh"># sender is poolManager address
+hnc src/AsyncSwap.huff test --sender 0x0000000000000000000000000000000000000000
 </code></pre>
 <h2 id="offchain-indexer"><a class="header" href="#offchain-indexer">Offchain Indexer</a></h2>
 <p>Start local indexer</p>
