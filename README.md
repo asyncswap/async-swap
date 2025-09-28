@@ -2,7 +2,7 @@
 
 - [AsyncCSMM - hook contract](src/AsyncSwap.sol)
 - [Router - add liquidity, swap & fill async orders](src/router.sol)
-- [Live Demo Frontend](https://frontend-mu-one-27.vercel.app/)
+- [Live Demo Frontend](https://asyncswap.org)
 - [Video Walkthrough](https://www.loom.com/share/b66cfb28f41b452c8cb6debceea35631?sid=962ac2ae-c2d4-49ff-b621-b99428b44ff9)
 - [Transaction Ordering rules walkthorugh video](https://www.loom.com/share/15839f36efaf42e48642b5f1269c6709?sid=ab37fb1b-a31a-4519-9973-d34a7777360f)
 
