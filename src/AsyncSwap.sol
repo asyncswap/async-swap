@@ -97,7 +97,7 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
 
   function asyncOrderAmount(PoolId poolId, address user, bool zeroForOne) external view returns (uint256 claimable) {
     AsyncFiller.State storage state = asyncOrders[poolId];
-    return state.asyncOrder[user][zeroForOne];
+    return state.asyncOrderAmount[user][zeroForOne];
   }
 
   function isExecutor(PoolId poolId, address user, address executor) external view returns (bool) {
@@ -138,7 +138,7 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
 
     /// TODO: Document what this does
     uint256 amountToFill = uint256(amountIn);
-    uint256 claimableAmount = asyncOrders[poolId].asyncOrder[owner][zeroForOne];
+    uint256 claimableAmount = asyncOrders[poolId].asyncOrderAmount[owner][zeroForOne];
     require(amountToFill <= claimableAmount, "Max fill order limit exceed");
     AsyncFiller.State storage state = asyncOrders[poolId];
     require(order.isExecutor(state, msg.sender), "Caller is valid not excutor");
@@ -154,7 +154,7 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
       currencyFill = currency0;
     }
 
-    asyncOrders[poolId].asyncOrder[owner][zeroForOne] -= amountToFill;
+    asyncOrders[poolId].asyncOrderAmount[owner][zeroForOne] -= amountToFill;
     /// TODO: check if this is needed, we could just burn
     poolManager.transfer(owner, currencyTake.toId(), amountToFill);
     emit AsyncOrderFilled(poolId, owner, zeroForOne, amountToFill);
@@ -195,8 +195,8 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
 
     /// @dev Issue 1:1 claimableAmount - pool fee to user
     /// @dev Add amount taken to previous claimableAmount
-    uint256 currClaimables = asyncOrders[poolId].asyncOrder[hookData.user][params.zeroForOne];
-    asyncOrders[poolId].asyncOrder[hookData.user][params.zeroForOne] = currClaimables + finalTaken;
+    uint256 currClaimables = asyncOrders[poolId].asyncOrderAmount[hookData.user][params.zeroForOne];
+    asyncOrders[poolId].asyncOrderAmount[hookData.user][params.zeroForOne] = currClaimables + finalTaken;
 
     /// @dev Hook event
     /// @reference
