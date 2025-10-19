@@ -26,7 +26,7 @@ library AsyncFiller {
   struct State {
     IPoolManager poolManager;
     IAlgorithm algorithm;
-    mapping(address user => mapping(bool zeroForOne => uint256 claimable)) asyncOrders;
+    mapping(address user => mapping(bool zeroForOne => uint256 claimable)) asyncOrder;
     mapping(address owner => mapping(address executor => bool)) setExecutor;
   }
 
@@ -72,7 +72,7 @@ library AsyncFiller {
 
     PoolId poolId = order.key.toId();
     uint256 amountToFill = uint256(order.amountIn);
-    uint256 claimableAmount = self.asyncOrders[order.owner][order.zeroForOne];
+    uint256 claimableAmount = self.asyncOrder[order.owner][order.zeroForOne];
     require(amountToFill <= claimableAmount, "Max fill order limit exceed");
     require(isExecutor(order, self, msg.sender), "Caller is valid not excutor");
 
@@ -87,7 +87,7 @@ library AsyncFiller {
       currencyFill = order.key.currency0;
     }
 
-    self.asyncOrders[order.owner][order.zeroForOne] -= amountToFill;
+    self.asyncOrder[order.owner][order.zeroForOne] -= amountToFill;
     self.poolManager.transfer(order.owner, currencyTake.toId(), amountToFill);
     emit AsyncOrderFilled(poolId, order.owner, order.zeroForOne, amountToFill);
 
