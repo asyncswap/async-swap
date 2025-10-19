@@ -239,7 +239,6 @@ contract RouterTest is SetupHook {
     // Verify balance changes
     assertEq(token1.balanceOf(testUser2), fillerBalance1Before - swapAmount);
     assertEq(token0.balanceOf(testUser2), fillerBalance0Before); // Should be unchanged
-    // User should receive claimable tokens in manager
     assertEq(manager.balanceOf(testUser, currency0.toId()), uint256(swapAmount));
   }
 

@@ -103,8 +103,6 @@ contract UnimplementedAlgorithm is BaseAlgorithm {
 
   constructor(address _hookAddress) BaseAlgorithm(_hookAddress) { }
 
-  // Don't override the virtual functions to test base revert behavior
-
 }
 
 contract BaseAlgorithmUnimplementedTest is SetupHook {
