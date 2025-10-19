@@ -102,7 +102,7 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
 
   function isExecutor(PoolId poolId, address user, address executor) external view returns (bool) {
     AsyncFiller.State storage state = asyncOrders[poolId];
-    return state.setExecutor[user][executor];
+    return state.isExecutor[user][executor];
   }
 
   function calculateHookFee(uint256) public pure returns (uint256) {
@@ -190,7 +190,7 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
     /// @dev Take pool fee for LP
     uint256 feeAmount = calculatePoolFee(key.fee, amountTaken);
     uint256 finalTaken = amountTaken - feeAmount;
-    asyncOrders[poolId].setExecutor[hookData.user][hookData.executor] = true;
+    asyncOrders[poolId].isExecutor[hookData.user][hookData.executor] = true;
     emit AsyncSwapOrder(poolId, hookData.user, params.zeroForOne, finalTaken.toInt256());
 
     /// @dev Issue 1:1 claimableAmount - pool fee to user

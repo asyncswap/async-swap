@@ -27,7 +27,7 @@ library AsyncFiller {
     IPoolManager poolManager;
     IAlgorithm algorithm;
     mapping(address user => mapping(bool zeroForOne => uint256 claimable)) asyncOrder;
-    mapping(address owner => mapping(address executor => bool)) setExecutor;
+    mapping(address owner => mapping(address executor => bool)) isExecutor;
   }
 
   /// @notice Emitted when an async order is filled.
@@ -49,7 +49,7 @@ library AsyncFiller {
   /// @param executor The address of the executor to be checked.
   /// @return isExecutor True if the executor is valid for the async order, false otherwise.
   function isExecutor(AsyncOrder calldata order, State storage self, address executor) internal view returns (bool) {
-    return self.setExecutor[order.owner][executor];
+    return self.isExecutor[order.owner][executor];
   }
 
   /// Fills async orders in batching mode, allowing multiple orders to be executed in a single transaction.
