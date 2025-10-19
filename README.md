@@ -1,5 +1,7 @@
 # Async Swap AMM
 
+![Foundry Tests](https://github.com/asyncswap/async-swap/actions/workflows/test.yml/badge.svg)
+
 - [AsyncCSMM - hook contract](src/AsyncSwap.sol)
 - [Router - add liquidity, swap & fill async orders](src/router.sol)
 - [Live Demo Frontend](https://asyncswap.org)
