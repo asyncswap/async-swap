@@ -5,6 +5,7 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
   FOUNDRY_PROFILE: ci
 
 jobs:
@@ -12,7 +13,7 @@ jobs:
     strategy:
       fail-fast: true
 
-    name: Foundry Tests
+    name: Foundry Format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,12 +27,7 @@ jobs:
         run: |
           forge --version
 
-      - name: Run Forge build
+      - name: Run Forge fmt
         run: |
-          forge build --sizes
-        id: build
-
-      - name: Run Forge tests
-        run: |
-          forge test -vvv
-        id: test
+          forge fmt --check
+        id: fmt
