@@ -29,6 +29,7 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
   mapping(PoolId poolId => AsyncFiller.State) public asyncOrders;
   /// Ordering algortim
   IAlgorithm public immutable ALGORITHM;
+  mapping(uint256 block => uint256 volatility) public kvolatility;
 
   /// Event emitted when a swap is executed.
   /// @param id The poolId of the pool where the swap occurred.
@@ -117,6 +118,10 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
 
   /// @inheritdoc IAsyncSwapAMM
   function executeOrders(AsyncOrder[] calldata orders, bytes calldata userParams) external {
+    /// Sort poolIDs
+    /// Order swaps by poolId
+
+    uint256 volatility = ALGORITHM.getVolatility(orders);
     for (uint8 i = 0; i < orders.length; i++) {
       AsyncOrder calldata order = orders[i];
       // Use transaction ordering algorithm to ensure correct execution order

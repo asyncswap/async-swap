@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import { IAlgorithm } from "@async-swap/interfaces/IAlgorithm.sol";
+import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
 
 contract BaseAlgorithm is IAlgorithm {
 
@@ -39,6 +40,11 @@ contract BaseAlgorithm is IAlgorithm {
   function orderingRule(bool zeroForOne, uint256 amount) external virtual {
     zeroForOne;
     amount;
+    revert("BaseAlgorithm: orderingRule not implemented");
+  }
+
+  function getVolatility(AsyncOrder[] memory orders) external pure virtual override returns (uint256) {
+    orders;
     revert("BaseAlgorithm: orderingRule not implemented");
   }
 
