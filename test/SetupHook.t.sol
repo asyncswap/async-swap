@@ -2,6 +2,8 @@
 pragma solidity ^0.8.13;
 
 import { AsyncSwap } from "@async-swap/AsyncSwap.sol";
+import { CLVR } from "@async-swap/algorithms/clvr.sol";
+import { IAlgorithm } from "@async-swap/interfaces/IAlgorithm.sol";
 import { Router } from "@async-swap/router.sol";
 import { Test } from "forge-std/Test.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
@@ -26,6 +28,7 @@ contract SetupHook is Test {
   Currency currency1;
   PoolId poolId;
   Router router;
+  IAlgorithm algo;
 
   function setUp() public virtual {
     deployPoolManager();
@@ -73,7 +76,9 @@ contract SetupHook is Test {
         | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
     );
     vm.startPrank(owner);
-    deployCodeTo("AsyncSwap.sol", abi.encode(manager), address(hookFlags));
+
+    algo = new CLVR(address(hookFlags));
+    deployCodeTo("AsyncSwap.sol", abi.encode(manager, algo), address(hookFlags));
     hook = AsyncSwap(address(hookFlags));
   }
 

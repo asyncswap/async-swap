@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.8.26;
 
-import { CLVR } from "@async-swap/algorithms/clvr.sol";
 import { IAlgorithm } from "@async-swap/interfaces/IAlgorithm.sol";
 import { IAsyncSwapAMM } from "@async-swap/interfaces/IAsyncSwapAMM.sol";
 import { AsyncFiller } from "@async-swap/libraries/AsyncFiller.sol";
@@ -18,8 +17,7 @@ import { PoolIdLibrary, PoolKey } from "v4-core/types/PoolKey.sol";
 import { BaseHook } from "v4-periphery/src/utils/BaseHook.sol";
 
 /// @title Async Swap Contract
-/// @author Async Labs
-/// @notice Async swap AMM
+/// @author Asyncswap Labs
 contract AsyncSwap is BaseHook, IAsyncSwapAMM {
 
   using SafeCast for *;
@@ -53,16 +51,18 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
 
   /// Initializes the Async Swap Hook contract with the PoolManager address and sets an transaction ordering algorithm.
   /// @param poolManager The address of the PoolManager contract.
-  constructor(IPoolManager poolManager) BaseHook(poolManager) {
-    ALGORITHM = new CLVR(address(this));
+  /// @param orderingAlgorithm The address of the ordering algorithm
+  constructor(IPoolManager poolManager, IAlgorithm orderingAlgorithm) BaseHook(poolManager) {
+    ALGORITHM = orderingAlgorithm;
   }
 
   /// @inheritdoc BaseHook
   function _beforeInitialize(address, PoolKey calldata key, uint160) internal virtual override returns (bytes4) {
-    require(key.fee == LPFeeLibrary.DYNAMIC_FEE_FLAG, "Dude use dynamic fees flag");
-    /// set algorithm for the pool being initialized
+    require(key.fee == LPFeeLibrary.DYNAMIC_FEE_FLAG, "Use dynamic fees flag");
+    /// Set library state for the pool being initialized
     asyncOrders[key.toId()].algorithm = ALGORITHM;
     asyncOrders[key.toId()].poolManager = poolManager;
+    asyncOrders[key.toId()].asyncOrder;
     return this.beforeInitialize.selector;
   }
 
