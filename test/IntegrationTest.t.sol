@@ -35,7 +35,7 @@ contract IntegrationTest is SetupHook {
     vm.stopPrank();
 
     // Verify Alice's order
-    assertEq(hook.asyncOrder(poolId, alice, true), swapAmount);
+    assertEq(hook.asyncOrderAmount(poolId, alice, true), swapAmount);
     assertTrue(hook.isExecutor(poolId, alice, address(router)));
 
     // Bob fills Alice's order
@@ -45,7 +45,7 @@ contract IntegrationTest is SetupHook {
     vm.stopPrank();
 
     // Verify order completion
-    assertEq(hook.asyncOrder(poolId, alice, true), 0);
+    assertEq(hook.asyncOrderAmount(poolId, alice, true), 0);
     assertEq(manager.balanceOf(alice, currency0.toId()), swapAmount);
   }
 
@@ -74,8 +74,8 @@ contract IntegrationTest is SetupHook {
     vm.stopPrank();
 
     // Verify both orders exist
-    assertEq(hook.asyncOrder(poolId, alice, true), aliceAmount);
-    assertEq(hook.asyncOrder(poolId, bob, false), bobAmount);
+    assertEq(hook.asyncOrderAmount(poolId, alice, true), aliceAmount);
+    assertEq(hook.asyncOrderAmount(poolId, bob, false), bobAmount);
 
     // Charlie fills Alice's order
     vm.startPrank(charlie);
@@ -94,8 +94,8 @@ contract IntegrationTest is SetupHook {
     vm.stopPrank();
 
     // Verify all orders filled
-    assertEq(hook.asyncOrder(poolId, alice, true), 0);
-    assertEq(hook.asyncOrder(poolId, bob, false), 0);
+    assertEq(hook.asyncOrderAmount(poolId, alice, true), 0);
+    assertEq(hook.asyncOrderAmount(poolId, bob, false), 0);
   }
 
   function testPartialFillsAndAccumulation() public {
@@ -113,7 +113,7 @@ contract IntegrationTest is SetupHook {
       AsyncOrder({ key: key, owner: alice, zeroForOne: true, amountIn: firstSwap, sqrtPrice: 2 ** 96 });
 
     router.swap(aliceOrder1, abi.encode(alice, address(router)));
-    assertEq(hook.asyncOrder(poolId, alice, true), firstSwap);
+    assertEq(hook.asyncOrderAmount(poolId, alice, true), firstSwap);
 
     // Alice creates second order (accumulates)
     token0.approve(address(router), secondSwap);
@@ -125,7 +125,7 @@ contract IntegrationTest is SetupHook {
     vm.stopPrank();
 
     // Verify accumulated amount
-    assertEq(hook.asyncOrder(poolId, alice, true), totalAmount);
+    assertEq(hook.asyncOrderAmount(poolId, alice, true), totalAmount);
 
     // Bob partially fills
     vm.startPrank(bob);
@@ -138,7 +138,7 @@ contract IntegrationTest is SetupHook {
     vm.stopPrank();
 
     // Verify partial fill
-    assertEq(hook.asyncOrder(poolId, alice, true), totalAmount - firstFill);
+    assertEq(hook.asyncOrderAmount(poolId, alice, true), totalAmount - firstFill);
 
     // Charlie fills remainder
     vm.startPrank(charlie);
@@ -151,7 +151,7 @@ contract IntegrationTest is SetupHook {
     vm.stopPrank();
 
     // Verify complete fill
-    assertEq(hook.asyncOrder(poolId, alice, true), 0);
+    assertEq(hook.asyncOrderAmount(poolId, alice, true), 0);
   }
 
   function testBatchOrderExecution() public {
@@ -171,7 +171,7 @@ contract IntegrationTest is SetupHook {
     vm.stopPrank();
 
     // Verify total accumulated
-    assertEq(hook.asyncOrder(poolId, alice, true), orderCount * amountPerOrder);
+    assertEq(hook.asyncOrderAmount(poolId, alice, true), orderCount * amountPerOrder);
 
     // Execute orders one by one using router (since alice set router as executor)
     for (uint256 i = 0; i < orderCount; i++) {
@@ -185,7 +185,7 @@ contract IntegrationTest is SetupHook {
     }
 
     // Verify all orders executed
-    assertEq(hook.asyncOrder(poolId, alice, true), 0);
+    assertEq(hook.asyncOrderAmount(poolId, alice, true), 0);
   }
 
   function testCrossDirectionalOrders() public {
@@ -225,8 +225,8 @@ contract IntegrationTest is SetupHook {
     vm.stopPrank();
 
     // Verify both filled
-    assertEq(hook.asyncOrder(poolId, alice, true), 0);
-    assertEq(hook.asyncOrder(poolId, bob, false), 0);
+    assertEq(hook.asyncOrderAmount(poolId, alice, true), 0);
+    assertEq(hook.asyncOrderAmount(poolId, bob, false), 0);
   }
 
   function testAlgorithmIntegration() public {
@@ -247,7 +247,7 @@ contract IntegrationTest is SetupHook {
     vm.stopPrank();
 
     // The swap should succeed, meaning algorithm was called successfully
-    assertEq(hook.asyncOrder(poolId, alice, true), amount);
+    assertEq(hook.asyncOrderAmount(poolId, alice, true), amount);
   }
 
   function testLargeVolumeStressTest() public {
@@ -269,7 +269,7 @@ contract IntegrationTest is SetupHook {
       vm.stopPrank();
 
       // Verify each order
-      assertEq(hook.asyncOrder(poolId, user, true), amountPerUser);
+      assertEq(hook.asyncOrderAmount(poolId, user, true), amountPerUser);
     }
 
     // Single filler fills all orders
@@ -283,7 +283,7 @@ contract IntegrationTest is SetupHook {
         AsyncOrder({ key: key, owner: user, zeroForOne: true, amountIn: amountPerUser, sqrtPrice: 2 ** 96 });
 
       router.fillOrder(fillOrder, "");
-      assertEq(hook.asyncOrder(poolId, user, true), 0);
+      assertEq(hook.asyncOrderAmount(poolId, user, true), 0);
     }
     vm.stopPrank();
   }

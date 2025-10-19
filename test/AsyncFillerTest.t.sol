@@ -54,7 +54,7 @@ contract AsyncFillerTest is SetupHook {
 
     // Verify executor is set and order exists
     assertTrue(hook.isExecutor(poolId, testUser, address(router)));
-    assertEq(hook.asyncOrder(poolId, testUser, true), swapAmount);
+    assertEq(hook.asyncOrderAmount(poolId, testUser, true), swapAmount);
 
     // Now fill the order
     AsyncOrder memory fillOrder =
@@ -66,7 +66,7 @@ contract AsyncFillerTest is SetupHook {
     vm.stopPrank();
 
     // Verify order was filled
-    assertEq(hook.asyncOrder(poolId, testUser, true), 0);
+    assertEq(hook.asyncOrderAmount(poolId, testUser, true), 0);
   }
 
   function testExecuteOrderFailsWithInvalidExecutor() public {
@@ -120,7 +120,7 @@ contract AsyncFillerTest is SetupHook {
     vm.stopPrank();
 
     // Verify partial fill
-    assertEq(hook.asyncOrder(poolId, testUser, true), swapAmount - fillAmount);
+    assertEq(hook.asyncOrderAmount(poolId, testUser, true), swapAmount - fillAmount);
   }
 
   function testExecuteOrderExceedsClaimableAmount() public {
@@ -177,7 +177,7 @@ contract AsyncFillerTest is SetupHook {
     vm.stopPrank();
 
     // Verify fill
-    assertEq(hook.asyncOrder(poolId, testUser, true), swapAmount - fillAmount);
+    assertEq(hook.asyncOrderAmount(poolId, testUser, true), swapAmount - fillAmount);
   }
 
   function testExecuteOrderZeroAmount() public {
@@ -240,8 +240,8 @@ contract AsyncFillerTest is SetupHook {
     vm.stopPrank();
 
     // Verify both orders were filled
-    assertEq(hook.asyncOrder(poolId, testUser, true), 0);
-    assertEq(hook.asyncOrder(poolId, testUser2, true), 0);
+    assertEq(hook.asyncOrderAmount(poolId, testUser, true), 0);
+    assertEq(hook.asyncOrderAmount(poolId, testUser2, true), 0);
   }
 
   function testExecuteOrderZeroForOneFalse() public {
@@ -267,7 +267,7 @@ contract AsyncFillerTest is SetupHook {
     vm.stopPrank();
 
     // Verify order was filled
-    assertEq(hook.asyncOrder(poolId, testUser, false), 0);
+    assertEq(hook.asyncOrderAmount(poolId, testUser, false), 0);
   }
 
 }

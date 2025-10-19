@@ -47,7 +47,7 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
     uint256 swapAmount = 1000;
 
     // Initially should be 0
-    uint256 initialClaimable = hook.asyncOrder(poolId, testUser, true);
+    uint256 initialClaimable = hook.asyncOrderAmount(poolId, testUser, true);
     assertEq(initialClaimable, 0);
 
     // Create async order
@@ -61,7 +61,7 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
     vm.stopPrank();
 
     // Should now show claimable amount
-    uint256 claimableAmount = hook.asyncOrder(poolId, testUser, true);
+    uint256 claimableAmount = hook.asyncOrderAmount(poolId, testUser, true);
     assertEq(claimableAmount, swapAmount);
   }
 
@@ -105,7 +105,7 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
     vm.stopPrank();
 
     // Verify the swap worked (it should because we're passing negative amount)
-    assertEq(hook.asyncOrder(poolId, testUser, true), 500);
+    assertEq(hook.asyncOrderAmount(poolId, testUser, true), 500);
   }
 
   function testExecuteOrderZeroAmountRevert() public {
@@ -137,7 +137,7 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
     }
 
     // Verify total claimable
-    uint256 totalClaimable = hook.asyncOrder(poolId, testUser, true);
+    uint256 totalClaimable = hook.asyncOrderAmount(poolId, testUser, true);
     assertEq(totalClaimable, orderCount * amountPerOrder);
 
     // Execute orders in batch
@@ -159,7 +159,7 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
     }
 
     // Verify all orders executed
-    uint256 remainingClaimable = hook.asyncOrder(poolId, testUser, true);
+    uint256 remainingClaimable = hook.asyncOrderAmount(poolId, testUser, true);
     assertEq(remainingClaimable, 0);
   }
 
@@ -204,7 +204,7 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
     vm.stopPrank();
 
     // Verify order created for zeroForOne = false
-    uint256 claimableAmount = hook.asyncOrder(poolId, testUser, false);
+    uint256 claimableAmount = hook.asyncOrderAmount(poolId, testUser, false);
     assertEq(claimableAmount, swapAmount);
   }
 
@@ -260,7 +260,7 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
     router.swap(swapOrder, abi.encode(testUser, address(router)));
     vm.stopPrank();
 
-    uint256 claimableAmount = hook.asyncOrder(poolId, testUser, true);
+    uint256 claimableAmount = hook.asyncOrderAmount(poolId, testUser, true);
     assertEq(claimableAmount, amount);
   }
 

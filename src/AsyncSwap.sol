@@ -62,7 +62,6 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
     /// Set library state for the pool being initialized
     asyncOrders[key.toId()].algorithm = ALGORITHM;
     asyncOrders[key.toId()].poolManager = poolManager;
-    asyncOrders[key.toId()].asyncOrder;
     return this.beforeInitialize.selector;
   }
 
@@ -96,7 +95,7 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
     revert UnsupportedLiquidity();
   }
 
-  function asyncOrder(PoolId poolId, address user, bool zeroForOne) external view returns (uint256 claimable) {
+  function asyncOrderAmount(PoolId poolId, address user, bool zeroForOne) external view returns (uint256 claimable) {
     AsyncFiller.State storage state = asyncOrders[poolId];
     return state.asyncOrder[user][zeroForOne];
   }

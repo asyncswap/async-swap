@@ -76,7 +76,7 @@ contract AsyncSwapTest is SetupHook {
       assertEq(balance1Before - balance1After, amountIn);
       assertEq(balance0Before, balance0After);
     }
-    assertEq(hook.asyncOrder(poolId, user, zeroForOne), amountIn);
+    assertEq(hook.asyncOrderAmount(poolId, user, zeroForOne), amountIn);
     assertEq(hook.isExecutor(poolId, user, asyncFiller), true);
 
     balance0Before = currency0.balanceOf(user2);
@@ -91,11 +91,11 @@ contract AsyncSwapTest is SetupHook {
     if (zeroForOne) {
       assertEq(balance0Before, balance0After);
       assertEq(balance1Before - balance1After, amountIn);
-      assertEq(hook.asyncOrder(poolId, user, zeroForOne), 0);
+      assertEq(hook.asyncOrderAmount(poolId, user, zeroForOne), 0);
     } else {
       assertEq(balance1Before, balance1After);
       assertEq(balance0Before - balance0After, amountIn);
-      assertEq(hook.asyncOrder(poolId, user, zeroForOne), 0);
+      assertEq(hook.asyncOrderAmount(poolId, user, zeroForOne), 0);
     }
     if (zeroForOne) {
       assertEq(manager.balanceOf(user, currency0.toId()), uint256(amountIn));
@@ -138,7 +138,7 @@ contract AsyncSwapTest is SetupHook {
       assertEq(manager.balanceOf(address(hook), currency1.toId()), balance1Before + uint256(amount));
     }
 
-    assertEq(hook.asyncOrder(poolId, user, zeroForOne), uint256(amount));
+    assertEq(hook.asyncOrderAmount(poolId, user, zeroForOne), uint256(amount));
   }
 
 }

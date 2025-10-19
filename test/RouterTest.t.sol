@@ -33,7 +33,7 @@ contract RouterTest is SetupHook {
     vm.stopPrank();
 
     // Verify swap was successful
-    assertEq(hook.asyncOrder(poolId, testUser, true), swapAmount);
+    assertEq(hook.asyncOrderAmount(poolId, testUser, true), swapAmount);
     assertTrue(hook.isExecutor(poolId, testUser, address(router)));
   }
 
@@ -74,7 +74,7 @@ contract RouterTest is SetupHook {
     vm.stopPrank();
 
     // Verify order was filled
-    assertEq(hook.asyncOrder(poolId, testUser, true), 0);
+    assertEq(hook.asyncOrderAmount(poolId, testUser, true), 0);
   }
 
   function testUnlockCallbackOnlyPoolManager() public {
@@ -101,7 +101,7 @@ contract RouterTest is SetupHook {
     vm.stopPrank();
 
     // Verify swap was successful
-    assertEq(hook.asyncOrder(poolId, testUser, false), swapAmount);
+    assertEq(hook.asyncOrderAmount(poolId, testUser, false), swapAmount);
     assertTrue(hook.isExecutor(poolId, testUser, address(router)));
   }
 
@@ -128,7 +128,7 @@ contract RouterTest is SetupHook {
     vm.stopPrank();
 
     // Verify order was filled
-    assertEq(hook.asyncOrder(poolId, testUser, false), 0);
+    assertEq(hook.asyncOrderAmount(poolId, testUser, false), 0);
   }
 
   function testRouterConstants() public view {
@@ -164,7 +164,7 @@ contract RouterTest is SetupHook {
     vm.stopPrank();
 
     // Verify accumulated amount
-    assertEq(hook.asyncOrder(poolId, testUser, true), swapAmount1 + swapAmount2);
+    assertEq(hook.asyncOrderAmount(poolId, testUser, true), swapAmount1 + swapAmount2);
 
     // Fill partial amount
     AsyncOrder memory fillOrder =
@@ -176,7 +176,7 @@ contract RouterTest is SetupHook {
     vm.stopPrank();
 
     // Verify partial fill
-    assertEq(hook.asyncOrder(poolId, testUser, true), swapAmount2);
+    assertEq(hook.asyncOrderAmount(poolId, testUser, true), swapAmount2);
 
     // Fill remaining
     AsyncOrder memory fillOrder2 =
@@ -188,7 +188,7 @@ contract RouterTest is SetupHook {
     vm.stopPrank();
 
     // Verify complete fill
-    assertEq(hook.asyncOrder(poolId, testUser, true), 0);
+    assertEq(hook.asyncOrderAmount(poolId, testUser, true), 0);
   }
 
   function testSwapBalanceChanges() public {
@@ -262,7 +262,7 @@ contract RouterTest is SetupHook {
     router.swap(swapOrder, abi.encode(testUser, address(router)));
     vm.stopPrank();
 
-    assertEq(hook.asyncOrder(poolId, testUser, zeroForOne), amount);
+    assertEq(hook.asyncOrderAmount(poolId, testUser, zeroForOne), amount);
   }
 
 }
