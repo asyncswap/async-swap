@@ -182,7 +182,7 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="asyncfiller"><a class="header" href="#asyncfiller">AsyncFiller</a></h1>
-<p><a href="https://github.com/asyncswap/async-swap/blob/14720f352dc49bb7a874da1300b43b7f72c38eb1/src/libraries/AsyncFiller.sol">Git Source</a></p>
+<p><a href="https://github.com/asyncswap/async-swap/blob/21ca49416233ba683600f1ff83eb657243ca3ab3/src/libraries/AsyncFiller.sol">Git Source</a></p>
 <p><strong>Author:</strong>
 Async Labs</p>
 <p>This library provides functionality for filling async swap orders in the Uniswap V4 pool.</p>
@@ -253,16 +253,16 @@ Async Labs</p>
 <pre><code class="language-solidity">struct State {
   IPoolManager poolManager;
   IAlgorithm algorithm;
-  mapping(address user =&gt; mapping(bool zeroForOne =&gt; uint256 claimable)) asyncOrders;
-  mapping(address owner =&gt; mapping(address executor =&gt; bool)) setExecutor;
+  mapping(address user =&gt; mapping(bool zeroForOne =&gt; uint256 claimable)) asyncOrderAmount;
+  mapping(address owner =&gt; mapping(address executor =&gt; bool)) isExecutor;
 }
 </code></pre>
 <p><strong>Properties</strong></p>
 <div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
 <tr><td><code>poolManager</code></td><td><code>IPoolManager</code></td><td>The PoolManager contract that manages the pools.</td></tr>
 <tr><td><code>algorithm</code></td><td><code>IAlgorithm</code></td><td></td></tr>
-<tr><td><code>asyncOrders</code></td><td><code>mapping(address user =&gt; mapping(bool zeroForOne =&gt; uint256 claimable))</code></td><td>A mapping of poolId to user orders, where each order can be claimed by the user.</td></tr>
-<tr><td><code>setExecutor</code></td><td><code>mapping(address owner =&gt; mapping(address executor =&gt; bool))</code></td><td>A mapping of user addresses to their executors, allowing users to specify who can fill their async orders.</td></tr>
+<tr><td><code>asyncOrderAmount</code></td><td><code>mapping(address user =&gt; mapping(bool zeroForOne =&gt; uint256 claimable))</code></td><td></td></tr>
+<tr><td><code>isExecutor</code></td><td><code>mapping(address owner =&gt; mapping(address executor =&gt; bool))</code></td><td></td></tr>
 </tbody></table>
 </div>
                     </main>
