@@ -19,7 +19,7 @@ contract FFIHelper is Script {
     Mainnet
   }
 
-  SelectChain chain = SelectChain.Unichain;
+  SelectChain chain = SelectChain.Anvil;
   address OWNER = 0xb1F0982E02f9F71E60512fd47471d76610CcB556;
   address ANVIL_OWNER = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
 
