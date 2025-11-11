@@ -18,9 +18,8 @@ contract WithdralTest is SetupHook {
     topUp(user2, 2 ether);
   }
 
-  function test_withdraw() public {
-    bool zeroForOne = true;
-    uint256 amountIn = 100;
+  function testFuzz_withdraw(bool zeroForOne, uint256 amountIn) public {
+    amountIn = bound(amountIn, 1, 1 ether);
     Currency specified = zeroForOne ? key.currency0 : key.currency1;
 
     AsyncOrder memory order =
