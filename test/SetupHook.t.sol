@@ -2,7 +2,6 @@
 pragma solidity ^0.8.13;
 
 import { AsyncSwap } from "@async-swap/AsyncSwap.sol";
-import { CLVR } from "@async-swap/algorithms/clvr.sol";
 import { IAlgorithm } from "@async-swap/interfaces/IAlgorithm.sol";
 import { Router } from "@async-swap/router.sol";
 import { Test } from "forge-std/Test.sol";
@@ -77,8 +76,7 @@ contract SetupHook is Test {
     );
     vm.startPrank(owner);
 
-    algo = new CLVR(address(hookFlags));
-    deployCodeTo("AsyncSwap.sol", abi.encode(manager, algo), address(hookFlags));
+    deployCodeTo("AsyncSwap.sol", abi.encode(manager), address(hookFlags));
     hook = AsyncSwap(address(hookFlags));
   }
 
