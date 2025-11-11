@@ -210,9 +210,12 @@ We suggest you set up local anvil account with cast.</p>
 </ul>
 </blockquote>
 <p>Run local anvil node with Unichain fork</p>
-<pre><code class="language-sh">anvil --fork-url https://unichain.drpc.org
+<pre><code class="language-sh">anvil --fork-url https://unichain-rpc.publicnode.com
 # or simulate block mining and finality
 anvil --block-time 13
+</code></pre>
+<p>Run otterscan explorer</p>
+<pre><code class="language-sh">docker run --rm -p 5100:80 --name otterscan -d otterscan/otterscan:latest
 </code></pre>
 <h2 id="local-deployment"><a class="header" href="#local-deployment">Local Deployment</a></h2>
 <p>Run deployment script</p>
