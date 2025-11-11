@@ -9,6 +9,8 @@ import { IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
 import { IERC20Minimal } from "v4-core/interfaces/external/IERC20Minimal.sol";
 import { SafeCast } from "v4-core/libraries/SafeCast.sol";
 import { Currency, CurrencyLibrary } from "v4-core/types/Currency.sol";
+import { PoolId } from "v4-core/types/PoolId.sol";
+import { PoolKey } from "v4-core/types/PoolKey.sol";
 
 /// @title Router Contract
 /// @author Async Labs
@@ -75,6 +77,16 @@ contract Router is IRouter {
     POOLMANAGER.unlock(abi.encode(SwapCallback(ActionType.FillOrder, order)));
   }
 
+  function withdraw(PoolKey memory key, bool zeroForOne, uint256 amount) external {
+    address onBehalf = address(this);
+    assembly ("memory-safe") {
+      tstore(USER_LOCATION, caller())
+      tstore(ASYNC_FILLER_LOCATION, onBehalf)
+    }
+
+    POOLMANAGER.unlock(abi.encode(WithdrawCallback(ActionType.Withdrawal, key, zeroForOne, amount, msg.sender)));
+  }
+
   /// Callback handler to unlock the PoolManager after a swap or fill order.
   /// @param data The callback data containing the action type and order information.
   /// @return Data to return back to the PoolManager after unlock.
@@ -114,6 +126,12 @@ contract Router is IRouter {
       assert(IERC20Minimal(Currency.unwrap(currency)).transferFrom(user, asyncFiller, orderData.order.amountIn));
       assert(IERC20Minimal(Currency.unwrap(currency)).approve(address(HOOK), orderData.order.amountIn));
       HOOK.executeOrder(orderData.order, abi.encode(asyncFiller));
+    }
+
+    /// @notice Handle withdrawals
+    if (action == 2) {
+      WithdrawCallback memory withdrawData = abi.decode(data, (WithdrawCallback));
+      HOOK.withdraw(withdrawData.key, withdrawData.zeroForOne, withdrawData.amount, withdrawData.user);
     }
 
     return "";

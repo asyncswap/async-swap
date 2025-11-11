@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
+import { PoolKey } from "v4-core/types/PoolKey.sol";
 
 /// @title Router Interface
 /// @author Async Labs
@@ -14,7 +15,8 @@ interface IRouter {
   /// 2. FillOrder - If the action is a fill order, this will specify fill order intent.
   enum ActionType {
     Swap,
-    FillOrder
+    FillOrder,
+    Withdrawal
   }
 
   /// Callback structure for the swap function.
@@ -23,6 +25,14 @@ interface IRouter {
   struct SwapCallback {
     ActionType action;
     AsyncOrder order;
+  }
+
+  struct WithdrawCallback {
+    ActionType action;
+    PoolKey key;
+    bool zeroForOne;
+    uint256 amount;
+    address user;
   }
 
   /// Swaps tokens using an async order.
@@ -34,5 +44,7 @@ interface IRouter {
   /// @param order The async order to be filled.
   /// @param userData Additional data for the user, allowing user to specify an executor.
   function fillOrder(AsyncOrder calldata order, bytes calldata userData) external;
+
+  function withdraw(PoolKey memory key, bool zeroForOne, uint256 amount) external;
 
 }

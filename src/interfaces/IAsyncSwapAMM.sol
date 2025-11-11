@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { IAsyncSwapOrder } from "@async-swap/interfaces/IAsyncSwapOrder.sol";
 import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
+import { PoolKey } from "v4-core/types/PoolKey.sol";
 
 /// @title Async Swap AMM Interface
 /// @author Async Labs
@@ -26,5 +27,7 @@ interface IAsyncSwapAMM is IAsyncSwapOrder {
   /// @param orders An array of async orders to be executed.
   /// @param userParams Additional data for the user, allowing user to specify an executor.
   function executeOrders(AsyncOrder[] calldata orders, bytes calldata userParams) external;
+
+  function withdraw(PoolKey memory key, bool zeroForOne, uint256 amount, address user) external;
 
 }
