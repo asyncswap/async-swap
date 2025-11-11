@@ -204,8 +204,6 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
     asyncOrders[poolId].asyncOrderAmount[hookData.user][params.zeroForOne] = currClaimables + finalTaken;
 
     /// @dev Hook event
-    /// @reference
-    /// https://github.com/OpenZeppelin/uniswap-hooks/blob/19fa03bdacd780a3e44f7c3707d6881e364d9596/src/base/BaseAsyncSwap.sol#L75
     if (specified == key.currency0) {
       emit HookSwap(PoolId.unwrap(poolId), sender, amountTaken.toInt128(), 0, feeAmount.toUint128(), 0);
     } else {
