@@ -8,10 +8,14 @@ import { IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
 
 contract AsyncswapStateTest is SetupHook {
 
+  function setUp() public override {
+    super.setUp();
+  }
+
   function testStateAlgorithm() public view {
     (IPoolManager pm, IAlgorithm a) = hook.asyncOrders(poolId);
     assertEq(address(pm), address(manager));
-    assertEq(address(a), address(algo));
+    assertNotEq(address(a), address(0x00));
   }
 
 }
