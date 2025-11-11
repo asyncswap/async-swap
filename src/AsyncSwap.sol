@@ -215,25 +215,23 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
     return (BaseHook.beforeSwap.selector, beforeSwapDelta, 0);
   }
 
-  error ZeroWithdrawal();
   error InvalidWithdrawal();
   error NotApprovedExecutor();
 
   function withdraw(PoolKey memory key, bool zeroForOne, uint256 amount, address user) external {
-    if (!asyncOrders[key.toId()].isExecutor[user][msg.sender]) revert NotApprovedExecutor();
     PoolId poolId = key.toId();
     uint256 claim = asyncOrders[poolId].asyncOrderAmount[user][zeroForOne];
+
+    // checks
+    if (!asyncOrders[key.toId()].isExecutor[user][msg.sender]) revert NotApprovedExecutor();
     if (claim < amount) revert InvalidWithdrawal();
     assert(0 < amount && amount <= claim);
-    // reduce amount
-    AsyncFiller.State storage state = asyncOrders[poolId];
-    state.asyncOrderAmount[user][zeroForOne] -= amount;
-
+    // effect
+    asyncOrders[poolId].asyncOrderAmount[user][zeroForOne] -= amount;
+    // interaction
     Currency specified = zeroForOne ? key.currency0 : key.currency1;
-    // burn and settle amount to user
     poolManager.burn(address(this), specified.toId(), amount);
     specified.take(poolManager, user, amount, false);
-    poolManager.settle();
   }
 
 }
