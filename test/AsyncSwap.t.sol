@@ -39,14 +39,14 @@ contract AsyncSwapTest is SetupHook {
     vm.stopPrank();
   }
 
-  function fillOrder(address _user, AsyncOrder memory order, address _asyncFiller) public {
+  function fillOrder(address _user, AsyncOrder memory order) public {
     vm.startPrank(_user);
     if (order.zeroForOne) {
-      token1.approve(address(router), order.amountIn);
+      token1.approve(address(hook), order.amountIn);
     } else {
-      token0.approve(address(router), order.amountIn);
+      token0.approve(address(hook), order.amountIn);
     }
-    router.fillOrder(order, abi.encode(_asyncFiller));
+    router.fillOrder(order, abi.encode(_user));
     vm.stopPrank();
   }
 
@@ -83,7 +83,7 @@ contract AsyncSwapTest is SetupHook {
     balance1Before = currency1.balanceOf(user2);
 
     // fill
-    fillOrder(user2, order, asyncFiller);
+    fillOrder(user2, order);
 
     balance0After = currency0.balanceOf(user2);
     balance1After = currency1.balanceOf(user2);
@@ -98,9 +98,9 @@ contract AsyncSwapTest is SetupHook {
       assertEq(hook.asyncOrderAmount(poolId, user, zeroForOne), 0);
     }
     if (zeroForOne) {
-      assertEq(manager.balanceOf(user, currency0.toId()), uint256(amountIn));
-    } else {
       assertEq(manager.balanceOf(user, currency1.toId()), uint256(amountIn));
+    } else {
+      assertEq(manager.balanceOf(user, currency0.toId()), uint256(amountIn));
     }
   }
 
