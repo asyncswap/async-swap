@@ -40,13 +40,13 @@ contract IntegrationTest is SetupHook {
 
     // Bob fills Alice's order
     vm.startPrank(bob);
-    token1.approve(address(router), swapAmount);
+    token1.approve(address(hook), swapAmount);
     router.fillOrder(aliceOrder, "");
     vm.stopPrank();
 
     // Verify order completion
     assertEq(hook.asyncOrderAmount(poolId, alice, true), 0);
-    assertEq(manager.balanceOf(alice, currency0.toId()), swapAmount);
+    assertEq(manager.balanceOf(alice, currency1.toId()), swapAmount);
   }
 
   function testMultipleUsersMultipleOrders() public {
@@ -79,13 +79,13 @@ contract IntegrationTest is SetupHook {
 
     // Charlie fills Alice's order
     vm.startPrank(charlie);
-    token1.approve(address(router), aliceAmount);
+    token1.approve(address(hook), aliceAmount);
     router.fillOrder(aliceOrder, "");
     vm.stopPrank();
 
     // Charlie fills Bob's order
     vm.startPrank(charlie);
-    token0.approve(address(router), bobAmount);
+    token0.approve(address(hook), bobAmount);
 
     AsyncOrder memory bobFillOrder =
       AsyncOrder({ key: key, owner: bob, zeroForOne: false, amountIn: bobAmount, sqrtPrice: 2 ** 96 });
@@ -129,7 +129,7 @@ contract IntegrationTest is SetupHook {
 
     // Bob partially fills
     vm.startPrank(bob);
-    token1.approve(address(router), firstFill);
+    token1.approve(address(hook), firstFill);
 
     AsyncOrder memory fillOrder1 =
       AsyncOrder({ key: key, owner: alice, zeroForOne: true, amountIn: firstFill, sqrtPrice: 2 ** 96 });
@@ -142,7 +142,7 @@ contract IntegrationTest is SetupHook {
 
     // Charlie fills remainder
     vm.startPrank(charlie);
-    token1.approve(address(router), secondFill);
+    token1.approve(address(hook), secondFill);
 
     AsyncOrder memory fillOrder2 =
       AsyncOrder({ key: key, owner: alice, zeroForOne: true, amountIn: secondFill, sqrtPrice: 2 ** 96 });
@@ -179,7 +179,7 @@ contract IntegrationTest is SetupHook {
         AsyncOrder({ key: key, owner: alice, zeroForOne: true, amountIn: amountPerOrder, sqrtPrice: 2 ** 96 });
 
       vm.startPrank(bob);
-      token1.approve(address(router), amountPerOrder);
+      token1.approve(address(hook), amountPerOrder);
       router.fillOrder(fillOrder, abi.encode(address(router)));
       vm.stopPrank();
     }
@@ -215,11 +215,11 @@ contract IntegrationTest is SetupHook {
     vm.startPrank(charlie);
 
     // Fill Alice's order (needs token1)
-    token1.approve(address(router), amount);
+    token1.approve(address(hook), amount);
     router.fillOrder(aliceOrder, "");
 
     // Fill Bob's order (needs token0)
-    token0.approve(address(router), amount);
+    token0.approve(address(hook), amount);
     router.fillOrder(bobOrder, "");
 
     vm.stopPrank();
@@ -274,7 +274,7 @@ contract IntegrationTest is SetupHook {
 
     // Single filler fills all orders
     vm.startPrank(charlie);
-    token1.approve(address(router), userCount * amountPerUser);
+    token1.approve(address(hook), userCount * amountPerUser);
 
     for (uint256 i = 0; i < userCount; i++) {
       address user = address(uint160(i + 1000));
