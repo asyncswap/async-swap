@@ -20,7 +20,7 @@ interface IAsyncSwapAMM is IAsyncSwapOrder {
 
   /// @notice Fill an async order in an Async Swap AMM.
   /// @param order The async order to be filled.
-  /// @param userParams Additional data for the user.
+  /// @param userParams data containe adderss of the filler.
   function executeOrder(AsyncOrder calldata order, bytes calldata userParams) external;
 
   /// Fills async orders in batching mode, allowing multiple orders to be executed in a single transaction.

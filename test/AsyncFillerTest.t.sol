@@ -61,8 +61,8 @@ contract AsyncFillerTest is SetupHook {
       AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
 
     vm.startPrank(testExecutor);
-    token1.approve(address(router), swapAmount);
-    router.fillOrder(fillOrder, abi.encode(address(router)));
+    token1.approve(address(hook), swapAmount);
+    router.fillOrder(fillOrder, abi.encode(address(testExecutor)));
     vm.stopPrank();
 
     // Verify order was filled
@@ -90,9 +90,9 @@ contract AsyncFillerTest is SetupHook {
       AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
 
     vm.startPrank(nonExecutor);
-    token1.approve(address(router), swapAmount);
+    token1.approve(address(hook), swapAmount);
     vm.expectRevert("Caller is valid not excutor");
-    hook.executeOrder(fillOrder, "");
+    hook.executeOrder(fillOrder, abi.encode(nonExecutor));
     vm.stopPrank();
   }
 
@@ -115,8 +115,8 @@ contract AsyncFillerTest is SetupHook {
       AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: fillAmount, sqrtPrice: 2 ** 96 });
 
     vm.startPrank(testExecutor);
-    token1.approve(address(router), fillAmount);
-    router.fillOrder(fillOrder, abi.encode(address(router)));
+    token1.approve(address(hook), fillAmount);
+    router.fillOrder(fillOrder, abi.encode(address(testExecutor)));
     vm.stopPrank();
 
     // Verify partial fill
@@ -142,9 +142,9 @@ contract AsyncFillerTest is SetupHook {
       AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: excessFillAmount, sqrtPrice: 2 ** 96 });
 
     vm.startPrank(testExecutor);
-    token1.approve(address(router), excessFillAmount);
+    token1.approve(address(hook), excessFillAmount);
     vm.expectRevert("Max fill order limit exceed");
-    router.fillOrder(fillOrder, abi.encode(address(router)));
+    router.fillOrder(fillOrder, abi.encode(address(testExecutor)));
     vm.stopPrank();
   }
 
@@ -172,8 +172,8 @@ contract AsyncFillerTest is SetupHook {
       AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: fillAmount, sqrtPrice: 2 ** 96 });
 
     vm.startPrank(testExecutor);
-    token1.approve(address(router), fillAmount);
-    router.fillOrder(fillOrder, abi.encode(address(router)));
+    token1.approve(address(hook), fillAmount);
+    router.fillOrder(fillOrder, abi.encode(address(testExecutor)));
     vm.stopPrank();
 
     // Verify fill
@@ -199,7 +199,7 @@ contract AsyncFillerTest is SetupHook {
 
     vm.startPrank(testExecutor);
     vm.expectRevert("ZeroFillOrder()");
-    hook.executeOrder(fillOrder, "");
+    hook.executeOrder(fillOrder, abi.encode(testExecutor));
     vm.stopPrank();
   }
 
@@ -233,10 +233,10 @@ contract AsyncFillerTest is SetupHook {
       AsyncOrder({ key: key, owner: testUser2, zeroForOne: true, amountIn: swapAmount2, sqrtPrice: 2 ** 96 });
 
     vm.startPrank(testExecutor);
-    token1.approve(address(router), swapAmount1 + swapAmount2);
+    token1.approve(address(hook), swapAmount1 + swapAmount2);
 
-    router.fillOrder(fillOrder1, abi.encode(address(router)));
-    router.fillOrder(fillOrder2, abi.encode(address(router)));
+    router.fillOrder(fillOrder1, abi.encode(address(testExecutor)));
+    router.fillOrder(fillOrder2, abi.encode(address(testExecutor)));
     vm.stopPrank();
 
     // Verify both orders were filled
@@ -262,8 +262,8 @@ contract AsyncFillerTest is SetupHook {
       AsyncOrder({ key: key, owner: testUser, zeroForOne: false, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
 
     vm.startPrank(testExecutor);
-    token0.approve(address(router), swapAmount);
-    router.fillOrder(fillOrder, abi.encode(address(router)));
+    token0.approve(address(hook), swapAmount);
+    router.fillOrder(fillOrder, abi.encode(address(testExecutor)));
     vm.stopPrank();
 
     // Verify order was filled

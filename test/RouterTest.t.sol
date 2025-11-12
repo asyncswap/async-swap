@@ -69,8 +69,8 @@ contract RouterTest is SetupHook {
       AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
 
     vm.startPrank(testUser2);
-    token1.approve(address(router), swapAmount);
-    router.fillOrder(fillOrder, "");
+    token1.approve(address(hook), swapAmount);
+    router.fillOrder(fillOrder, abi.encode(testUser2));
     vm.stopPrank();
 
     // Verify order was filled
@@ -123,8 +123,8 @@ contract RouterTest is SetupHook {
       AsyncOrder({ key: key, owner: testUser, zeroForOne: false, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
 
     vm.startPrank(testUser2);
-    token0.approve(address(router), swapAmount);
-    router.fillOrder(fillOrder, "");
+    token0.approve(address(hook), swapAmount);
+    router.fillOrder(fillOrder, abi.encode(testUser2));
     vm.stopPrank();
 
     // Verify order was filled
@@ -171,8 +171,8 @@ contract RouterTest is SetupHook {
       AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount1, sqrtPrice: 2 ** 96 });
 
     vm.startPrank(testUser2);
-    token1.approve(address(router), swapAmount1);
-    router.fillOrder(fillOrder, "");
+    token1.approve(address(hook), swapAmount1);
+    router.fillOrder(fillOrder, abi.encode(testUser2));
     vm.stopPrank();
 
     // Verify partial fill
@@ -183,8 +183,8 @@ contract RouterTest is SetupHook {
       AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount2, sqrtPrice: 2 ** 96 });
 
     vm.startPrank(testUser2);
-    token1.approve(address(router), swapAmount2);
-    router.fillOrder(fillOrder2, "");
+    token1.approve(address(hook), swapAmount2);
+    router.fillOrder(fillOrder2, abi.encode(testUser2));
     vm.stopPrank();
 
     // Verify complete fill
@@ -232,14 +232,14 @@ contract RouterTest is SetupHook {
       AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
 
     vm.startPrank(testUser2);
-    token1.approve(address(router), swapAmount);
-    router.fillOrder(fillOrder, "");
+    token1.approve(address(hook), swapAmount);
+    router.fillOrder(fillOrder, abi.encode(testUser2));
     vm.stopPrank();
 
     // Verify balance changes
     assertEq(token1.balanceOf(testUser2), fillerBalance1Before - swapAmount);
     assertEq(token0.balanceOf(testUser2), fillerBalance0Before); // Should be unchanged
-    assertEq(manager.balanceOf(testUser, currency0.toId()), uint256(swapAmount));
+    assertEq(manager.balanceOf(testUser, currency1.toId()), uint256(swapAmount));
   }
 
   function testFuzzSwapAmounts(uint256 amount, bool zeroForOne) public {

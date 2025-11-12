@@ -53,7 +53,7 @@ contract Router is IRouter {
   }
 
   /// @inheritdoc IRouter
-  function swap(AsyncOrder calldata order, bytes memory userData) external {
+  function swap(AsyncOrder calldata order, bytes memory userData) external payable {
     address onBehalf = address(this);
     IAsyncSwapAMM.UserParams memory userParams = abi.decode(userData, (IAsyncSwapAMM.UserParams));
     require(userParams.executor == address(this), "Use router as your executor!");
@@ -66,7 +66,7 @@ contract Router is IRouter {
   }
 
   /// @inheritdoc IRouter
-  function fillOrder(AsyncOrder calldata order, bytes calldata) external {
+  function fillOrder(AsyncOrder calldata order, bytes calldata) external payable {
     address onBehalf = address(this);
     assembly ("memory-safe") {
       tstore(USER_LOCATION, caller())
@@ -122,10 +122,20 @@ contract Router is IRouter {
     /// @dev FillingOrder
     if (action == 1) {
       SwapCallback memory orderData = abi.decode(data, (SwapCallback));
-      Currency currency = orderData.order.zeroForOne ? orderData.order.key.currency1 : orderData.order.key.currency0;
-      assert(IERC20Minimal(Currency.unwrap(currency)).transferFrom(user, asyncFiller, orderData.order.amountIn));
-      assert(IERC20Minimal(Currency.unwrap(currency)).approve(address(HOOK), orderData.order.amountIn));
-      HOOK.executeOrder(orderData.order, abi.encode(asyncFiller));
+      Currency currencyFill;
+      Currency currencyTake;
+      if (orderData.order.zeroForOne) {
+        currencyFill = orderData.order.key.currency1;
+        currencyTake = orderData.order.key.currency0;
+      } else {
+        currencyFill = orderData.order.key.currency0;
+        currencyTake = orderData.order.key.currency1;
+      }
+      // pay order
+      // assert(IERC20Minimal(Currency.unwrap(currencyFill)).transferFrom(user, address(HOOK),
+      // orderData.order.amountIn));
+      HOOK.executeOrder(orderData.order, abi.encode(user));
+      // currencyTake.take(POOLMANAGER, user, orderData.order.amountIn, false);
     }
 
     /// @notice Handle withdrawals

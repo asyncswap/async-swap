@@ -8,6 +8,7 @@ import { AsyncFiller } from "@async-swap/libraries/AsyncFiller.sol";
 import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
 import { CurrencySettler } from "@uniswap/v4-core/test/utils/CurrencySettler.sol";
 import { IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
+import { IERC20Minimal } from "v4-core/interfaces/external/IERC20Minimal.sol";
 import { Hooks } from "v4-core/libraries/Hooks.sol";
 import { LPFeeLibrary } from "v4-core/libraries/LPFeeLibrary.sol";
 import { SafeCast } from "v4-core/libraries/SafeCast.sol";
@@ -131,13 +132,14 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
   }
 
   /// @inheritdoc IAsyncSwapAMM
-  function executeOrder(AsyncOrder calldata order, bytes calldata) external {
+  function executeOrder(AsyncOrder calldata order, bytes calldata fillerData) external {
     address owner = order.owner;
     uint256 amountIn = order.amountIn;
     bool zeroForOne = order.zeroForOne;
     Currency currency0 = order.key.currency0;
     Currency currency1 = order.key.currency1;
     PoolId poolId = order.key.toId();
+    address filler = abi.decode(fillerData, (address));
 
     if (amountIn == 0) revert ZeroFillOrder();
 
@@ -160,15 +162,15 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
     }
 
     asyncOrders[poolId].asyncOrderAmount[owner][zeroForOne] -= amountToFill;
-    /// TODO: check if this is needed, we could just burn
-    poolManager.transfer(owner, currencyTake.toId(), amountToFill);
+    /// we could also burn
+    poolManager.transfer(filler, currencyTake.toId(), amountToFill);
     emit AsyncOrderFilled(poolId, owner, zeroForOne, amountToFill);
 
     /// @dev Take currencyFill from filler
     /// @dev Hook may charge filler a hook fee
     /// TODO: If fee emit HookFee event
-    currencyFill.take(poolManager, address(this), amountToFill, true);
-    currencyFill.settle(poolManager, msg.sender, amountToFill, false); // transfer
+    currencyFill.take(poolManager, owner, amountToFill, true);
+    currencyFill.settle(poolManager, filler, amountToFill, false); // transfer
   }
 
   /// @inheritdoc BaseHook

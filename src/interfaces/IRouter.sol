@@ -38,12 +38,12 @@ interface IRouter {
   /// Swaps tokens using an async order.
   /// @param order The async order to be placed.
   /// @param userData Additional data for the user, allowing user to specify an executor.
-  function swap(AsyncOrder calldata order, bytes calldata userData) external;
+  function swap(AsyncOrder calldata order, bytes calldata userData) external payable;
 
   /// Fills an async order.
   /// @param order The async order to be filled.
   /// @param userData Additional data for the user, allowing user to specify an executor.
-  function fillOrder(AsyncOrder calldata order, bytes calldata userData) external;
+  function fillOrder(AsyncOrder calldata order, bytes calldata userData) external payable;
 
   function withdraw(PoolKey memory key, bool zeroForOne, uint256 amount) external;
 

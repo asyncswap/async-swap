@@ -113,7 +113,7 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
       AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: 0, sqrtPrice: 2 ** 96 });
 
     vm.expectRevert(AsyncFiller.ZeroFillOrder.selector);
-    hook.executeOrder(order, "");
+    hook.executeOrder(order, abi.encode(address(this)));
   }
 
   function testExecuteOrdersMultiple() public {
@@ -153,8 +153,8 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
         AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: amountPerOrder, sqrtPrice: 2 ** 96 });
 
       vm.startPrank(testExecutor);
-      token1.approve(address(router), amountPerOrder);
-      router.fillOrder(fillOrder, abi.encode(address(router)));
+      token1.approve(address(hook), amountPerOrder);
+      router.fillOrder(fillOrder, abi.encode(address(testExecutor)));
       vm.stopPrank();
     }
 
