@@ -22,9 +22,9 @@ contract ExecuteAsyncOrderScript is FFIHelper {
   function run() public {
     vm.startBroadcast(OWNER);
     if (order.zeroForOne) {
-      IERC20Minimal(Currency.unwrap(order.key.currency1)).approve(address(router), order.amountIn);
+      IERC20Minimal(Currency.unwrap(order.key.currency1)).approve(address(order.key.hooks), order.amountIn);
     } else {
-      IERC20Minimal(Currency.unwrap(order.key.currency0)).approve(address(router), order.amountIn);
+      IERC20Minimal(Currency.unwrap(order.key.currency0)).approve(address(order.key.hooks), order.amountIn);
     }
     router.fillOrder(order, abi.encode(router));
     vm.stopBroadcast();
