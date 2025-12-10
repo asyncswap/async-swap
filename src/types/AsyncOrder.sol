@@ -13,10 +13,12 @@ using AsyncFiller for AsyncOrder global;
 /// (false).
 /// @param amountIn The amount of the order that is being filled.
 /// @param sqrtPrice The square root price of the pool at the time of the order.
+/// @param deadline The timestamp after which the order cannot be executed.
 struct AsyncOrder {
   PoolKey key;
   address owner;
   bool zeroForOne;
   uint256 amountIn;
   uint160 sqrtPrice;
+  uint256 deadline;
 }
