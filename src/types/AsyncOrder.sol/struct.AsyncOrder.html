@@ -182,7 +182,7 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="asyncorder"><a class="header" href="#asyncorder">AsyncOrder</a></h1>
-<p><a href="https://github.com/asyncswap/async-swap/blob/25f74fb1a2375758a7352efe2a078c10b91c15ae/src/types/AsyncOrder.sol">Git Source</a></p>
+<p><a href="https://github.com/asyncswap/async-swap/blob/3629ea7fce016a727e6ae09dc5468036d6a3e621/src/types/AsyncOrder.sol">Git Source</a></p>
 <p>Represents an async order for a swap in the Uniswap V4 pool.</p>
 <pre><code class="language-solidity">struct AsyncOrder {
 PoolKey key;
@@ -190,6 +190,7 @@ address owner;
 bool zeroForOne;
 uint256 amountIn;
 uint160 sqrtPrice;
+uint256 deadline;
 }
 </code></pre>
 <p><strong>Properties</strong></p>
@@ -199,6 +200,7 @@ uint160 sqrtPrice;
 <tr><td><code>zeroForOne</code></td><td><code>bool</code></td><td>Whether the order is for a swap from currency0 to currency1 (true) or currency1 to currency0 (false).</td></tr>
 <tr><td><code>amountIn</code></td><td><code>uint256</code></td><td>The amount of the order that is being filled.</td></tr>
 <tr><td><code>sqrtPrice</code></td><td><code>uint160</code></td><td>The square root price of the pool at the time of the order.</td></tr>
+<tr><td><code>deadline</code></td><td><code>uint256</code></td><td>The timestamp after which the order cannot be executed.</td></tr>
 </tbody></table>
 </div>
                     </main>
