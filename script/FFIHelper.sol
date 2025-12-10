@@ -117,9 +117,11 @@ contract FFIHelper is Script {
     OrderData memory orderData = abi.decode(data, (OrderData));
     bool zeroForOne = topics[1] == 0 ? false : true;
     uint256 amountIn = uint256(topics[2]);
+    uint160 sqrtPrice = uint160(uint256(topics[3]));
+    uint256 deadline = uint256(topics[4]);
     PoolKey memory key = _getPoolKey();
 
-    AsyncOrder memory order = AsyncOrder(key, orderData.owner, zeroForOne, amountIn, 2 ** 96);
+    AsyncOrder memory order = AsyncOrder(key, orderData.owner, zeroForOne, amountIn, sqrtPrice, deadline);
     return order;
   }
 

@@ -8,7 +8,6 @@ import { AsyncFiller } from "@async-swap/libraries/AsyncFiller.sol";
 import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
 import { CurrencySettler } from "@uniswap/v4-core/test/utils/CurrencySettler.sol";
 import { IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
-import { IERC20Minimal } from "v4-core/interfaces/external/IERC20Minimal.sol";
 import { Hooks } from "v4-core/libraries/Hooks.sol";
 import { LPFeeLibrary } from "v4-core/libraries/LPFeeLibrary.sol";
 import { SafeCast } from "v4-core/libraries/SafeCast.sol";
@@ -51,6 +50,7 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
 
   /// @notice Error thrown when liquidity is not supported in this hook.
   error UnsupportedLiquidity();
+  error OrderExpired();
 
   /// Initializes the Async Swap Hook contract with the PoolManager address and sets an transaction ordering algorithm.
   /// @param poolManager The address of the PoolManager contract.
@@ -122,7 +122,7 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
     /// Sort poolIDs
     /// Order swaps by poolId
 
-    uint256 volatility = ALGORITHM.getVolatility(orders);
+    // uint256 volatility = ALGORITHM.getVolatility(orders);
     for (uint8 i = 0; i < orders.length; i++) {
       AsyncOrder calldata order = orders[i];
       // Use transaction ordering algorithm to ensure correct execution order
@@ -140,15 +140,16 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
     Currency currency1 = order.key.currency1;
     PoolId poolId = order.key.toId();
     address filler = abi.decode(fillerData, (address));
-
+    uint256 deadline = order.deadline;
+    if (block.timestamp > deadline) revert OrderExpired();
+    AsyncFiller.State storage state = asyncOrders[poolId];
+    require(order.isExecutor(state, msg.sender), "Caller is valid not executor");
     if (amountIn == 0) revert ZeroFillOrder();
 
     /// TODO: Document what this does
     uint256 amountToFill = uint256(amountIn);
     uint256 claimableAmount = asyncOrders[poolId].asyncOrderAmount[owner][zeroForOne];
     require(amountToFill <= claimableAmount, "Max fill order limit exceed");
-    AsyncFiller.State storage state = asyncOrders[poolId];
-    require(order.isExecutor(state, msg.sender), "Caller is valid not excutor");
 
     /// @dev Transfer currency of async order to user
     Currency currencyTake;
@@ -164,7 +165,7 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
     asyncOrders[poolId].asyncOrderAmount[owner][zeroForOne] -= amountToFill;
     /// we could also burn
     poolManager.transfer(filler, currencyTake.toId(), amountToFill);
-    emit AsyncOrderFilled(poolId, owner, zeroForOne, amountToFill);
+    emit AsyncOrderFilled(poolId, owner, zeroForOne, amountToFill, deadline);
 
     /// @dev Take currencyFill from filler
     /// @dev Hook may charge filler a hook fee
