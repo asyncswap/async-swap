@@ -6,7 +6,6 @@ import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { Currency } from "v4-core/interfaces/IPoolManager.sol";
 import { LPFeeLibrary } from "v4-core/libraries/LPFeeLibrary.sol";
-import { StateLibrary } from "v4-core/libraries/StateLibrary.sol";
 import { CurrencyLibrary } from "v4-core/types/Currency.sol";
 import { PoolKey } from "v4-core/types/PoolKey.sol";
 
@@ -70,8 +69,14 @@ contract EtherTest is SetupHook {
 
     // Alice creates async swap order: Ether -> token1
     vm.startPrank(alice);
-    AsyncOrder memory aliceOrder =
-      AsyncOrder({ key: key, owner: alice, zeroForOne: zeroForOne, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory aliceOrder = AsyncOrder({
+      key: key,
+      owner: alice,
+      zeroForOne: zeroForOne,
+      amountIn: swapAmount,
+      sqrtPrice: 2 ** 96,
+      deadline: block.timestamp + 1 hours
+    });
     if (zeroForOne) {
       router.swap{ value: swapAmount }(aliceOrder, abi.encode(alice, address(router)));
     } else {
@@ -97,8 +102,14 @@ contract EtherTest is SetupHook {
 
     // Alice creates order
     vm.startPrank(alice);
-    AsyncOrder memory aliceOrder =
-      AsyncOrder({ key: key, owner: alice, zeroForOne: true, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory aliceOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: alice,
+      zeroForOne: true,
+      amountIn: swapAmount,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap{ value: swapAmount }(aliceOrder, abi.encode(alice, address(router)));
     vm.stopPrank();
@@ -123,8 +134,14 @@ contract EtherTest is SetupHook {
 
     // Alice creates order
     vm.startPrank(alice);
-    AsyncOrder memory aliceOrder =
-      AsyncOrder({ key: key, owner: alice, zeroForOne: true, amountIn: swapAmount, sqrtPrice: 4295128740 });
+    AsyncOrder memory aliceOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: alice,
+      zeroForOne: true,
+      amountIn: swapAmount,
+      sqrtPrice: 4295128740
+    });
 
     router.swap{ value: swapAmount }(aliceOrder, abi.encode(alice, address(router)));
     vm.stopPrank();

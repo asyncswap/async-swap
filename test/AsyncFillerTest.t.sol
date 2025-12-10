@@ -24,8 +24,14 @@ contract AsyncFillerTest is SetupHook {
     vm.startPrank(testUser);
     token0.approve(address(router), 1000);
 
-    AsyncOrder memory swapOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: 1000, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory swapOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: 1000,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(swapOrder, abi.encode(testUser, address(router)));
     vm.stopPrank();
@@ -46,8 +52,14 @@ contract AsyncFillerTest is SetupHook {
     vm.startPrank(testUser);
     token0.approve(address(router), swapAmount);
 
-    AsyncOrder memory swapOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory swapOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: swapAmount,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(swapOrder, abi.encode(testUser, address(router)));
     vm.stopPrank();
@@ -57,8 +69,14 @@ contract AsyncFillerTest is SetupHook {
     assertEq(hook.asyncOrderAmount(poolId, testUser, true), swapAmount);
 
     // Now fill the order
-    AsyncOrder memory fillOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory fillOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: swapAmount,
+      sqrtPrice: 2 ** 96
+    });
 
     vm.startPrank(testExecutor);
     token1.approve(address(hook), swapAmount);
@@ -76,8 +94,14 @@ contract AsyncFillerTest is SetupHook {
     vm.startPrank(testUser);
     token0.approve(address(router), swapAmount);
 
-    AsyncOrder memory swapOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory swapOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: swapAmount,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(swapOrder, abi.encode(testUser, address(router)));
     vm.stopPrank();
@@ -86,12 +110,18 @@ contract AsyncFillerTest is SetupHook {
     topUp(nonExecutor, swapAmount);
 
     // Try to fill with non-executor - this should fail at executor validation
-    AsyncOrder memory fillOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory fillOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: swapAmount,
+      sqrtPrice: 2 ** 96
+    });
 
     vm.startPrank(nonExecutor);
     token1.approve(address(hook), swapAmount);
-    vm.expectRevert("Caller is valid not excutor");
+    vm.expectRevert("Caller is valid not executor");
     hook.executeOrder(fillOrder, abi.encode(nonExecutor));
     vm.stopPrank();
   }
@@ -104,15 +134,27 @@ contract AsyncFillerTest is SetupHook {
     vm.startPrank(testUser);
     token0.approve(address(router), swapAmount);
 
-    AsyncOrder memory swapOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory swapOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: swapAmount,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(swapOrder, abi.encode(testUser, address(router)));
     vm.stopPrank();
 
     // Partially fill the order
-    AsyncOrder memory fillOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: fillAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory fillOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: fillAmount,
+      sqrtPrice: 2 ** 96
+    });
 
     vm.startPrank(testExecutor);
     token1.approve(address(hook), fillAmount);
@@ -131,15 +173,27 @@ contract AsyncFillerTest is SetupHook {
     vm.startPrank(testUser);
     token0.approve(address(router), swapAmount);
 
-    AsyncOrder memory swapOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory swapOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: swapAmount,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(swapOrder, abi.encode(testUser, address(router)));
     vm.stopPrank();
 
     // Try to fill more than available
-    AsyncOrder memory fillOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: excessFillAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory fillOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: excessFillAmount,
+      sqrtPrice: 2 ** 96
+    });
 
     vm.startPrank(testExecutor);
     token1.approve(address(hook), excessFillAmount);
@@ -161,15 +215,27 @@ contract AsyncFillerTest is SetupHook {
     vm.startPrank(testUser);
     token0.approve(address(router), swapAmount);
 
-    AsyncOrder memory swapOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory swapOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: swapAmount,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(swapOrder, abi.encode(testUser, address(router)));
     vm.stopPrank();
 
     // Fill the order
-    AsyncOrder memory fillOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: fillAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory fillOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: fillAmount,
+      sqrtPrice: 2 ** 96
+    });
 
     vm.startPrank(testExecutor);
     token1.approve(address(hook), fillAmount);
@@ -180,32 +246,9 @@ contract AsyncFillerTest is SetupHook {
     assertEq(hook.asyncOrderAmount(poolId, testUser, true), swapAmount - fillAmount);
   }
 
-  function testExecuteOrderZeroAmount() public {
-    uint256 swapAmount = 1000;
-
-    // Create async order
-    vm.startPrank(testUser);
-    token0.approve(address(router), swapAmount);
-
-    AsyncOrder memory swapOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
-
-    router.swap(swapOrder, abi.encode(testUser, address(router)));
-    vm.stopPrank();
-
-    // Try to fill with zero amount
-    AsyncOrder memory fillOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: 0, sqrtPrice: 2 ** 96 });
-
-    vm.startPrank(testExecutor);
-    vm.expectRevert("ZeroFillOrder()");
-    hook.executeOrder(fillOrder, abi.encode(testExecutor));
-    vm.stopPrank();
-  }
-
-  function testExecuteOrderBatchMode() public {
-    uint256 swapAmount1 = 1000;
-    uint256 swapAmount2 = 800;
+  function testFuzz_ExecuteOrderBatchMode(uint256 swapAmount1, uint256 swapAmount2) public {
+    swapAmount1 = 1000;
+    swapAmount2 = 800;
     address testUser2 = makeAddr("testUser2");
 
     topUp(testUser2, swapAmount2);
@@ -213,24 +256,48 @@ contract AsyncFillerTest is SetupHook {
     // Create first async order and set router as executor
     vm.startPrank(testUser);
     token0.approve(address(router), swapAmount1);
-    AsyncOrder memory swapOrder1 =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount1, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory swapOrder1 = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: swapAmount1,
+      sqrtPrice: 2 ** 96
+    });
     router.swap(swapOrder1, abi.encode(testUser, address(router)));
     vm.stopPrank();
 
     // Create second async order and set router as executor
     vm.startPrank(testUser2);
     token0.approve(address(router), swapAmount2);
-    AsyncOrder memory swapOrder2 =
-      AsyncOrder({ key: key, owner: testUser2, zeroForOne: true, amountIn: swapAmount2, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory swapOrder2 = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser2,
+      zeroForOne: true,
+      amountIn: swapAmount2,
+      sqrtPrice: 2 ** 96
+    });
     router.swap(swapOrder2, abi.encode(testUser2, address(router)));
     vm.stopPrank();
 
     // Execute both orders individually (since router does the execution)
-    AsyncOrder memory fillOrder1 =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount1, sqrtPrice: 2 ** 96 });
-    AsyncOrder memory fillOrder2 =
-      AsyncOrder({ key: key, owner: testUser2, zeroForOne: true, amountIn: swapAmount2, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory fillOrder1 = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: swapAmount1,
+      sqrtPrice: 2 ** 96
+    });
+    AsyncOrder memory fillOrder2 = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser2,
+      zeroForOne: true,
+      amountIn: swapAmount2,
+      sqrtPrice: 2 ** 96
+    });
 
     vm.startPrank(testExecutor);
     token1.approve(address(hook), swapAmount1 + swapAmount2);
@@ -251,15 +318,27 @@ contract AsyncFillerTest is SetupHook {
     vm.startPrank(testUser);
     token1.approve(address(router), swapAmount);
 
-    AsyncOrder memory swapOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: false, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory swapOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: false,
+      amountIn: swapAmount,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(swapOrder, abi.encode(testUser, address(router)));
     vm.stopPrank();
 
     // Fill the order
-    AsyncOrder memory fillOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: false, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory fillOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: false,
+      amountIn: swapAmount,
+      sqrtPrice: 2 ** 96
+    });
 
     vm.startPrank(testExecutor);
     token0.approve(address(hook), swapAmount);

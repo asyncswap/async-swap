@@ -22,8 +22,14 @@ contract WithdralTest is SetupHook {
     amountIn = bound(amountIn, 1, 1 ether);
     Currency specified = zeroForOne ? key.currency0 : key.currency1;
 
-    AsyncOrder memory order =
-      AsyncOrder({ key: key, owner: user, zeroForOne: zeroForOne, amountIn: amountIn, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory order = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: user,
+      zeroForOne: zeroForOne,
+      amountIn: amountIn,
+      sqrtPrice: 2 ** 96
+    });
 
     vm.startPrank(user);
     _makeOrder(user, order);

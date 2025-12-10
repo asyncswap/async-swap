@@ -26,8 +26,14 @@ contract RouterTest is SetupHook {
     vm.startPrank(testUser);
     token0.approve(address(router), swapAmount);
 
-    AsyncOrder memory swapOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory swapOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: swapAmount,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(swapOrder, abi.encode(testUser, address(router)));
     vm.stopPrank();
@@ -43,8 +49,14 @@ contract RouterTest is SetupHook {
     vm.startPrank(testUser);
     token0.approve(address(router), swapAmount);
 
-    AsyncOrder memory swapOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory swapOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: swapAmount,
+      sqrtPrice: 2 ** 96
+    });
 
     vm.expectRevert("Use router as your executor!");
     router.swap(swapOrder, abi.encode(testUser, invalidExecutor));
@@ -58,15 +70,27 @@ contract RouterTest is SetupHook {
     vm.startPrank(testUser);
     token0.approve(address(router), swapAmount);
 
-    AsyncOrder memory swapOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory swapOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: swapAmount,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(swapOrder, abi.encode(testUser, address(router)));
     vm.stopPrank();
 
     // Now fill the order
-    AsyncOrder memory fillOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory fillOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: swapAmount,
+      sqrtPrice: 2 ** 96
+    });
 
     vm.startPrank(testUser2);
     token1.approve(address(hook), swapAmount);
@@ -90,6 +114,7 @@ contract RouterTest is SetupHook {
     token1.approve(address(router), swapAmount);
 
     AsyncOrder memory swapOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
       key: key,
       owner: testUser,
       zeroForOne: false, // currency1 to currency0
@@ -112,15 +137,27 @@ contract RouterTest is SetupHook {
     vm.startPrank(testUser);
     token1.approve(address(router), swapAmount);
 
-    AsyncOrder memory swapOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: false, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory swapOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: false,
+      amountIn: swapAmount,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(swapOrder, abi.encode(testUser, address(router)));
     vm.stopPrank();
 
     // Now fill the order (need to provide currency0)
-    AsyncOrder memory fillOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: false, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory fillOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: false,
+      amountIn: swapAmount,
+      sqrtPrice: 2 ** 96
+    });
 
     vm.startPrank(testUser2);
     token0.approve(address(hook), swapAmount);
@@ -147,8 +184,14 @@ contract RouterTest is SetupHook {
     vm.startPrank(testUser);
     token0.approve(address(router), swapAmount1);
 
-    AsyncOrder memory swapOrder1 =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount1, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory swapOrder1 = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: swapAmount1,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(swapOrder1, abi.encode(testUser, address(router)));
     vm.stopPrank();
@@ -157,8 +200,14 @@ contract RouterTest is SetupHook {
     vm.startPrank(testUser);
     token0.approve(address(router), swapAmount2);
 
-    AsyncOrder memory swapOrder2 =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount2, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory swapOrder2 = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: swapAmount2,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(swapOrder2, abi.encode(testUser, address(router)));
     vm.stopPrank();
@@ -167,8 +216,14 @@ contract RouterTest is SetupHook {
     assertEq(hook.asyncOrderAmount(poolId, testUser, true), swapAmount1 + swapAmount2);
 
     // Fill partial amount
-    AsyncOrder memory fillOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount1, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory fillOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: swapAmount1,
+      sqrtPrice: 2 ** 96
+    });
 
     vm.startPrank(testUser2);
     token1.approve(address(hook), swapAmount1);
@@ -179,8 +234,14 @@ contract RouterTest is SetupHook {
     assertEq(hook.asyncOrderAmount(poolId, testUser, true), swapAmount2);
 
     // Fill remaining
-    AsyncOrder memory fillOrder2 =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount2, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory fillOrder2 = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: swapAmount2,
+      sqrtPrice: 2 ** 96
+    });
 
     vm.startPrank(testUser2);
     token1.approve(address(hook), swapAmount2);
@@ -199,8 +260,14 @@ contract RouterTest is SetupHook {
     vm.startPrank(testUser);
     token0.approve(address(router), swapAmount);
 
-    AsyncOrder memory swapOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory swapOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: swapAmount,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(swapOrder, abi.encode(testUser, address(router)));
     vm.stopPrank();
@@ -217,8 +284,14 @@ contract RouterTest is SetupHook {
     vm.startPrank(testUser);
     token0.approve(address(router), swapAmount);
 
-    AsyncOrder memory swapOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory swapOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: swapAmount,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(swapOrder, abi.encode(testUser, address(router)));
     vm.stopPrank();
@@ -228,8 +301,14 @@ contract RouterTest is SetupHook {
     uint256 fillerBalance1Before = token1.balanceOf(testUser2);
 
     // Fill order
-    AsyncOrder memory fillOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory fillOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: swapAmount,
+      sqrtPrice: 2 ** 96
+    });
 
     vm.startPrank(testUser2);
     token1.approve(address(hook), swapAmount);
@@ -255,8 +334,14 @@ contract RouterTest is SetupHook {
       token1.approve(address(router), amount);
     }
 
-    AsyncOrder memory swapOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: zeroForOne, amountIn: amount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory swapOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: zeroForOne,
+      amountIn: amount,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(swapOrder, abi.encode(testUser, address(router)));
     vm.stopPrank();
