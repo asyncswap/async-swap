@@ -6,10 +6,8 @@ import { IRouter } from "@async-swap/interfaces/IRouter.sol";
 import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
 import { CurrencySettler } from "@uniswap/v4-core/test/utils/CurrencySettler.sol";
 import { IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
-import { IERC20Minimal } from "v4-core/interfaces/external/IERC20Minimal.sol";
 import { SafeCast } from "v4-core/libraries/SafeCast.sol";
 import { Currency, CurrencyLibrary } from "v4-core/types/Currency.sol";
-import { PoolId } from "v4-core/types/PoolId.sol";
 import { PoolKey } from "v4-core/types/PoolKey.sol";
 
 /// @title Router Contract
@@ -62,7 +60,7 @@ contract Router is IRouter {
       tstore(ASYNC_FILLER_LOCATION, onBehalf)
     }
 
-    POOLMANAGER.unlock(abi.encode(SwapCallback(ActionType.Swap, order)));
+    POOLMANAGER.unlock(abi.encode(SwapCallback({ action: ActionType.Swap, order: order })));
   }
 
   /// @inheritdoc IRouter
@@ -74,7 +72,7 @@ contract Router is IRouter {
       tstore(ASYNC_FILLER_LOCATION, onBehalf)
     }
 
-    POOLMANAGER.unlock(abi.encode(SwapCallback(ActionType.FillOrder, order)));
+    POOLMANAGER.unlock(abi.encode(SwapCallback({ action: ActionType.FillOrder, order: order })));
   }
 
   function withdraw(PoolKey memory key, bool zeroForOne, uint256 amount) external {
@@ -84,7 +82,13 @@ contract Router is IRouter {
       tstore(ASYNC_FILLER_LOCATION, onBehalf)
     }
 
-    POOLMANAGER.unlock(abi.encode(WithdrawCallback(ActionType.Withdrawal, key, zeroForOne, amount, msg.sender)));
+    POOLMANAGER.unlock(
+      abi.encode(
+        WithdrawCallback({
+          action: ActionType.Withdrawal, key: key, zeroForOne: zeroForOne, amount: amount, user: msg.sender
+        })
+      )
+    );
   }
 
   /// Callback handler to unlock the PoolManager after a swap or fill order.
