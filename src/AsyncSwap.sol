@@ -28,7 +28,7 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
 
   /// @notice Mapping to store async orders.
   mapping(PoolId poolId => AsyncFiller.State) public asyncOrders;
-  /// Ordering algortim
+  /// Ordering algorithm
   IAlgorithm public immutable ALGORITHM;
   mapping(uint256 block => uint256 volatility) public kvolatility;
 
