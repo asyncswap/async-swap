@@ -183,7 +183,7 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
   ) internal override returns (bytes4, BeforeSwapDelta, uint24) {
     /// @dev Async swaps only work for exact-input swaps
     if (params.amountSpecified > 0) {
-      revert("Hook only support ExectInput Amount");
+      revert("Hook only support ExactInput Amount");
     }
 
     PoolId poolId = key.toId();
