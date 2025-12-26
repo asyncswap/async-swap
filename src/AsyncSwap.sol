@@ -118,21 +118,106 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
   }
 
   /// @inheritdoc IAsyncSwapAMM
-  function executeOrders(AsyncOrder[] calldata orders, bytes calldata userParams) external {
-    /// Sort poolIDs
-    /// Order swaps by poolId
+  function batch(
+    AsyncOrder[] calldata buys,
+    AsyncOrder[] calldata sells,
+    bytes[] calldata buysData,
+    bytes[] calldata sellsData
+  ) external {
+    uint256 buysLength = buys.length;
+    uint256 sellsLength = sells.length;
+    uint256 buysDataLength = buysData.length;
+    uint256 sellsDataLength = sellsData.length;
 
-    // uint256 volatility = ALGORITHM.getVolatility(orders);
-    for (uint8 i = 0; i < orders.length; i++) {
-      AsyncOrder calldata order = orders[i];
-      // Use transaction ordering algorithm to ensure correct execution order
-      asyncOrders[order.key.toId()].algorithm.orderingRule(order.zeroForOne, uint256(order.amountIn));
-      this.executeOrder(order, userParams);
+    // check order length
+    if (buysLength + sellsLength == 0) return;
+    assert(buysDataLength == buysLength);
+    assert(sellsDataLength == buysLength);
+
+    // assert buys and sells are sorted
+    assert(!buys[0].zeroForOne);
+    for (uint256 i = 1; i < buys.length; i++) {
+      assert(!buys[i].zeroForOne);
+      assert(buys[i - 1].amountIn <= buys[i].amountIn);
+    }
+    assert(buys[0].zeroForOne);
+    for (uint256 i = 1; i < buys.length; i++) {
+      assert(buys[i].zeroForOne);
+      assert(sells[i - 1].amountIn <= sells[i].amountIn);
+    }
+
+    AsyncOrder memory order;
+    uint256 buyIndex;
+    uint256 sellIndex;
+
+    // pick first order
+    if (buysLength == 0) {
+      if (sellsLength > 0) {
+        order = sells[0];
+        sellIndex += 1;
+        assert(order.zeroForOne);
+      }
+    }
+    if (sellsLength == 0) {
+      if (buysLength > 0) {
+        order = buys[0];
+        buyIndex += 1;
+        assert(!order.zeroForOne);
+      }
+    }
+    if (buysLength > 0 && sellsLength > 0) {
+      if (buys[0].amountIn < sells[0].amountIn) {
+        order = buys[0];
+        buyIndex += 1;
+      } else {
+        order = sells[0];
+        sellIndex += 1;
+      }
+    }
+
+    int256 cumulative;
+    // pick next order
+    while (sellIndex <= sellsLength || buyIndex <= buysLength) {
+      // process current order
+      this.executeOrder(order, order.zeroForOne ? sellsData[sellIndex - 1] : buysData[buyIndex - 1]);
+
+      if (order.zeroForOne) {
+        cumulative += order.amountIn.toInt256();
+        buyIndex += 1;
+      } else {
+        cumulative -= order.amountIn.toInt256();
+        sellIndex += 1;
+      }
+
+      if (cumulative > 0) {
+        if (sellIndex < sellsLength) {
+          order = sells[sellIndex];
+          sellIndex += 1;
+        } else {
+          if (buyIndex < buysLength) {
+            order = buys[buyIndex];
+            buyIndex += 1;
+          } else {
+            return;
+          }
+        }
+      } else {
+        if (buyIndex < buysLength) {
+          order = buys[buyIndex];
+          buyIndex += 1;
+        } else {
+          if (sellIndex < sellsLength) {
+            order = sells[sellIndex];
+            sellIndex += 1;
+          } else {
+            return;
+          }
+        }
+      }
     }
   }
 
-  /// @inheritdoc IAsyncSwapAMM
-  function executeOrder(AsyncOrder calldata order, bytes calldata fillerData) external {
+  function executeOrder(AsyncOrder memory order, bytes calldata fillerData) external {
     address owner = order.owner;
     uint256 amountIn = order.amountIn;
     bool zeroForOne = order.zeroForOne;
@@ -142,8 +227,7 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
     address filler = abi.decode(fillerData, (address));
     uint256 deadline = order.deadline;
     if (block.timestamp > deadline) revert OrderExpired();
-    AsyncFiller.State storage state = asyncOrders[poolId];
-    require(order.isExecutor(state, msg.sender), "Caller is valid not executor");
+    require(this.isExecutor(poolId, owner, msg.sender), "Caller is valid not executor");
     if (amountIn == 0) revert ZeroFillOrder();
 
     /// TODO: Document what this does
