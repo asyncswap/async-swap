@@ -169,9 +169,11 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
       if (buys[0].amountIn < sells[0].amountIn) {
         order = buys[0];
         buyIndex += 1;
+        assert(!order.zeroForOne);
       } else {
         order = sells[0];
         sellIndex += 1;
+        assert(order.zeroForOne);
       }
     }
 
@@ -193,10 +195,12 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
         if (sellIndex < sellsLength) {
           order = sells[sellIndex];
           sellIndex += 1;
+          assert(order.zeroForOne);
         } else {
           if (buyIndex < buysLength) {
             order = buys[buyIndex];
             buyIndex += 1;
+            assert(!order.zeroForOne);
           } else {
             return;
           }
@@ -205,10 +209,12 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
         if (buyIndex < buysLength) {
           order = buys[buyIndex];
           buyIndex += 1;
+          assert(!order.zeroForOne);
         } else {
           if (sellIndex < sellsLength) {
             order = sells[sellIndex];
             sellIndex += 1;
+            assert(order.zeroForOne);
           } else {
             return;
           }
