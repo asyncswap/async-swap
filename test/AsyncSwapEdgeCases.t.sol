@@ -3,8 +3,8 @@ pragma solidity ^0.8.13;
 
 import { SetupHook } from "./SetupHook.t.sol";
 import { AsyncSwap } from "@async-swap/AsyncSwap.sol";
-import { AsyncFiller } from "@async-swap/libraries/AsyncFiller.sol";
 import { IAsyncSwapOrder } from "@async-swap/interfaces/IAsyncSwapOrder.sol";
+import { AsyncFiller } from "@async-swap/libraries/AsyncFiller.sol";
 import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
 import { Currency } from "v4-core/interfaces/IPoolManager.sol";
 import { IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
@@ -319,7 +319,8 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
     assertEq(claimableAmount, amount);
   }
 
-  // ─── OrderExpired ──────────────────────────────────────────────────────────
+  // ─── OrderExpired
+  // ──────────────────────────────────────────────────────────
 
   /// @notice fillOrder on an expired order must revert with OrderExpired.
   function testFillOrder_RevertsOrderExpired() public {
@@ -352,7 +353,8 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
     vm.stopPrank();
   }
 
-  // ─── ZeroFillOrder ────────────────────────────────────────────────────────
+  // ─── ZeroFillOrder
+  // ────────────────────────────────────────────────────────
 
   /// @notice executeOrder with amountIn=0 must revert with ZeroFillOrder.
   /// @dev We call hook.executeOrder directly because the router checks amountIn when building params.

@@ -452,9 +452,7 @@ contract AsyncFillerTest is SetupHook {
 
     // 3. Hook's escrowed claims decrease by exactly amountIn (tokens transferred to filler)
     uint256 hookClaimsAfter = manager.balanceOf(address(hook), fillerInputCurrencyId);
-    assertEq(
-      hookClaimsBefore - hookClaimsAfter, amountIn, "Hook ERC-6909 claims must decrease by exactly amountIn"
-    );
+    assertEq(hookClaimsBefore - hookClaimsAfter, amountIn, "Hook ERC-6909 claims must decrease by exactly amountIn");
 
     // 4. Claimable amount for user is now 0
     assertEq(hook.asyncOrderAmount(poolId, testUser, zeroForOne), 0, "Claimable must be zero after full fill");

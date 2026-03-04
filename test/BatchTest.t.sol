@@ -17,7 +17,8 @@ contract BatchTest is SetupHook {
     topUp(batchUser, 10 ether);
   }
 
-  // ─── helpers ─────────────────────────────────────────────────────────────
+  // ─── helpers
+  // ─────────────────────────────────────────────────────────────
 
   function _buy(uint256 amt) internal view returns (AsyncOrder memory) {
     return AsyncOrder({
@@ -45,7 +46,8 @@ contract BatchTest is SetupHook {
     });
   }
 
-  // ─── empty batch ─────────────────────────────────────────────────────────
+  // ─── empty batch
+  // ─────────────────────────────────────────────────────────
 
   /// @notice An empty batch (no buys, no sells) is a no-op and must not revert.
   function testBatch_EmptyBatch() public {
@@ -58,7 +60,8 @@ contract BatchTest is SetupHook {
     hook.batch(buys, sells, buysData, sellsData);
   }
 
-  // ─── direction validation ─────────────────────────────────────────────────
+  // ─── direction validation
+  // ─────────────────────────────────────────────────
 
   /// @notice A buy order with zeroForOne=true placed in the buys array must revert.
   function testBatch_RevertsWrongDirectionInBuys() public {
@@ -92,7 +95,8 @@ contract BatchTest is SetupHook {
     hook.batch(buys, sells, buysData, sellsData);
   }
 
-  // ─── sort validation ──────────────────────────────────────────────────────
+  // ─── sort validation
+  // ──────────────────────────────────────────────────────
 
   /// @notice Buys array not sorted ascending by amountIn must revert.
   function testBatch_RevertsUnsortedBuys() public {
@@ -126,7 +130,8 @@ contract BatchTest is SetupHook {
     hook.batch(buys, sells, buysData, sellsData);
   }
 
-  // ─── data length mismatch ─────────────────────────────────────────────────
+  // ─── data length mismatch
+  // ─────────────────────────────────────────────────
 
   /// @notice Mismatched buysData length must revert.
   function testBatch_RevertsBuysDataLengthMismatch() public {
