@@ -60,19 +60,24 @@ contract Router is IRouter {
       tstore(ASYNC_FILLER_LOCATION, onBehalf)
     }
 
-    POOLMANAGER.unlock(abi.encode(SwapCallback({ action: ActionType.Swap, order: order })));
+    // Use minAmountOut as default for swap (not used in swap callback, but semantically meaningful)
+    POOLMANAGER.unlock(
+      abi.encode(SwapCallback({ action: ActionType.Swap, order: order, amountOut: order.minAmountOut }))
+    );
   }
 
   /// @inheritdoc IRouter
-  function fillOrder(AsyncOrder calldata order, bytes calldata) external payable {
+  function fillOrder(AsyncOrder calldata order, bytes calldata userData) external payable {
     address onBehalf = address(this);
+    // Decode the amount the filler is willing to provide
+    uint256 amountOut = abi.decode(userData, (uint256));
     assembly ("memory-safe") {
       tstore(USER_LOCATION, caller())
       /// force the async filler to be this router, otherwise could be a user parameter
       tstore(ASYNC_FILLER_LOCATION, onBehalf)
     }
 
-    POOLMANAGER.unlock(abi.encode(SwapCallback({ action: ActionType.FillOrder, order: order })));
+    POOLMANAGER.unlock(abi.encode(SwapCallback({ action: ActionType.FillOrder, order: order, amountOut: amountOut })));
   }
 
   function withdraw(PoolKey memory key, bool zeroForOne, uint256 amount) external {
@@ -91,10 +96,31 @@ contract Router is IRouter {
     );
   }
 
+  /// @inheritdoc IRouter
+  function multicall(AsyncOrder[] calldata orders, bytes[] calldata ordersData)
+    external
+    payable
+    returns (bool[] memory results)
+  {
+    address onBehalf = address(this);
+    assembly ("memory-safe") {
+      tstore(USER_LOCATION, caller())
+      tstore(ASYNC_FILLER_LOCATION, onBehalf)
+    }
+
+    bytes memory returnData = POOLMANAGER.unlock(
+      abi.encode(MulticallCallback({ action: ActionType.Multicall, orders: orders, ordersData: ordersData }))
+    );
+
+    results = abi.decode(returnData, (bool[]));
+    return results;
+  }
+
   /// Callback handler to unlock the PoolManager after a swap or fill order.
   /// @param data The callback data containing the action type and order information.
   /// @return Data to return back to the PoolManager after unlock.
   function unlockCallback(bytes calldata data) external onlyPoolManager returns (bytes memory) {
+    // Use assembly to get action for non-Multicall callbacks
     uint8 action;
     address user;
     address asyncFiller;
@@ -104,6 +130,20 @@ contract Router is IRouter {
       action := tload(ACTION_LOCATION)
       user := tload(USER_LOCATION)
       asyncFiller := tload(ASYNC_FILLER_LOCATION)
+    }
+
+    // Check if this is a Multicall action (3)
+    // For Multicall, the action is at a different offset due to array encoding
+    // Try to detect Multicall by checking if assembly-extracted action >= 3
+    // or if data suggests it's a Multicall structure
+    if (action >= 3 || data.length > 1000) {
+      // Multicall has large data with arrays
+      // Try decoding as MulticallCallback
+      try this._tryMulticall(data) returns (bool[] memory results) {
+        return abi.encode(results);
+      } catch {
+        // Not a multicall, continue with normal flow
+      }
     }
 
     /// @dev Handle Swap
@@ -126,20 +166,13 @@ contract Router is IRouter {
     /// @dev FillingOrder
     if (action == 1) {
       SwapCallback memory orderData = abi.decode(data, (SwapCallback));
-      Currency currencyFill;
-      Currency currencyTake;
-      if (orderData.order.zeroForOne) {
-        currencyFill = orderData.order.key.currency1;
-        currencyTake = orderData.order.key.currency0;
-      } else {
-        currencyFill = orderData.order.key.currency0;
-        currencyTake = orderData.order.key.currency1;
-      }
-      // pay order
-      // assert(IERC20Minimal(Currency.unwrap(currencyFill)).transferFrom(user, address(HOOK),
-      // orderData.order.amountIn));
-      HOOK.executeOrder(orderData.order, abi.encode(user));
-      // currencyTake.take(POOLMANAGER, user, orderData.order.amountIn, false);
+      // Execute order — hook validates, updates state, and transfers user's escrowed tokens to filler
+      (Currency currencyFill, uint256 amountOut) =
+        HOOK.executeOrder(orderData.order, abi.encode(user, orderData.amountOut));
+      // Router settles filler's output tokens into the PoolManager first (creates +delta for router)
+      currencyFill.settle(POOLMANAGER, user, amountOut, false);
+      // Router transfers output tokens to order owner as ERC20 (-delta cancels +delta)
+      currencyFill.take(POOLMANAGER, orderData.order.owner, amountOut, false);
     }
 
     /// @notice Handle withdrawals
@@ -149,6 +182,37 @@ contract Router is IRouter {
     }
 
     return "";
+  }
+
+  /// @notice Internal function to try decoding and executing as multicall
+  /// @dev This is external to enable try-catch, but should only be called by this contract
+  function _tryMulticall(bytes calldata data) external returns (bool[] memory results) {
+    require(msg.sender == address(this), "Only router can call");
+    MulticallCallback memory multicallData = abi.decode(data, (MulticallCallback));
+
+    // Verify it's actually a Multicall action
+    require(multicallData.action == ActionType.Multicall, "Not a multicall");
+
+    uint256 ordersLength = multicallData.orders.length;
+    results = new bool[](ordersLength);
+
+    for (uint256 i = 0; i < ordersLength; i++) {
+      // Each order is attempted; decode filler address from ordersData for settlement
+      (address filler,) = abi.decode(multicallData.ordersData[i], (address, uint256));
+      try HOOK.executeOrder(multicallData.orders[i], multicallData.ordersData[i]) returns (
+        Currency currencyFill, uint256 settleAmount
+      ) {
+        // Settle filler's output tokens into PoolManager (+delta for router)
+        currencyFill.settle(POOLMANAGER, filler, settleAmount, false);
+        // Transfer output tokens to order owner as ERC20 (-delta cancels +delta)
+        currencyFill.take(POOLMANAGER, multicallData.orders[i].owner, settleAmount, false);
+        results[i] = true;
+      } catch {
+        results[i] = false;
+      }
+    }
+
+    return results;
   }
 
 }

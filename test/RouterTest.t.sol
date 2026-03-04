@@ -32,6 +32,8 @@ contract RouterTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
@@ -55,6 +57,8 @@ contract RouterTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
@@ -76,6 +80,8 @@ contract RouterTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
@@ -89,12 +95,14 @@ contract RouterTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
     vm.startPrank(testUser2);
-    token1.approve(address(hook), swapAmount);
-    router.fillOrder(fillOrder, abi.encode(testUser2));
+    token1.approve(address(router), swapAmount);
+    router.fillOrder(fillOrder, abi.encode(fillOrder.amountIn));
     vm.stopPrank();
 
     // Verify order was filled
@@ -119,6 +127,8 @@ contract RouterTest is SetupHook {
       owner: testUser,
       zeroForOne: false, // currency1 to currency0
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
@@ -143,6 +153,8 @@ contract RouterTest is SetupHook {
       owner: testUser,
       zeroForOne: false,
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
@@ -156,12 +168,14 @@ contract RouterTest is SetupHook {
       owner: testUser,
       zeroForOne: false,
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
     vm.startPrank(testUser2);
-    token0.approve(address(hook), swapAmount);
-    router.fillOrder(fillOrder, abi.encode(testUser2));
+    token0.approve(address(router), swapAmount);
+    router.fillOrder(fillOrder, abi.encode(fillOrder.amountIn));
     vm.stopPrank();
 
     // Verify order was filled
@@ -190,6 +204,8 @@ contract RouterTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: swapAmount1,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
@@ -206,6 +222,8 @@ contract RouterTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: swapAmount2,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
@@ -222,12 +240,14 @@ contract RouterTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: swapAmount1,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
     vm.startPrank(testUser2);
-    token1.approve(address(hook), swapAmount1);
-    router.fillOrder(fillOrder, abi.encode(testUser2));
+    token1.approve(address(router), swapAmount1);
+    router.fillOrder(fillOrder, abi.encode(fillOrder.amountIn));
     vm.stopPrank();
 
     // Verify partial fill
@@ -240,12 +260,14 @@ contract RouterTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: swapAmount2,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
     vm.startPrank(testUser2);
-    token1.approve(address(hook), swapAmount2);
-    router.fillOrder(fillOrder2, abi.encode(testUser2));
+    token1.approve(address(router), swapAmount2);
+    router.fillOrder(fillOrder2, abi.encode(fillOrder2.amountIn));
     vm.stopPrank();
 
     // Verify complete fill
@@ -266,6 +288,8 @@ contract RouterTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
@@ -290,6 +314,8 @@ contract RouterTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
@@ -299,6 +325,7 @@ contract RouterTest is SetupHook {
     // Record balances before fill
     uint256 fillerBalance0Before = token0.balanceOf(testUser2);
     uint256 fillerBalance1Before = token1.balanceOf(testUser2);
+    uint256 userBalance1Before = token1.balanceOf(testUser);
 
     // Fill order
     AsyncOrder memory fillOrder = AsyncOrder({
@@ -307,18 +334,22 @@ contract RouterTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
     vm.startPrank(testUser2);
-    token1.approve(address(hook), swapAmount);
-    router.fillOrder(fillOrder, abi.encode(testUser2));
+    token1.approve(address(router), swapAmount);
+    router.fillOrder(fillOrder, abi.encode(fillOrder.amountIn));
     vm.stopPrank();
 
     // Verify balance changes
+    // Filler (testUser2): paid swapAmount of token1, received ERC-6909 claims of token0
     assertEq(token1.balanceOf(testUser2), fillerBalance1Before - swapAmount);
-    assertEq(token0.balanceOf(testUser2), fillerBalance0Before); // Should be unchanged
-    assertEq(manager.balanceOf(testUser, currency1.toId()), uint256(swapAmount));
+    assertEq(token0.balanceOf(testUser2), fillerBalance0Before); // ERC20 unchanged; claims received via PoolManager
+    // User (testUser): received swapAmount of token1 as ERC20 (delta from initial balance)
+    assertEq(token1.balanceOf(testUser) - userBalance1Before, uint256(swapAmount));
   }
 
   function testFuzzSwapAmounts(uint256 amount, bool zeroForOne) public {
@@ -340,6 +371,8 @@ contract RouterTest is SetupHook {
       owner: testUser,
       zeroForOne: zeroForOne,
       amountIn: amount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 

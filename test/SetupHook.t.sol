@@ -35,7 +35,7 @@ contract SetupHook is Test {
     deployRouter();
     deployTokens();
     createKey();
-    intializePool();
+    initializePool();
     mint();
   }
 
@@ -65,7 +65,7 @@ contract SetupHook is Test {
     manager = new PoolManager(owner);
   }
 
-  function intializePool() public {
+  function initializePool() public {
     manager.initialize(key, 2 ** 96);
   }
 

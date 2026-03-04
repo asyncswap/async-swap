@@ -41,12 +41,14 @@ contract AsyncSwapTest is SetupHook {
 
   function fillOrder(address _user, AsyncOrder memory order) public {
     vm.startPrank(_user);
+    // For tests, use 1:1 ratio (amountOut = amountIn)
+    uint256 amountOut = order.amountIn;
     if (order.zeroForOne) {
-      token1.approve(address(hook), order.amountIn);
+      token1.approve(address(router), amountOut);
     } else {
-      token0.approve(address(hook), order.amountIn);
+      token0.approve(address(router), amountOut);
     }
-    router.fillOrder(order, abi.encode(_user));
+    router.fillOrder(order, abi.encode(amountOut));
     vm.stopPrank();
   }
 
@@ -63,6 +65,8 @@ contract AsyncSwapTest is SetupHook {
       owner: user,
       zeroForOne: zeroForOne,
       amountIn: amountIn,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
@@ -88,6 +92,9 @@ contract AsyncSwapTest is SetupHook {
     balance0Before = currency0.balanceOf(user2);
     balance1Before = currency1.balanceOf(user2);
 
+    // Record user's output balance before fill (user may already have tokens from topUp)
+    uint256 userOutputBefore = zeroForOne ? currency1.balanceOf(user) : currency0.balanceOf(user);
+
     // fill
     fillOrder(user2, order);
 
@@ -103,10 +110,11 @@ contract AsyncSwapTest is SetupHook {
       assertEq(balance0Before - balance0After, amountIn);
       assertEq(hook.asyncOrderAmount(poolId, user, zeroForOne), 0);
     }
+    // User receives output as ERC20 (take with claims=false) — check delta
     if (zeroForOne) {
-      assertEq(manager.balanceOf(user, currency1.toId()), uint256(amountIn));
+      assertEq(currency1.balanceOf(user) - userOutputBefore, uint256(amountIn));
     } else {
-      assertEq(manager.balanceOf(user, currency0.toId()), uint256(amountIn));
+      assertEq(currency0.balanceOf(user) - userOutputBefore, uint256(amountIn));
     }
   }
 
@@ -131,6 +139,8 @@ contract AsyncSwapTest is SetupHook {
       owner: user,
       zeroForOne: zeroForOne,
       amountIn: amount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 

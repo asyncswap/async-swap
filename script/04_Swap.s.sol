@@ -31,7 +31,7 @@ contract SwapScript is FFIHelper {
 
     uint256 amount = 100;
     bool zeroForOne = true;
-    order = AsyncOrder(key, OWNER, zeroForOne, amount, 2 ** 96, block.timestamp + 1 hours);
+    order = AsyncOrder(key, OWNER, zeroForOne, amount, 0, 0, 2 ** 96, block.timestamp + 1 hours);
 
     if (zeroForOne) {
       IERC20Minimal(Currency.unwrap(order.key.currency0)).approve(address(router), uint256(amount));

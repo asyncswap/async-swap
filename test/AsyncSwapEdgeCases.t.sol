@@ -60,6 +60,8 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
@@ -86,6 +88,8 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: 1000,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
@@ -109,6 +113,8 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: 500, // This will be converted to positive internally and should fail
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
@@ -140,6 +146,8 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
         owner: testUser,
         zeroForOne: true,
         amountIn: amountPerOrder,
+        minAmountOut: 0,
+        maxAmountIn: 0,
         sqrtPrice: 2 ** 96
       });
 
@@ -160,6 +168,8 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
         owner: testUser,
         zeroForOne: true,
         amountIn: amountPerOrder,
+        minAmountOut: 0,
+        maxAmountIn: 0,
         sqrtPrice: 2 ** 96
       });
     }
@@ -172,12 +182,14 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
         owner: testUser,
         zeroForOne: true,
         amountIn: amountPerOrder,
+        minAmountOut: 0,
+        maxAmountIn: 0,
         sqrtPrice: 2 ** 96
       });
 
       vm.startPrank(testExecutor);
-      token1.approve(address(hook), amountPerOrder);
-      router.fillOrder(fillOrder, abi.encode(address(testExecutor)));
+      token1.approve(address(router), amountPerOrder);
+      router.fillOrder(fillOrder, abi.encode(fillOrder.amountIn));
       vm.stopPrank();
     }
 
@@ -198,6 +210,8 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
@@ -227,6 +241,8 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
       owner: testUser,
       zeroForOne: false, // currency1 to currency0
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
@@ -290,6 +306,8 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: amount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 

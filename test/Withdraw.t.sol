@@ -28,6 +28,8 @@ contract WithdralTest is SetupHook {
       owner: user,
       zeroForOne: zeroForOne,
       amountIn: amountIn,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 

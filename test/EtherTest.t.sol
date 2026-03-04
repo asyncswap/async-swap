@@ -74,6 +74,8 @@ contract EtherTest is SetupHook {
       owner: alice,
       zeroForOne: zeroForOne,
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96,
       deadline: block.timestamp + 1 hours
     });
@@ -108,6 +110,8 @@ contract EtherTest is SetupHook {
       owner: alice,
       zeroForOne: true,
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
@@ -115,17 +119,20 @@ contract EtherTest is SetupHook {
     vm.stopPrank();
     assertEq(manager.balanceOf(address(hook), currency0.toId()), 1 ether);
 
+    // Record alice's token1 balance before fill
+    uint256 aliceToken1Before = token1.balanceOf(alice);
+
     // Bob fills Alice's order with token1
     vm.startPrank(bob);
-    token1.approve(address(hook), swapAmount);
-    router.fillOrder(aliceOrder, "");
+    token1.approve(address(router), swapAmount);
+    router.fillOrder(aliceOrder, abi.encode(aliceOrder.amountIn));
     vm.stopPrank();
 
     // Verify order completion
     assertEq(hook.asyncOrderAmount(poolId, alice, true), 0);
 
-    // Alice should have received token1 in the pool manager
-    assertEq(manager.balanceOf(alice, currency1.toId()), swapAmount);
+    // Alice receives token1 as ERC20 (delta), bob receives ETH as ERC-6909 claims
+    assertEq(token1.balanceOf(alice) - aliceToken1Before, swapAmount);
     assertEq(manager.balanceOf(bob, currency0.toId()), swapAmount);
   }
 
@@ -140,6 +147,8 @@ contract EtherTest is SetupHook {
       owner: alice,
       zeroForOne: true,
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 4295128740
     });
 

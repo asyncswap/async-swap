@@ -30,6 +30,8 @@ contract AsyncFillerTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: 1000,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
@@ -58,6 +60,8 @@ contract AsyncFillerTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
@@ -75,12 +79,14 @@ contract AsyncFillerTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
     vm.startPrank(testExecutor);
-    token1.approve(address(hook), swapAmount);
-    router.fillOrder(fillOrder, abi.encode(address(testExecutor)));
+    token1.approve(address(router), swapAmount);
+    router.fillOrder(fillOrder, abi.encode(fillOrder.amountIn));
     vm.stopPrank();
 
     // Verify order was filled
@@ -100,6 +106,8 @@ contract AsyncFillerTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
@@ -116,13 +124,15 @@ contract AsyncFillerTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
     vm.startPrank(nonExecutor);
-    token1.approve(address(hook), swapAmount);
-    vm.expectRevert("Caller is valid not executor");
-    hook.executeOrder(fillOrder, abi.encode(nonExecutor));
+    token1.approve(address(router), swapAmount);
+    vm.expectRevert("Caller is not valid executor");
+    hook.executeOrder(fillOrder, abi.encode(nonExecutor, swapAmount));
     vm.stopPrank();
   }
 
@@ -140,6 +150,8 @@ contract AsyncFillerTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
@@ -153,12 +165,14 @@ contract AsyncFillerTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: fillAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
     vm.startPrank(testExecutor);
-    token1.approve(address(hook), fillAmount);
-    router.fillOrder(fillOrder, abi.encode(address(testExecutor)));
+    token1.approve(address(router), fillAmount);
+    router.fillOrder(fillOrder, abi.encode(fillOrder.amountIn));
     vm.stopPrank();
 
     // Verify partial fill
@@ -179,6 +193,8 @@ contract AsyncFillerTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
@@ -192,13 +208,15 @@ contract AsyncFillerTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: excessFillAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
     vm.startPrank(testExecutor);
-    token1.approve(address(hook), excessFillAmount);
+    token1.approve(address(router), excessFillAmount);
     vm.expectRevert("Max fill order limit exceed");
-    router.fillOrder(fillOrder, abi.encode(address(testExecutor)));
+    router.fillOrder(fillOrder, abi.encode(fillOrder.amountIn));
     vm.stopPrank();
   }
 
@@ -221,6 +239,8 @@ contract AsyncFillerTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
@@ -234,12 +254,14 @@ contract AsyncFillerTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: fillAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
     vm.startPrank(testExecutor);
-    token1.approve(address(hook), fillAmount);
-    router.fillOrder(fillOrder, abi.encode(address(testExecutor)));
+    token1.approve(address(router), fillAmount);
+    router.fillOrder(fillOrder, abi.encode(fillOrder.amountIn));
     vm.stopPrank();
 
     // Verify fill
@@ -262,6 +284,8 @@ contract AsyncFillerTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: swapAmount1,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
     router.swap(swapOrder1, abi.encode(testUser, address(router)));
@@ -276,6 +300,8 @@ contract AsyncFillerTest is SetupHook {
       owner: testUser2,
       zeroForOne: true,
       amountIn: swapAmount2,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
     router.swap(swapOrder2, abi.encode(testUser2, address(router)));
@@ -288,6 +314,8 @@ contract AsyncFillerTest is SetupHook {
       owner: testUser,
       zeroForOne: true,
       amountIn: swapAmount1,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
     AsyncOrder memory fillOrder2 = AsyncOrder({
@@ -296,14 +324,16 @@ contract AsyncFillerTest is SetupHook {
       owner: testUser2,
       zeroForOne: true,
       amountIn: swapAmount2,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
     vm.startPrank(testExecutor);
-    token1.approve(address(hook), swapAmount1 + swapAmount2);
+    token1.approve(address(router), swapAmount1 + swapAmount2);
 
-    router.fillOrder(fillOrder1, abi.encode(address(testExecutor)));
-    router.fillOrder(fillOrder2, abi.encode(address(testExecutor)));
+    router.fillOrder(fillOrder1, abi.encode(fillOrder1.amountIn));
+    router.fillOrder(fillOrder2, abi.encode(fillOrder2.amountIn));
     vm.stopPrank();
 
     // Verify both orders were filled
@@ -324,6 +354,8 @@ contract AsyncFillerTest is SetupHook {
       owner: testUser,
       zeroForOne: false,
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
@@ -337,12 +369,14 @@ contract AsyncFillerTest is SetupHook {
       owner: testUser,
       zeroForOne: false,
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
     vm.startPrank(testExecutor);
-    token0.approve(address(hook), swapAmount);
-    router.fillOrder(fillOrder, abi.encode(address(testExecutor)));
+    token0.approve(address(router), swapAmount);
+    router.fillOrder(fillOrder, abi.encode(fillOrder.amountIn));
     vm.stopPrank();
 
     // Verify order was filled

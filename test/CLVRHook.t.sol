@@ -13,7 +13,7 @@ contract CLVRHookTest is SetupHook {
     algorithm = hook.ALGORITHM();
   }
 
-  /// this should test the intialized algoritm was selected
+  /// this should test the initialized algorithm was selected
   function testCheckSetAlgorithm() public { }
 
   function testExecuteOrderBuy() public {
@@ -42,12 +42,12 @@ contract CLVRHookTest is SetupHook {
     // Example: assertEq(expected, actual, "Error message");
   }
 
-  function testAlogorithmHasName() public view {
+  function testAlgorithmHasName() public view {
     vm.assumeNoRevert();
     algorithm.name();
   }
 
-  function testAlogorithmHasVersion() public view {
+  function testAlgorithmHasVersion() public view {
     vm.assumeNoRevert();
     algorithm.version();
   }

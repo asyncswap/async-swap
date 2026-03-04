@@ -12,6 +12,8 @@ using AsyncFiller for AsyncOrder global;
 /// @param zeroForOne Whether the order is for a swap from currency0 to currency1 (true) or currency1 to currency0
 /// (false).
 /// @param amountIn The amount of the order that is being filled.
+/// @param minAmountOut The minimum amount of output tokens the user is willing to accept (slippage protection).
+/// @param maxAmountIn The maximum amount of input tokens the user is willing to pay (for exact output swaps).
 /// @param sqrtPrice The square root price of the pool at the time of the order.
 /// @param deadline The timestamp after which the order cannot be executed.
 struct AsyncOrder {
@@ -19,6 +21,8 @@ struct AsyncOrder {
   address owner;
   bool zeroForOne;
   uint256 amountIn;
+  uint256 minAmountOut;
+  uint256 maxAmountIn;
   uint160 sqrtPrice;
   uint256 deadline;
 }

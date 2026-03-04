@@ -121,7 +121,7 @@ contract FFIHelper is Script {
     uint256 deadline = uint256(topics[4]);
     PoolKey memory key = _getPoolKey();
 
-    AsyncOrder memory order = AsyncOrder(key, orderData.owner, zeroForOne, amountIn, sqrtPrice, deadline);
+    AsyncOrder memory order = AsyncOrder(key, orderData.owner, zeroForOne, amountIn, 0, 0, sqrtPrice, deadline);
     return order;
   }
 

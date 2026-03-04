@@ -51,6 +51,10 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
   /// @notice Error thrown when liquidity is not supported in this hook.
   error UnsupportedLiquidity();
   error OrderExpired();
+  error SlippageExceeded();
+  error MaxAmountExceeded();
+  /// @notice Error thrown when an order in buys has zeroForOne=true or an order in sells has zeroForOne=false.
+  error InvalidOrderDirection();
 
   /// Initializes the Async Swap Hook contract with the PoolManager address and sets an transaction ordering algorithm.
   /// @param poolManager The address of the PoolManager contract.
@@ -131,19 +135,24 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
 
     // check order length
     if (buysLength + sellsLength == 0) return;
-    assert(buysDataLength == buysLength);
-    assert(sellsDataLength == buysLength);
+    require(buysDataLength == buysLength, "buys data length mismatch");
+    require(sellsDataLength == sellsLength, "sells data length mismatch");
 
-    // assert buys and sells are sorted
-    assert(!buys[0].zeroForOne);
-    for (uint256 i = 1; i < buys.length; i++) {
-      assert(!buys[i].zeroForOne);
-      assert(buys[i - 1].amountIn <= buys[i].amountIn);
+    // reject upfront if any order has wrong zeroForOne direction
+    // buys = zeroForOne=false (buying token0), sells = zeroForOne=true (selling token0)
+    for (uint256 i = 0; i < buysLength; i++) {
+      if (buys[i].zeroForOne) revert InvalidOrderDirection();
     }
-    assert(buys[0].zeroForOne);
-    for (uint256 i = 1; i < buys.length; i++) {
-      assert(buys[i].zeroForOne);
-      assert(sells[i - 1].amountIn <= sells[i].amountIn);
+    for (uint256 i = 0; i < sellsLength; i++) {
+      if (!sells[i].zeroForOne) revert InvalidOrderDirection();
+    }
+
+    // assert buys and sells are sorted ascending by amountIn
+    for (uint256 i = 1; i < buysLength; i++) {
+      require(buys[i - 1].amountIn <= buys[i].amountIn, "buys not sorted");
+    }
+    for (uint256 i = 1; i < sellsLength; i++) {
+      require(sells[i - 1].amountIn <= sells[i].amountIn, "sells not sorted");
     }
 
     AsyncOrder memory order;
@@ -155,66 +164,62 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
       if (sellsLength > 0) {
         order = sells[0];
         sellIndex += 1;
-        assert(order.zeroForOne);
       }
     }
     if (sellsLength == 0) {
       if (buysLength > 0) {
         order = buys[0];
         buyIndex += 1;
-        assert(!order.zeroForOne);
       }
     }
     if (buysLength > 0 && sellsLength > 0) {
       if (buys[0].amountIn < sells[0].amountIn) {
         order = buys[0];
         buyIndex += 1;
-        assert(!order.zeroForOne);
       } else {
         order = sells[0];
         sellIndex += 1;
-        assert(order.zeroForOne);
       }
     }
 
     int256 cumulative;
     // pick next order
-    while (sellIndex <= sellsLength || buyIndex <= buysLength) {
-      // process current order
+    while (sellIndex < sellsLength || buyIndex < buysLength) {
+      // process current order — settlement of fill currency handled by the batch caller
       this.executeOrder(order, order.zeroForOne ? sellsData[sellIndex - 1] : buysData[buyIndex - 1]);
 
       if (order.zeroForOne) {
+        // sell: zeroForOne=true, cumulative increases
         cumulative += order.amountIn.toInt256();
-        buyIndex += 1;
-      } else {
-        cumulative -= order.amountIn.toInt256();
         sellIndex += 1;
+      } else {
+        // buy: zeroForOne=false, cumulative decreases
+        cumulative -= order.amountIn.toInt256();
+        buyIndex += 1;
       }
 
       if (cumulative > 0) {
+        // more sells than buys so far — prefer a sell next
         if (sellIndex < sellsLength) {
           order = sells[sellIndex];
           sellIndex += 1;
-          assert(order.zeroForOne);
         } else {
           if (buyIndex < buysLength) {
             order = buys[buyIndex];
             buyIndex += 1;
-            assert(!order.zeroForOne);
           } else {
             return;
           }
         }
       } else {
+        // more buys than sells so far — prefer a buy next
         if (buyIndex < buysLength) {
           order = buys[buyIndex];
           buyIndex += 1;
-          assert(!order.zeroForOne);
         } else {
           if (sellIndex < sellsLength) {
             order = sells[sellIndex];
             sellIndex += 1;
-            assert(order.zeroForOne);
           } else {
             return;
           }
@@ -223,45 +228,46 @@ contract AsyncSwap is BaseHook, IAsyncSwapAMM {
     }
   }
 
-  function executeOrder(AsyncOrder memory order, bytes calldata fillerData) external {
-    address owner = order.owner;
-    uint256 amountIn = order.amountIn;
-    bool zeroForOne = order.zeroForOne;
-    Currency currency0 = order.key.currency0;
-    Currency currency1 = order.key.currency1;
+  /// @notice Execute an async order fill.
+  /// @dev Validates, updates state, transfers input tokens to filler, and mints output claims for user.
+  ///      The caller (router) is responsible for settling the filler's output tokens into the PoolManager.
+  /// @param order The async order to fill
+  /// @param fillerData ABI-encoded (address filler, uint256 amountOut)
+  /// @return currencyFill The currency the filler must provide
+  /// @return fillAmount The amount of currencyFill that must be settled into the PoolManager
+  function executeOrder(AsyncOrder memory order, bytes calldata fillerData)
+    external
+    returns (Currency currencyFill, uint256 fillAmount)
+  {
     PoolId poolId = order.key.toId();
-    address filler = abi.decode(fillerData, (address));
-    uint256 deadline = order.deadline;
-    if (block.timestamp > deadline) revert OrderExpired();
-    require(this.isExecutor(poolId, owner, msg.sender), "Caller is valid not executor");
-    if (amountIn == 0) revert ZeroFillOrder();
+    (address filler, uint256 amountOut) = abi.decode(fillerData, (address, uint256));
 
-    /// TODO: Document what this does
-    uint256 amountToFill = uint256(amountIn);
-    uint256 claimableAmount = asyncOrders[poolId].asyncOrderAmount[owner][zeroForOne];
-    require(amountToFill <= claimableAmount, "Max fill order limit exceed");
+    // Validate
+    if (block.timestamp > order.deadline) revert OrderExpired();
+    require(
+      msg.sender == address(this) || this.isExecutor(poolId, order.owner, msg.sender), "Caller is not valid executor"
+    );
+    if (order.amountIn == 0) revert ZeroFillOrder();
+    if (order.minAmountOut > 0 && amountOut < order.minAmountOut) revert SlippageExceeded();
+    if (order.maxAmountIn > 0 && amountOut > order.maxAmountIn) revert MaxAmountExceeded();
 
-    /// @dev Transfer currency of async order to user
-    Currency currencyTake;
-    Currency currencyFill;
-    if (order.zeroForOne) {
-      currencyTake = currency0;
-      currencyFill = currency1;
-    } else {
-      currencyTake = currency1;
-      currencyFill = currency0;
-    }
+    uint256 claimable = asyncOrders[poolId].asyncOrderAmount[order.owner][order.zeroForOne];
+    require(order.amountIn <= claimable, "Max fill order limit exceed");
 
-    asyncOrders[poolId].asyncOrderAmount[owner][zeroForOne] -= amountToFill;
-    /// we could also burn
-    poolManager.transfer(filler, currencyTake.toId(), amountToFill);
-    emit AsyncOrderFilled(poolId, owner, zeroForOne, amountToFill, deadline);
+    // Determine currencies
+    Currency currencyTake = order.zeroForOne ? order.key.currency0 : order.key.currency1;
+    currencyFill = order.zeroForOne ? order.key.currency1 : order.key.currency0;
+    fillAmount = amountOut;
 
-    /// @dev Take currencyFill from filler
-    /// @dev Hook may charge filler a hook fee
-    /// TODO: If fee emit HookFee event
-    currencyFill.take(poolManager, owner, amountToFill, true);
-    currencyFill.settle(poolManager, filler, amountToFill, false); // transfer
+    // State update
+    asyncOrders[poolId].asyncOrderAmount[order.owner][order.zeroForOne] -= order.amountIn;
+
+    // Transfer user's escrowed tokens to filler (as ERC-6909 claims — no delta created)
+    poolManager.transfer(filler, currencyTake.toId(), order.amountIn);
+
+    // The caller (router) must take fillAmount of currencyFill for the user and settle from the filler.
+    // Returned so router can create and clear its own deltas atomically within the unlock context.
+    emit AsyncOrderFilled(poolId, order.owner, order.zeroForOne, amountOut, order.deadline);
   }
 
   /// @inheritdoc BaseHook
