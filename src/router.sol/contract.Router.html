@@ -182,7 +182,7 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="router"><a class="header" href="#router">Router</a></h1>
-<p><a href="https://github.com/asyncswap/async-swap/blob/424e358f6cce429528cf550bffa8b6eaab684617/src/router.sol">Git Source</a></p>
+<p><a href="https://github.com/asyncswap/async-swap/blob/f6e000fcb2b15d1a32120ed8c7a8cda2fe069004/src/router.sol">Git Source</a></p>
 <p><strong>Inherits:</strong>
 <a href="/src/interfaces/IRouter.sol/interface.IRouter.html">IRouter</a></p>
 <p><strong>Title:</strong>
@@ -242,17 +242,36 @@ the PoolManager and Async Swap hook.</p>
 </div>
 <h3 id="fillorder"><a class="header" href="#fillorder">fillOrder</a></h3>
 <p>Fills an async order.</p>
-<pre><code class="language-solidity">function fillOrder(AsyncOrder calldata order, bytes calldata) external payable;
+<pre><code class="language-solidity">function fillOrder(AsyncOrder calldata order, bytes calldata userData) external payable;
 </code></pre>
 <p><strong>Parameters</strong></p>
 <div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
 <tr><td><code>order</code></td><td><code>AsyncOrder</code></td><td>The async order to be filled.</td></tr>
-<tr><td><code>&lt;none&gt;</code></td><td><code>bytes</code></td><td></td></tr>
+<tr><td><code>userData</code></td><td><code>bytes</code></td><td>Additional data for the user, allowing user to specify an executor.</td></tr>
 </tbody></table>
 </div>
 <h3 id="withdraw"><a class="header" href="#withdraw">withdraw</a></h3>
 <pre><code class="language-solidity">function withdraw(PoolKey memory key, bool zeroForOne, uint256 amount) external;
 </code></pre>
+<h3 id="multicall"><a class="header" href="#multicall">multicall</a></h3>
+<p>Execute multiple orders with graceful failure handling.</p>
+<p>Individual order failures don't revert the entire transaction.</p>
+<pre><code class="language-solidity">function multicall(AsyncOrder[] calldata orders, bytes[] calldata ordersData)
+  external
+  payable
+  returns (bool[] memory results);
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>orders</code></td><td><code>AsyncOrder[]</code></td><td>Array of orders to execute.</td></tr>
+<tr><td><code>ordersData</code></td><td><code>bytes[]</code></td><td>Array of filler data corresponding to each order.</td></tr>
+</tbody></table>
+</div>
+<p><strong>Returns</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>results</code></td><td><code>bool[]</code></td><td>Array of booleans indicating success/failure for each order.</td></tr>
+</tbody></table>
+</div>
 <h3 id="unlockcallback"><a class="header" href="#unlockcallback">unlockCallback</a></h3>
 <p>Callback handler to unlock the PoolManager after a swap or fill order.</p>
 <pre><code class="language-solidity">function unlockCallback(bytes calldata data) external onlyPoolManager returns (bytes memory);
@@ -267,6 +286,12 @@ the PoolManager and Async Swap hook.</p>
 <tr><td><code>&lt;none&gt;</code></td><td><code>bytes</code></td><td>Data to return back to the PoolManager after unlock.</td></tr>
 </tbody></table>
 </div>
+<h3 id="_trymulticall"><a class="header" href="#_trymulticall">_tryMulticall</a></h3>
+<p>Internal function to try decoding and executing as multicall</p>
+<p>This is external to enable try-catch, but should only be called by this contract</p>
+<pre><code class="language-solidity">function _tryMulticall(bytes calldata data) external returns (bool[] memory results);
+</code></pre>
+
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
