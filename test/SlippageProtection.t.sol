@@ -35,8 +35,8 @@ contract SlippageProtectionTest is SetupHook {
       owner: user,
       zeroForOne: true,
       amountIn: userDeposit,
-      minAmountOut: 0.9 ether,  // User willing to accept 0.9 minimum
-      maxAmountIn: 0,           // Not used in this case
+      minAmountOut: 0.9 ether, // User willing to accept 0.9 minimum
+      maxAmountIn: 0, // Not used in this case
       sqrtPrice: 2 ** 96
     });
 
@@ -80,7 +80,7 @@ contract SlippageProtectionTest is SetupHook {
       owner: user,
       zeroForOne: true,
       amountIn: userDeposit,
-      minAmountOut: 90 ether,  // User requires at least 90
+      minAmountOut: 90 ether, // User requires at least 90
       maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
@@ -111,7 +111,7 @@ contract SlippageProtectionTest is SetupHook {
       zeroForOne: true,
       amountIn: userDeposit,
       minAmountOut: 0,
-      maxAmountIn: 105 ether,  // User willing to accept max 105
+      maxAmountIn: 105 ether, // User willing to accept max 105
       sqrtPrice: 2 ** 96
     });
 
@@ -140,8 +140,8 @@ contract SlippageProtectionTest is SetupHook {
       owner: user,
       zeroForOne: true,
       amountIn: userDeposit,
-      minAmountOut: 0,  // No minimum (disabled)
-      maxAmountIn: 0,   // No maximum (disabled)
+      minAmountOut: 0, // No minimum (disabled)
+      maxAmountIn: 0, // No maximum (disabled)
       sqrtPrice: 2 ** 96
     });
 
@@ -174,7 +174,7 @@ contract SlippageProtectionTest is SetupHook {
       owner: user,
       zeroForOne: true,
       amountIn: userDeposit,
-      minAmountOut: 95 ether,  // User wants at least 95
+      minAmountOut: 95 ether, // User wants at least 95
       maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
@@ -208,4 +208,5 @@ contract SlippageProtectionTest is SetupHook {
     router.fillOrder(order, abi.encode(99 ether));
     vm.stopPrank();
   }
+
 }

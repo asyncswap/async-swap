@@ -295,9 +295,14 @@ contract IntegrationTest is SetupHook {
     token1.approve(address(router), amount);
 
     AsyncOrder memory bobOrder = AsyncOrder({
-      deadline: block.timestamp + 1 hours, key: key, owner: bob, zeroForOne: false, amountIn: amount,
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: bob,
+      zeroForOne: false,
+      amountIn: amount,
       minAmountOut: 0,
-      maxAmountIn: 0, sqrtPrice: 2 ** 96
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
     });
 
     router.swap(bobOrder, abi.encode(bob, address(router)));

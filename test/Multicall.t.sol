@@ -249,4 +249,5 @@ contract MulticallTest is SetupHook {
     assertEq(hook.asyncOrderAmount(poolId, user1, true), 0);
     assertEq(hook.asyncOrderAmount(poolId, user2, true), 2 ether);
   }
+
 }
