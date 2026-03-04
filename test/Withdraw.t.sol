@@ -2,6 +2,7 @@
 pragma solidity ^0.8.13;
 
 import { SetupHook } from "./SetupHook.t.sol";
+import { AsyncSwap } from "@async-swap/AsyncSwap.sol";
 import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
 import { Currency } from "v4-core/types/Currency.sol";
 
@@ -41,6 +42,113 @@ contract WithdrawalTest is SetupHook {
     vm.stopPrank();
 
     assertEq(specified.balanceOf(user), balanceBefore + amountIn);
+  }
+
+  /// @notice Caller without executor approval cannot withdraw
+  function testWithdraw_RevertsNotApprovedExecutor() public {
+    uint256 amountIn = 1 ether;
+    address stranger = makeAddr("stranger");
+
+    AsyncOrder memory order = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: user,
+      zeroForOne: true,
+      amountIn: amountIn,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
+
+    // user creates an order (sets router as executor, NOT stranger)
+    vm.startPrank(user);
+    _makeOrder(user, order);
+    vm.stopPrank();
+
+    // stranger tries to withdraw on behalf of user — should fail
+    vm.prank(stranger);
+    vm.expectRevert(AsyncSwap.NotApprovedExecutor.selector);
+    hook.withdraw(key, true, amountIn, user);
+  }
+
+  /// @notice Withdraw amount exceeding claimable balance reverts
+  function testWithdraw_RevertsInvalidWithdrawal() public {
+    uint256 amountIn = 0.5 ether;
+    uint256 excessAmount = 1 ether; // more than deposited
+
+    AsyncOrder memory order = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: user,
+      zeroForOne: true,
+      amountIn: amountIn,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
+
+    vm.startPrank(user);
+    _makeOrder(user, order);
+    vm.stopPrank();
+
+    // router is the approved executor, but tries to withdraw more than available
+    vm.prank(address(router));
+    vm.expectRevert(AsyncSwap.InvalidWithdrawal.selector);
+    hook.withdraw(key, true, excessAmount, user);
+  }
+
+  /// @notice Withdraw of amount=0 hits the assert and reverts
+  function testWithdraw_RevertsZeroAmount() public {
+    uint256 amountIn = 0.5 ether;
+
+    AsyncOrder memory order = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: user,
+      zeroForOne: true,
+      amountIn: amountIn,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
+
+    vm.startPrank(user);
+    _makeOrder(user, order);
+    vm.stopPrank();
+
+    // router is approved executor, but withdraws 0 — assert(0 < amount) should fail
+    vm.prank(address(router));
+    vm.expectRevert();
+    hook.withdraw(key, true, 0, user);
+  }
+
+  /// @notice Partial withdraw leaves remaining claimable balance intact
+  function testWithdraw_Partial() public {
+    uint256 amountIn = 1 ether;
+    uint256 withdrawAmt = 0.4 ether;
+
+    AsyncOrder memory order = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: user,
+      zeroForOne: true,
+      amountIn: amountIn,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
+
+    vm.startPrank(user);
+    _makeOrder(user, order);
+
+    uint256 balanceBefore = key.currency0.balanceOf(user);
+    router.withdraw(key, true, withdrawAmt);
+    vm.stopPrank();
+
+    // User receives withdrawn amount as ERC20
+    assertEq(key.currency0.balanceOf(user), balanceBefore + withdrawAmt);
+    // Remaining claimable is amountIn - withdrawAmt
+    assertEq(hook.asyncOrderAmount(poolId, user, true), amountIn - withdrawAmt);
   }
 
   function _makeOrder(address _user, AsyncOrder memory order) internal {

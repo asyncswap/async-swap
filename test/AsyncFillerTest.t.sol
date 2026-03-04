@@ -383,4 +383,81 @@ contract AsyncFillerTest is SetupHook {
     assertEq(hook.asyncOrderAmount(poolId, testUser, false), 0);
   }
 
+  /// @notice ERC-6909 accounting invariant: after a fill, filler receives exactly amountIn
+  ///         as ERC-6909 claims and user receives exactly amountOut as ERC20.
+  function testFuzz_ERC6909AccountingInvariant(uint256 amountIn, uint256 amountOut, bool zeroForOne) public {
+    amountIn = bound(amountIn, 1, 1 ether);
+    amountOut = bound(amountOut, 1, 1 ether);
+
+    topUp(testUser, amountIn);
+    topUp(testExecutor, amountOut);
+
+    // --- Snapshot balances before order creation ---
+
+    // Create async order
+    vm.startPrank(testUser);
+    if (zeroForOne) {
+      token0.approve(address(router), amountIn);
+    } else {
+      token1.approve(address(router), amountIn);
+    }
+
+    AsyncOrder memory order = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: zeroForOne,
+      amountIn: amountIn,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
+
+    router.swap(order, abi.encode(testUser, address(router)));
+    vm.stopPrank();
+
+    // --- Snapshot balances before fill ---
+
+    // Filler's ERC-6909 claim balance for the INPUT currency (what user escrowed)
+    uint256 fillerInputCurrencyId = zeroForOne ? currency0.toId() : currency1.toId();
+    uint256 fillerClaimsBefore = manager.balanceOf(testExecutor, fillerInputCurrencyId);
+
+    // User's ERC20 balance for the OUTPUT currency (what filler provides)
+    uint256 userOutputBefore = zeroForOne ? token1.balanceOf(testUser) : token0.balanceOf(testUser);
+
+    // Hook's ERC-6909 claims for the INPUT currency (escrowed tokens)
+    uint256 hookClaimsBefore = manager.balanceOf(address(hook), fillerInputCurrencyId);
+
+    // --- Fill the order ---
+    vm.startPrank(testExecutor);
+    if (zeroForOne) {
+      token1.approve(address(router), amountOut);
+    } else {
+      token0.approve(address(router), amountOut);
+    }
+    router.fillOrder(order, abi.encode(amountOut));
+    vm.stopPrank();
+
+    // --- Verify invariants ---
+
+    // 1. Filler receives exactly amountIn as ERC-6909 claims
+    uint256 fillerClaimsAfter = manager.balanceOf(testExecutor, fillerInputCurrencyId);
+    assertEq(
+      fillerClaimsAfter - fillerClaimsBefore, amountIn, "Filler ERC-6909 claims must increase by exactly amountIn"
+    );
+
+    // 2. User receives exactly amountOut as ERC20
+    uint256 userOutputAfter = zeroForOne ? token1.balanceOf(testUser) : token0.balanceOf(testUser);
+    assertEq(userOutputAfter - userOutputBefore, amountOut, "User ERC20 balance must increase by exactly amountOut");
+
+    // 3. Hook's escrowed claims decrease by exactly amountIn (tokens transferred to filler)
+    uint256 hookClaimsAfter = manager.balanceOf(address(hook), fillerInputCurrencyId);
+    assertEq(
+      hookClaimsBefore - hookClaimsAfter, amountIn, "Hook ERC-6909 claims must decrease by exactly amountIn"
+    );
+
+    // 4. Claimable amount for user is now 0
+    assertEq(hook.asyncOrderAmount(poolId, testUser, zeroForOne), 0, "Claimable must be zero after full fill");
+  }
+
 }

@@ -4,6 +4,7 @@ pragma solidity ^0.8.13;
 import { SetupHook } from "./SetupHook.t.sol";
 import { AsyncSwap } from "@async-swap/AsyncSwap.sol";
 import { AsyncFiller } from "@async-swap/libraries/AsyncFiller.sol";
+import { IAsyncSwapOrder } from "@async-swap/interfaces/IAsyncSwapOrder.sol";
 import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
 import { Currency } from "v4-core/interfaces/IPoolManager.sol";
 import { IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
@@ -316,6 +317,82 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
 
     uint256 claimableAmount = hook.asyncOrderAmount(poolId, testUser, true);
     assertEq(claimableAmount, amount);
+  }
+
+  // ─── OrderExpired ──────────────────────────────────────────────────────────
+
+  /// @notice fillOrder on an expired order must revert with OrderExpired.
+  function testFillOrder_RevertsOrderExpired() public {
+    uint256 amountIn = 1000;
+
+    AsyncOrder memory order = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: amountIn,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
+
+    // Create the order while it is still valid
+    vm.startPrank(testUser);
+    token0.approve(address(router), amountIn);
+    router.swap(order, abi.encode(testUser, address(router)));
+    vm.stopPrank();
+
+    // Warp past deadline
+    vm.warp(block.timestamp + 2 hours);
+
+    vm.startPrank(testExecutor);
+    token1.approve(address(router), amountIn);
+    vm.expectRevert(AsyncSwap.OrderExpired.selector);
+    router.fillOrder(order, abi.encode(amountIn));
+    vm.stopPrank();
+  }
+
+  // ─── ZeroFillOrder ────────────────────────────────────────────────────────
+
+  /// @notice executeOrder with amountIn=0 must revert with ZeroFillOrder.
+  /// @dev We call hook.executeOrder directly because the router checks amountIn when building params.
+  function testExecuteOrder_RevertsZeroAmountIn() public {
+    uint256 amountIn = 1000;
+
+    // Create a real order with non-zero amount first
+    vm.startPrank(testUser);
+    token0.approve(address(router), amountIn);
+    AsyncOrder memory swapOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: amountIn,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
+    router.swap(swapOrder, abi.encode(testUser, address(router)));
+    vm.stopPrank();
+
+    // Build a fill order with amountIn == 0 and attempt to execute directly on the hook
+    AsyncOrder memory zeroOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: 0, // zero — should trigger ZeroFillOrder
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
+
+    // executeOrder is callable by address(hook) itself or an approved executor
+    // Calling as address(hook) is not possible externally; call as router (approved executor)
+    vm.startPrank(address(hook)); // hook can call its own executeOrder
+    vm.expectRevert(IAsyncSwapOrder.ZeroFillOrder.selector);
+    hook.executeOrder(zeroOrder, abi.encode(testExecutor, uint256(0)));
+    vm.stopPrank();
   }
 
 }
