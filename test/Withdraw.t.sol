@@ -5,7 +5,7 @@ import { SetupHook } from "./SetupHook.t.sol";
 import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
 import { Currency } from "v4-core/types/Currency.sol";
 
-contract WithdralTest is SetupHook {
+contract WithdrawalTest is SetupHook {
 
   address user;
   address user2;
