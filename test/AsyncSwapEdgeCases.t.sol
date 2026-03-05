@@ -3,6 +3,7 @@ pragma solidity ^0.8.13;
 
 import { SetupHook } from "./SetupHook.t.sol";
 import { AsyncSwap } from "@async-swap/AsyncSwap.sol";
+import { IAsyncSwapOrder } from "@async-swap/interfaces/IAsyncSwapOrder.sol";
 import { AsyncFiller } from "@async-swap/libraries/AsyncFiller.sol";
 import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
 import { Currency } from "v4-core/interfaces/IPoolManager.sol";
@@ -47,21 +48,29 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
     uint256 swapAmount = 1000;
 
     // Initially should be 0
-    uint256 initialClaimable = hook.asyncOrder(poolId, testUser, true);
+    uint256 initialClaimable = hook.asyncOrderAmount(poolId, testUser, true);
     assertEq(initialClaimable, 0);
 
     // Create async order
     vm.startPrank(testUser);
     token0.approve(address(router), swapAmount);
 
-    AsyncOrder memory swapOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory swapOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(swapOrder, abi.encode(testUser, address(router)));
     vm.stopPrank();
 
     // Should now show claimable amount
-    uint256 claimableAmount = hook.asyncOrder(poolId, testUser, true);
+    uint256 claimableAmount = hook.asyncOrderAmount(poolId, testUser, true);
     assertEq(claimableAmount, swapAmount);
   }
 
@@ -74,8 +83,16 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
     vm.startPrank(testUser);
     token0.approve(address(router), 1000);
 
-    AsyncOrder memory swapOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: 1000, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory swapOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: 1000,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(swapOrder, abi.encode(testUser, address(router)));
     vm.stopPrank();
@@ -92,10 +109,13 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
     // Try to create exact output swap (positive amountSpecified)
     // This should revert at hook level but we need to use router
     AsyncOrder memory order = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
       key: key,
       owner: testUser,
       zeroForOne: true,
       amountIn: 500, // This will be converted to positive internally and should fail
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
@@ -105,15 +125,7 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
     vm.stopPrank();
 
     // Verify the swap worked (it should because we're passing negative amount)
-    assertEq(hook.asyncOrder(poolId, testUser, true), 500);
-  }
-
-  function testExecuteOrderZeroAmountRevert() public {
-    AsyncOrder memory order =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: 0, sqrtPrice: 2 ** 96 });
-
-    vm.expectRevert(AsyncFiller.ZeroFillOrder.selector);
-    hook.executeOrder(order, "");
+    assertEq(hook.asyncOrderAmount(poolId, testUser, true), 500);
   }
 
   function testExecuteOrdersMultiple() public {
@@ -129,37 +141,61 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
       vm.startPrank(testUser);
       token0.approve(address(router), amountPerOrder);
 
-      AsyncOrder memory swapOrder =
-        AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: amountPerOrder, sqrtPrice: 2 ** 96 });
+      AsyncOrder memory swapOrder = AsyncOrder({
+        deadline: block.timestamp + 1 hours,
+        key: key,
+        owner: testUser,
+        zeroForOne: true,
+        amountIn: amountPerOrder,
+        minAmountOut: 0,
+        maxAmountIn: 0,
+        sqrtPrice: 2 ** 96
+      });
 
       router.swap(swapOrder, abi.encode(testUser, address(router)));
       vm.stopPrank();
     }
 
     // Verify total claimable
-    uint256 totalClaimable = hook.asyncOrder(poolId, testUser, true);
+    uint256 totalClaimable = hook.asyncOrderAmount(poolId, testUser, true);
     assertEq(totalClaimable, orderCount * amountPerOrder);
 
     // Execute orders in batch
     AsyncOrder[] memory orders = new AsyncOrder[](orderCount);
     for (uint256 i = 0; i < orderCount; i++) {
-      orders[i] =
-        AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: amountPerOrder, sqrtPrice: 2 ** 96 });
+      orders[i] = AsyncOrder({
+        deadline: block.timestamp + 1 hours,
+        key: key,
+        owner: testUser,
+        zeroForOne: true,
+        amountIn: amountPerOrder,
+        minAmountOut: 0,
+        maxAmountIn: 0,
+        sqrtPrice: 2 ** 96
+      });
     }
 
     // Execute orders one by one using router
     for (uint256 i = 0; i < orderCount; i++) {
-      AsyncOrder memory fillOrder =
-        AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: amountPerOrder, sqrtPrice: 2 ** 96 });
+      AsyncOrder memory fillOrder = AsyncOrder({
+        deadline: block.timestamp + 1 hours,
+        key: key,
+        owner: testUser,
+        zeroForOne: true,
+        amountIn: amountPerOrder,
+        minAmountOut: 0,
+        maxAmountIn: 0,
+        sqrtPrice: 2 ** 96
+      });
 
       vm.startPrank(testExecutor);
       token1.approve(address(router), amountPerOrder);
-      router.fillOrder(fillOrder, abi.encode(address(router)));
+      router.fillOrder(fillOrder, abi.encode(fillOrder.amountIn));
       vm.stopPrank();
     }
 
     // Verify all orders executed
-    uint256 remainingClaimable = hook.asyncOrder(poolId, testUser, true);
+    uint256 remainingClaimable = hook.asyncOrderAmount(poolId, testUser, true);
     assertEq(remainingClaimable, 0);
   }
 
@@ -169,8 +205,16 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
     vm.startPrank(testUser);
     token0.approve(address(router), swapAmount);
 
-    AsyncOrder memory swapOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory swapOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
 
     vm.expectEmit(true, true, false, true);
     emit AsyncSwap.HookSwap(
@@ -193,10 +237,13 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
     token1.approve(address(router), swapAmount);
 
     AsyncOrder memory swapOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
       key: key,
       owner: testUser,
       zeroForOne: false, // currency1 to currency0
       amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
       sqrtPrice: 2 ** 96
     });
 
@@ -204,7 +251,7 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
     vm.stopPrank();
 
     // Verify order created for zeroForOne = false
-    uint256 claimableAmount = hook.asyncOrder(poolId, testUser, false);
+    uint256 claimableAmount = hook.asyncOrderAmount(poolId, testUser, false);
     assertEq(claimableAmount, swapAmount);
   }
 
@@ -254,14 +301,100 @@ contract AsyncSwapEdgeCasesTest is SetupHook {
     vm.startPrank(testUser);
     token0.approve(address(router), amount);
 
-    AsyncOrder memory swapOrder =
-      AsyncOrder({ key: key, owner: testUser, zeroForOne: true, amountIn: amount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory swapOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: amount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(swapOrder, abi.encode(testUser, address(router)));
     vm.stopPrank();
 
-    uint256 claimableAmount = hook.asyncOrder(poolId, testUser, true);
+    uint256 claimableAmount = hook.asyncOrderAmount(poolId, testUser, true);
     assertEq(claimableAmount, amount);
+  }
+
+  // ─── OrderExpired
+  // ──────────────────────────────────────────────────────────
+
+  /// @notice fillOrder on an expired order must revert with OrderExpired.
+  function testFillOrder_RevertsOrderExpired() public {
+    uint256 amountIn = 1000;
+
+    AsyncOrder memory order = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: amountIn,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
+
+    // Create the order while it is still valid
+    vm.startPrank(testUser);
+    token0.approve(address(router), amountIn);
+    router.swap(order, abi.encode(testUser, address(router)));
+    vm.stopPrank();
+
+    // Warp past deadline
+    vm.warp(block.timestamp + 2 hours);
+
+    vm.startPrank(testExecutor);
+    token1.approve(address(router), amountIn);
+    vm.expectRevert(AsyncSwap.OrderExpired.selector);
+    router.fillOrder(order, abi.encode(amountIn));
+    vm.stopPrank();
+  }
+
+  // ─── ZeroFillOrder
+  // ────────────────────────────────────────────────────────
+
+  /// @notice executeOrder with amountIn=0 must revert with ZeroFillOrder.
+  /// @dev We call hook.executeOrder directly because the router checks amountIn when building params.
+  function testExecuteOrder_RevertsZeroAmountIn() public {
+    uint256 amountIn = 1000;
+
+    // Create a real order with non-zero amount first
+    vm.startPrank(testUser);
+    token0.approve(address(router), amountIn);
+    AsyncOrder memory swapOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: amountIn,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
+    router.swap(swapOrder, abi.encode(testUser, address(router)));
+    vm.stopPrank();
+
+    // Build a fill order with amountIn == 0 and attempt to execute directly on the hook
+    AsyncOrder memory zeroOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: testUser,
+      zeroForOne: true,
+      amountIn: 0, // zero — should trigger ZeroFillOrder
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
+
+    // executeOrder is callable by address(hook) itself or an approved executor
+    // Calling as address(hook) is not possible externally; call as router (approved executor)
+    vm.startPrank(address(hook)); // hook can call its own executeOrder
+    vm.expectRevert(IAsyncSwapOrder.ZeroFillOrder.selector);
+    hook.executeOrder(zeroOrder, abi.encode(testExecutor, uint256(0)));
+    vm.stopPrank();
   }
 
 }

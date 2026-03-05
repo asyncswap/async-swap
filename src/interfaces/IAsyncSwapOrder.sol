@@ -14,7 +14,8 @@ interface IAsyncSwapOrder {
   /// @param zeroForOne Whether the order is for a swap from currency0 to currency1 (true) or currency1 to currency0
   /// (false).
   /// @param amount The amount of the order.
-  event AsyncOrderFilled(PoolId poolId, address owner, bool zeroForOne, uint256 amount);
+  /// @param deadline The deadline of the order.
+  event AsyncOrderFilled(PoolId poolId, address owner, bool zeroForOne, uint256 amount, uint256 deadline);
 
   /// @notice Emitted when an async swap order is created.
   /// @param poolId The poolId of the pool where the order is placed.
@@ -35,7 +36,7 @@ interface IAsyncSwapOrder {
   /// @param zeroForOne Whether the order is for a swap from currency0 to currency1 (true) or currency1 to currency0
   /// (false).
   /// @return claimable The amount that can be claimed by the user.
-  function asyncOrder(PoolId poolId, address user, bool zeroForOne) external view returns (uint256 claimable);
+  function asyncOrderAmount(PoolId poolId, address user, bool zeroForOne) external view returns (uint256 claimable);
 
   /// @notice Checks if the given executor is valid for the async order.
   /// @param poolId The poolId the executor is interacting with.

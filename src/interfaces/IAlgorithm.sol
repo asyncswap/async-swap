@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
+
 /// @title Algorithm Interface
 /// @author Async Labs
 /// @notice This interface defines the functions for transaction ordering algorithms used in the Async Swap AMM hook.
@@ -19,5 +21,7 @@ interface IAlgorithm {
   /// @notice Version of the algorithm.
   /// @return The version of the algorithm as a string.
   function version() external view returns (string memory);
+
+  function getVolatility(AsyncOrder[] memory orders) external pure returns (uint256);
 
 }

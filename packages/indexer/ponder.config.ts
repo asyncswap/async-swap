@@ -22,7 +22,7 @@ export default createConfig({
 			network: {
 				unichain: {
 					address: "0x1F98400000000000000000000000000000000004",
-					startBlock: 28799000, // poolManagerStartBlock,
+					startBlock: 31650000, // poolManagerStartBlock,
 				},
 			},
 			abi: PoolManagerAbi,
@@ -31,7 +31,7 @@ export default createConfig({
 			network: {
 				unichain: {
 					address: hookAddress,
-					startBlock: 28799000, // hookStartBlock,
+					startBlock: 31650000, // hookStartBlock,
 				},
 			},
 			abi: AsyncSwapAbi,

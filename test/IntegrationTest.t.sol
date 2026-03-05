@@ -28,25 +28,34 @@ contract IntegrationTest is SetupHook {
     vm.startPrank(alice);
     token0.approve(address(router), swapAmount);
 
-    AsyncOrder memory aliceOrder =
-      AsyncOrder({ key: key, owner: alice, zeroForOne: true, amountIn: swapAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory aliceOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: alice,
+      zeroForOne: true,
+      amountIn: swapAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(aliceOrder, abi.encode(alice, address(router)));
     vm.stopPrank();
 
     // Verify Alice's order
-    assertEq(hook.asyncOrder(poolId, alice, true), swapAmount);
+    assertEq(hook.asyncOrderAmount(poolId, alice, true), swapAmount);
     assertTrue(hook.isExecutor(poolId, alice, address(router)));
 
     // Bob fills Alice's order
+    uint256 aliceToken1Before = token1.balanceOf(alice);
     vm.startPrank(bob);
     token1.approve(address(router), swapAmount);
-    router.fillOrder(aliceOrder, "");
+    router.fillOrder(aliceOrder, abi.encode(aliceOrder.amountIn));
     vm.stopPrank();
 
-    // Verify order completion
-    assertEq(hook.asyncOrder(poolId, alice, true), 0);
-    assertEq(manager.balanceOf(alice, currency0.toId()), swapAmount);
+    // Verify order completion — alice receives token1 as ERC20 (delta)
+    assertEq(hook.asyncOrderAmount(poolId, alice, true), 0);
+    assertEq(token1.balanceOf(alice) - aliceToken1Before, swapAmount);
   }
 
   function testMultipleUsersMultipleOrders() public {
@@ -57,8 +66,16 @@ contract IntegrationTest is SetupHook {
     vm.startPrank(alice);
     token0.approve(address(router), aliceAmount);
 
-    AsyncOrder memory aliceOrder =
-      AsyncOrder({ key: key, owner: alice, zeroForOne: true, amountIn: aliceAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory aliceOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: alice,
+      zeroForOne: true,
+      amountIn: aliceAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(aliceOrder, abi.encode(alice, address(router)));
     vm.stopPrank();
@@ -67,35 +84,51 @@ contract IntegrationTest is SetupHook {
     vm.startPrank(bob);
     token1.approve(address(router), bobAmount);
 
-    AsyncOrder memory bobOrder =
-      AsyncOrder({ key: key, owner: bob, zeroForOne: false, amountIn: bobAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory bobOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: bob,
+      zeroForOne: false,
+      amountIn: bobAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(bobOrder, abi.encode(bob, address(router)));
     vm.stopPrank();
 
     // Verify both orders exist
-    assertEq(hook.asyncOrder(poolId, alice, true), aliceAmount);
-    assertEq(hook.asyncOrder(poolId, bob, false), bobAmount);
+    assertEq(hook.asyncOrderAmount(poolId, alice, true), aliceAmount);
+    assertEq(hook.asyncOrderAmount(poolId, bob, false), bobAmount);
 
     // Charlie fills Alice's order
     vm.startPrank(charlie);
     token1.approve(address(router), aliceAmount);
-    router.fillOrder(aliceOrder, "");
+    router.fillOrder(aliceOrder, abi.encode(aliceOrder.amountIn));
     vm.stopPrank();
 
     // Charlie fills Bob's order
     vm.startPrank(charlie);
     token0.approve(address(router), bobAmount);
 
-    AsyncOrder memory bobFillOrder =
-      AsyncOrder({ key: key, owner: bob, zeroForOne: false, amountIn: bobAmount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory bobFillOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: bob,
+      zeroForOne: false,
+      amountIn: bobAmount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
 
-    router.fillOrder(bobFillOrder, "");
+    router.fillOrder(bobFillOrder, abi.encode(bobFillOrder.amountIn));
     vm.stopPrank();
 
     // Verify all orders filled
-    assertEq(hook.asyncOrder(poolId, alice, true), 0);
-    assertEq(hook.asyncOrder(poolId, bob, false), 0);
+    assertEq(hook.asyncOrderAmount(poolId, alice, true), 0);
+    assertEq(hook.asyncOrderAmount(poolId, bob, false), 0);
   }
 
   function testPartialFillsAndAccumulation() public {
@@ -109,49 +142,81 @@ contract IntegrationTest is SetupHook {
     vm.startPrank(alice);
     token0.approve(address(router), firstSwap);
 
-    AsyncOrder memory aliceOrder1 =
-      AsyncOrder({ key: key, owner: alice, zeroForOne: true, amountIn: firstSwap, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory aliceOrder1 = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: alice,
+      zeroForOne: true,
+      amountIn: firstSwap,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(aliceOrder1, abi.encode(alice, address(router)));
-    assertEq(hook.asyncOrder(poolId, alice, true), firstSwap);
+    assertEq(hook.asyncOrderAmount(poolId, alice, true), firstSwap);
 
     // Alice creates second order (accumulates)
     token0.approve(address(router), secondSwap);
 
-    AsyncOrder memory aliceOrder2 =
-      AsyncOrder({ key: key, owner: alice, zeroForOne: true, amountIn: secondSwap, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory aliceOrder2 = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: alice,
+      zeroForOne: true,
+      amountIn: secondSwap,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(aliceOrder2, abi.encode(alice, address(router)));
     vm.stopPrank();
 
     // Verify accumulated amount
-    assertEq(hook.asyncOrder(poolId, alice, true), totalAmount);
+    assertEq(hook.asyncOrderAmount(poolId, alice, true), totalAmount);
 
     // Bob partially fills
     vm.startPrank(bob);
     token1.approve(address(router), firstFill);
 
-    AsyncOrder memory fillOrder1 =
-      AsyncOrder({ key: key, owner: alice, zeroForOne: true, amountIn: firstFill, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory fillOrder1 = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: alice,
+      zeroForOne: true,
+      amountIn: firstFill,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
 
-    router.fillOrder(fillOrder1, "");
+    router.fillOrder(fillOrder1, abi.encode(fillOrder1.amountIn));
     vm.stopPrank();
 
     // Verify partial fill
-    assertEq(hook.asyncOrder(poolId, alice, true), totalAmount - firstFill);
+    assertEq(hook.asyncOrderAmount(poolId, alice, true), totalAmount - firstFill);
 
     // Charlie fills remainder
     vm.startPrank(charlie);
     token1.approve(address(router), secondFill);
 
-    AsyncOrder memory fillOrder2 =
-      AsyncOrder({ key: key, owner: alice, zeroForOne: true, amountIn: secondFill, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory fillOrder2 = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: alice,
+      zeroForOne: true,
+      amountIn: secondFill,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
 
-    router.fillOrder(fillOrder2, "");
+    router.fillOrder(fillOrder2, abi.encode(fillOrder2.amountIn));
     vm.stopPrank();
 
     // Verify complete fill
-    assertEq(hook.asyncOrder(poolId, alice, true), 0);
+    assertEq(hook.asyncOrderAmount(poolId, alice, true), 0);
   }
 
   function testBatchOrderExecution() public {
@@ -163,29 +228,45 @@ contract IntegrationTest is SetupHook {
     for (uint256 i = 0; i < orderCount; i++) {
       token0.approve(address(router), amountPerOrder);
 
-      AsyncOrder memory order =
-        AsyncOrder({ key: key, owner: alice, zeroForOne: true, amountIn: amountPerOrder, sqrtPrice: 2 ** 96 });
+      AsyncOrder memory order = AsyncOrder({
+        deadline: block.timestamp + 1 hours,
+        key: key,
+        owner: alice,
+        zeroForOne: true,
+        amountIn: amountPerOrder,
+        minAmountOut: 0,
+        maxAmountIn: 0,
+        sqrtPrice: 2 ** 96
+      });
 
       router.swap(order, abi.encode(alice, address(router)));
     }
     vm.stopPrank();
 
     // Verify total accumulated
-    assertEq(hook.asyncOrder(poolId, alice, true), orderCount * amountPerOrder);
+    assertEq(hook.asyncOrderAmount(poolId, alice, true), orderCount * amountPerOrder);
 
     // Execute orders one by one using router (since alice set router as executor)
     for (uint256 i = 0; i < orderCount; i++) {
-      AsyncOrder memory fillOrder =
-        AsyncOrder({ key: key, owner: alice, zeroForOne: true, amountIn: amountPerOrder, sqrtPrice: 2 ** 96 });
+      AsyncOrder memory fillOrder = AsyncOrder({
+        deadline: block.timestamp + 1 hours,
+        key: key,
+        owner: alice,
+        zeroForOne: true,
+        amountIn: amountPerOrder,
+        minAmountOut: 0,
+        maxAmountIn: 0,
+        sqrtPrice: 2 ** 96
+      });
 
       vm.startPrank(bob);
       token1.approve(address(router), amountPerOrder);
-      router.fillOrder(fillOrder, abi.encode(address(router)));
+      router.fillOrder(fillOrder, abi.encode(fillOrder.amountIn));
       vm.stopPrank();
     }
 
     // Verify all orders executed
-    assertEq(hook.asyncOrder(poolId, alice, true), 0);
+    assertEq(hook.asyncOrderAmount(poolId, alice, true), 0);
   }
 
   function testCrossDirectionalOrders() public {
@@ -195,8 +276,16 @@ contract IntegrationTest is SetupHook {
     vm.startPrank(alice);
     token0.approve(address(router), amount);
 
-    AsyncOrder memory aliceOrder =
-      AsyncOrder({ key: key, owner: alice, zeroForOne: true, amountIn: amount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory aliceOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: alice,
+      zeroForOne: true,
+      amountIn: amount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(aliceOrder, abi.encode(alice, address(router)));
     vm.stopPrank();
@@ -205,8 +294,16 @@ contract IntegrationTest is SetupHook {
     vm.startPrank(bob);
     token1.approve(address(router), amount);
 
-    AsyncOrder memory bobOrder =
-      AsyncOrder({ key: key, owner: bob, zeroForOne: false, amountIn: amount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory bobOrder = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: bob,
+      zeroForOne: false,
+      amountIn: amount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(bobOrder, abi.encode(bob, address(router)));
     vm.stopPrank();
@@ -216,17 +313,17 @@ contract IntegrationTest is SetupHook {
 
     // Fill Alice's order (needs token1)
     token1.approve(address(router), amount);
-    router.fillOrder(aliceOrder, "");
+    router.fillOrder(aliceOrder, abi.encode(aliceOrder.amountIn));
 
     // Fill Bob's order (needs token0)
     token0.approve(address(router), amount);
-    router.fillOrder(bobOrder, "");
+    router.fillOrder(bobOrder, abi.encode(bobOrder.amountIn));
 
     vm.stopPrank();
 
     // Verify both filled
-    assertEq(hook.asyncOrder(poolId, alice, true), 0);
-    assertEq(hook.asyncOrder(poolId, bob, false), 0);
+    assertEq(hook.asyncOrderAmount(poolId, alice, true), 0);
+    assertEq(hook.asyncOrderAmount(poolId, bob, false), 0);
   }
 
   function testAlgorithmIntegration() public {
@@ -240,14 +337,22 @@ contract IntegrationTest is SetupHook {
     vm.startPrank(alice);
     token0.approve(address(router), amount);
 
-    AsyncOrder memory order =
-      AsyncOrder({ key: key, owner: alice, zeroForOne: true, amountIn: amount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory order = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: alice,
+      zeroForOne: true,
+      amountIn: amount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(order, abi.encode(alice, address(router)));
     vm.stopPrank();
 
     // The swap should succeed, meaning algorithm was called successfully
-    assertEq(hook.asyncOrder(poolId, alice, true), amount);
+    assertEq(hook.asyncOrderAmount(poolId, alice, true), amount);
   }
 
   function testLargeVolumeStressTest() public {
@@ -262,14 +367,22 @@ contract IntegrationTest is SetupHook {
       vm.startPrank(user);
       token0.approve(address(router), amountPerUser);
 
-      AsyncOrder memory order =
-        AsyncOrder({ key: key, owner: user, zeroForOne: true, amountIn: amountPerUser, sqrtPrice: 2 ** 96 });
+      AsyncOrder memory order = AsyncOrder({
+        deadline: block.timestamp + 1 hours,
+        key: key,
+        owner: user,
+        zeroForOne: true,
+        amountIn: amountPerUser,
+        minAmountOut: 0,
+        maxAmountIn: 0,
+        sqrtPrice: 2 ** 96
+      });
 
       router.swap(order, abi.encode(user, address(router)));
       vm.stopPrank();
 
       // Verify each order
-      assertEq(hook.asyncOrder(poolId, user, true), amountPerUser);
+      assertEq(hook.asyncOrderAmount(poolId, user, true), amountPerUser);
     }
 
     // Single filler fills all orders
@@ -279,11 +392,19 @@ contract IntegrationTest is SetupHook {
     for (uint256 i = 0; i < userCount; i++) {
       address user = address(uint160(i + 1000));
 
-      AsyncOrder memory fillOrder =
-        AsyncOrder({ key: key, owner: user, zeroForOne: true, amountIn: amountPerUser, sqrtPrice: 2 ** 96 });
+      AsyncOrder memory fillOrder = AsyncOrder({
+        deadline: block.timestamp + 1 hours,
+        key: key,
+        owner: user,
+        zeroForOne: true,
+        amountIn: amountPerUser,
+        minAmountOut: 0,
+        maxAmountIn: 0,
+        sqrtPrice: 2 ** 96
+      });
 
-      router.fillOrder(fillOrder, "");
-      assertEq(hook.asyncOrder(poolId, user, true), 0);
+      router.fillOrder(fillOrder, abi.encode(fillOrder.amountIn));
+      assertEq(hook.asyncOrderAmount(poolId, user, true), 0);
     }
     vm.stopPrank();
   }

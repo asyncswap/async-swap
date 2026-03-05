@@ -1,3 +1,7 @@
+![Tests](https://github.com/asyncswap/async-swap/actions/workflows/test.yml/badge.svg)
+![Format](https://github.com/asyncswap/async-swap/actions/workflows/fmt.yml/badge.svg)
+![Docs](https://github.com/asyncswap/async-swap/actions/workflows/docs.yml/badge.svg)
+
 # Async Swap AMM
 
 - [AsyncCSMM - hook contract](src/AsyncSwap.sol)
@@ -34,9 +38,15 @@ forge install
 Run local anvil node with Unichain fork
 
 ```sh
-anvil --fork-url https://unichain.drpc.org
+anvil --fork-url https://unichain-rpc.publicnode.com
 # or simulate block mining and finality
 anvil --block-time 13
+```
+
+Run otterscan explorer
+
+```sh
+docker run --rm -p 5100:80 --name otterscan -d otterscan/otterscan:latest
 ```
 
 ## Local Deployment

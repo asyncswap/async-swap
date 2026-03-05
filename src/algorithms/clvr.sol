@@ -2,7 +2,9 @@
 pragma solidity ^0.8.26;
 
 import { BaseAlgorithm } from "./BaseAlgorithm.sol";
+
 import { IAlgorithm } from "@async-swap/interfaces/IAlgorithm.sol";
+import { AsyncOrder } from "@async-swap/types/AsyncOrder.sol";
 
 /// @title Clever Lookahead Volatility Reduction (CLVR) Ordering Contract.
 /// @author Meek Msaki @ Async Labs
@@ -28,6 +30,17 @@ contract CLVR is BaseAlgorithm {
   /// @inheritdoc IAlgorithm
   function orderingRule(bool zeroForOne, uint256 amount) external override onlyHook {
     /// TODO: Implement the CLVR algorithm logic here.
+  }
+
+  function getVolatility(AsyncOrder[] memory orders) external pure override returns (uint256) {
+    uint256 accum;
+    uint256 vol;
+    for (uint256 i = 0; i < orders.length; i++) {
+      accum;
+      AsyncOrder memory order = orders[i];
+      order.amountIn;
+    }
+    return vol;
   }
 
 }

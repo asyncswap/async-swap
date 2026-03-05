@@ -39,14 +39,16 @@ contract AsyncSwapTest is SetupHook {
     vm.stopPrank();
   }
 
-  function fillOrder(address _user, AsyncOrder memory order, address _asyncFiller) public {
+  function fillOrder(address _user, AsyncOrder memory order) public {
     vm.startPrank(_user);
+    // For tests, use 1:1 ratio (amountOut = amountIn)
+    uint256 amountOut = order.amountIn;
     if (order.zeroForOne) {
-      token1.approve(address(router), order.amountIn);
+      token1.approve(address(router), amountOut);
     } else {
-      token0.approve(address(router), order.amountIn);
+      token0.approve(address(router), amountOut);
     }
-    router.fillOrder(order, abi.encode(_asyncFiller));
+    router.fillOrder(order, abi.encode(amountOut));
     vm.stopPrank();
   }
 
@@ -57,8 +59,16 @@ contract AsyncSwapTest is SetupHook {
     topUp(user, amountIn);
     topUp(user2, amountIn);
 
-    AsyncOrder memory order =
-      AsyncOrder({ key: key, owner: user, zeroForOne: zeroForOne, amountIn: amountIn, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory order = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: user,
+      zeroForOne: zeroForOne,
+      amountIn: amountIn,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
 
     uint256 balance0Before = currency0.balanceOf(user);
     uint256 balance1Before = currency1.balanceOf(user);
@@ -76,14 +86,17 @@ contract AsyncSwapTest is SetupHook {
       assertEq(balance1Before - balance1After, amountIn);
       assertEq(balance0Before, balance0After);
     }
-    assertEq(hook.asyncOrder(poolId, user, zeroForOne), amountIn);
+    assertEq(hook.asyncOrderAmount(poolId, user, zeroForOne), amountIn);
     assertEq(hook.isExecutor(poolId, user, asyncFiller), true);
 
     balance0Before = currency0.balanceOf(user2);
     balance1Before = currency1.balanceOf(user2);
 
+    // Record user's output balance before fill (user may already have tokens from topUp)
+    uint256 userOutputBefore = zeroForOne ? currency1.balanceOf(user) : currency0.balanceOf(user);
+
     // fill
-    fillOrder(user2, order, asyncFiller);
+    fillOrder(user2, order);
 
     balance0After = currency0.balanceOf(user2);
     balance1After = currency1.balanceOf(user2);
@@ -91,16 +104,17 @@ contract AsyncSwapTest is SetupHook {
     if (zeroForOne) {
       assertEq(balance0Before, balance0After);
       assertEq(balance1Before - balance1After, amountIn);
-      assertEq(hook.asyncOrder(poolId, user, zeroForOne), 0);
+      assertEq(hook.asyncOrderAmount(poolId, user, zeroForOne), 0);
     } else {
       assertEq(balance1Before, balance1After);
       assertEq(balance0Before - balance0After, amountIn);
-      assertEq(hook.asyncOrder(poolId, user, zeroForOne), 0);
+      assertEq(hook.asyncOrderAmount(poolId, user, zeroForOne), 0);
     }
+    // User receives output as ERC20 (take with claims=false) — check delta
     if (zeroForOne) {
-      assertEq(manager.balanceOf(user, currency0.toId()), uint256(amountIn));
+      assertEq(currency1.balanceOf(user) - userOutputBefore, uint256(amountIn));
     } else {
-      assertEq(manager.balanceOf(user, currency1.toId()), uint256(amountIn));
+      assertEq(currency0.balanceOf(user) - userOutputBefore, uint256(amountIn));
     }
   }
 
@@ -119,8 +133,16 @@ contract AsyncSwapTest is SetupHook {
       token1.approve(address(router), amount);
     }
 
-    AsyncOrder memory order =
-      AsyncOrder({ key: key, owner: user, zeroForOne: zeroForOne, amountIn: amount, sqrtPrice: 2 ** 96 });
+    AsyncOrder memory order = AsyncOrder({
+      deadline: block.timestamp + 1 hours,
+      key: key,
+      owner: user,
+      zeroForOne: zeroForOne,
+      amountIn: amount,
+      minAmountOut: 0,
+      maxAmountIn: 0,
+      sqrtPrice: 2 ** 96
+    });
 
     router.swap(order, abi.encode(user, asyncFiller));
 
@@ -138,7 +160,7 @@ contract AsyncSwapTest is SetupHook {
       assertEq(manager.balanceOf(address(hook), currency1.toId()), balance1Before + uint256(amount));
     }
 
-    assertEq(hook.asyncOrder(poolId, user, zeroForOne), uint256(amount));
+    assertEq(hook.asyncOrderAmount(poolId, user, zeroForOne), uint256(amount));
   }
 
 }

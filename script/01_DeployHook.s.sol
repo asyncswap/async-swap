@@ -3,6 +3,7 @@ pragma solidity ^0.8.13;
 
 import { FFIHelper } from "./FFIHelper.sol";
 import { AsyncSwap } from "@async-swap/AsyncSwap.sol";
+import { IAlgorithm } from "@async-swap/interfaces/IAlgorithm.sol";
 import { Router } from "@async-swap/router.sol";
 import { IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
 import { Hooks } from "v4-core/libraries/Hooks.sol";
@@ -14,6 +15,7 @@ contract DeployHookScript is FFIHelper {
   IPoolManager manager;
   AsyncSwap public hook;
   Router router;
+  IAlgorithm algo;
 
   function setUp() public {
     manager = IPoolManager(_getDeployedPoolManager());

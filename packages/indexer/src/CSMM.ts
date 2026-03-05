@@ -1,13 +1,5 @@
 import { ponder } from "ponder:registry";
 import schema from "ponder:schema";
-import { WebSocketServer } from "ws";
-
-const wss = new WebSocketServer({ port: 8080 });
-const clients: WebSocket[] = [];
-
-wss.on("connection", (ws: WebSocket) => {
-	clients.push(ws);
-});
 
 ponder.on("CsmmHook:AsyncSwapOrder", async ({ event, context }) => {
 	await context.db

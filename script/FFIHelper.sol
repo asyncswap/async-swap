@@ -19,7 +19,7 @@ contract FFIHelper is Script {
     Mainnet
   }
 
-  SelectChain chain = SelectChain.Unichain;
+  SelectChain chain = SelectChain.Anvil;
   address OWNER = 0xb1F0982E02f9F71E60512fd47471d76610CcB556;
   address ANVIL_OWNER = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
 
@@ -117,9 +117,11 @@ contract FFIHelper is Script {
     OrderData memory orderData = abi.decode(data, (OrderData));
     bool zeroForOne = topics[1] == 0 ? false : true;
     uint256 amountIn = uint256(topics[2]);
+    uint160 sqrtPrice = uint160(uint256(topics[3]));
+    uint256 deadline = uint256(topics[4]);
     PoolKey memory key = _getPoolKey();
 
-    AsyncOrder memory order = AsyncOrder(key, orderData.owner, zeroForOne, amountIn, 2 ** 96);
+    AsyncOrder memory order = AsyncOrder(key, orderData.owner, zeroForOne, amountIn, 0, 0, sqrtPrice, deadline);
     return order;
   }
 
