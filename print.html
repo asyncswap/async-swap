@@ -1,0 +1,1102 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title></title>
+        <meta name="robots" content="noindex">
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="book.css">
+
+        <!-- MathJax -->
+        <script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title"></h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/asyncswap/async-swap" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <p><img src="https://github.com/asyncswap/async-swap/actions/workflows/test.yml/badge.svg" alt="Tests" />
+<img src="https://github.com/asyncswap/async-swap/actions/workflows/fmt.yml/badge.svg" alt="Format" />
+<img src="https://github.com/asyncswap/async-swap/actions/workflows/docs.yml/badge.svg" alt="Docs" /></p>
+<h1 id="async-swap-amm"><a class="header" href="#async-swap-amm">Async Swap AMM</a></h1>
+<ul>
+<li><a href="src/AsyncSwap.sol">AsyncCSMM - hook contract</a></li>
+<li><a href="src/router.sol">Router - add liquidity, swap &amp; fill async orders</a></li>
+<li><a href="https://asyncswap.org">Live Demo Frontend</a></li>
+<li><a href="https://www.loom.com/share/b66cfb28f41b452c8cb6debceea35631?sid=962ac2ae-c2d4-49ff-b621-b99428b44ff9">Video Walkthrough</a></li>
+<li><a href="https://www.loom.com/share/15839f36efaf42e48642b5f1269c6709?sid=ab37fb1b-a31a-4519-9973-d34a7777360f">Transaction Ordering rules walkthorugh video</a></li>
+</ul>
+<h2 id="install"><a class="header" href="#install">Install</a></h2>
+<p>To install dependencies in all our packages in <code>packages/*</code></p>
+<pre><code class="language-bash">bun install
+</code></pre>
+<p>Install foundry dependencies (v4-periphery)</p>
+<pre><code class="language-sh">forge install
+</code></pre>
+<h2 id="setup"><a class="header" href="#setup">Setup</a></h2>
+<blockquote>
+<p>[!TIP]
+We suggest you set up local anvil account with cast.</p>
+<pre><code class="language-sh">cast wallet import --mnemonic "test test test test test test test test test test test junk" anvil
+</code></pre>
+<ul>
+<li>This will allow you to use <code>--account anvil</code> in the deploys scripts in <a href="./dev/start_script.sh"><code>.dev/start_script.sh</code></a></li>
+</ul>
+</blockquote>
+<p>Run local anvil node with Unichain fork</p>
+<pre><code class="language-sh">anvil --fork-url https://unichain-rpc.publicnode.com
+# or simulate block mining and finality
+anvil --block-time 13
+</code></pre>
+<p>Run otterscan explorer</p>
+<pre><code class="language-sh">docker run --rm -p 5100:80 --name otterscan -d otterscan/otterscan:latest
+</code></pre>
+<h2 id="local-deployment"><a class="header" href="#local-deployment">Local Deployment</a></h2>
+<p>Run deployment script</p>
+<pre><code class="language-sh">./dev/start_script.sh # scripts that you use --account setup of you choice
+</code></pre>
+<blockquote>
+<p>[!NOTE]</p>
+<p>The start scripts will do the following:</p>
+<ol>
+<li>Deploy local PoolManger <a href="./script/00_DeployPoolManager.s.sol"><code>./script/00_DeployPoolManager.s.sol</code></a></li>
+<li>Deploy Hook &amp; Router contracts <a href="./script/01_DeployHook.s.sol"><code>./script/01_DeployHook.s.sol</code></a></li>
+<li>Initialize a pool with your hook attached <a href="./script/02_InitilizePool.s.sol"><code>./script/02_InitilizePool.s.sol</code></a></li>
+<li>Add liqudity to previously initialized pool <a href="./script/03_AddLiquidity.s.sol"><code>./script/03_AddLiquidity.s.sol</code></a></li>
+<li>Submit an async swap transaction through custom router <a href="./script/04_Swap.s.sol"><code>./script/04_Swap.s.sol</code></a></li>
+<li>Fill previously submitted swap transaction <a href="./script/05_ExecuteOrder.s.sol"><code>./script/05_ExecuteOrder.s.sol</code></a></li>
+</ol>
+</blockquote>
+<h2 id="testing"><a class="header" href="#testing">Testing</a></h2>
+<p>Run tests</p>
+<pre><code class="language-sh">forge test -vvvv
+</code></pre>
+<p>Huff tests:</p>
+<pre><code class="language-sh"># sender is poolManager address
+hnc src/AsyncSwap.huff test --sender 0x0000000000000000000000000000000000000000
+</code></pre>
+<h2 id="offchain-indexer"><a class="header" href="#offchain-indexer">Offchain Indexer</a></h2>
+<p>Start local indexer</p>
+<pre><code class="language-sh">bun run dev
+</code></pre>
+<blockquote>
+<p>[!Tip]</p>
+<ul>
+<li>If you need typescript abi for your contracts on frontend or indexer use this script <a href="./dev/generateAbi.sh"><code>./dev/generateAbi.sh</code></a></li>
+</ul>
+<pre><code class="language-sh">./dev/generateAbi.sh
+</code></pre>
+</blockquote>
+<p>Go to <a href="http://localhost:42069">http://localhost:42069</a> to query orders from hook events</p>
+<h2 id="docs"><a class="header" href="#docs">Docs</a></h2>
+<p>View documentation:</p>
+<pre><code class="language-sh">forge doc --serve --port 4000 --watch
+
+</code></pre>
+<h2 id="acknowledgment"><a class="header" href="#acknowledgment">Acknowledgment</a></h2>
+<p>Thanks to <a href="https://atrium.academy">Atrium Academy</a>, over the past 2 months we build this project during Uniswap Hook incubator program.</p>
+<p>Team Socials:</p>
+<ul>
+<li>Meek <a href="https://x.com/msakiart">X</a>, <a href="https://github.com/mmsaki">github</a></li>
+<li>Jiasun Li <a href="https://x.com/mysteryfigure">X</a>, <a href="https://github.com/mysteryfigure">github</a></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="contents"><a class="header" href="#contents">Contents</a></h1>
+<ul>
+<li><a href="src/algorithms/BaseAlgorithm.sol/contract.BaseAlgorithm.html">BaseAlgorithm</a></li>
+<li><a href="src/algorithms/clvr.sol/contract.CLVR.html">CLVR</a></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="basealgorithm"><a class="header" href="#basealgorithm">BaseAlgorithm</a></h1>
+<p><a href="https://github.com/asyncswap/async-swap/blob/13ed5d83adc16bd1626e8399cd966e5d7d3eee9b/src/algorithms/BaseAlgorithm.sol">Git Source</a></p>
+<p><strong>Inherits:</strong>
+<a href="src/algorithms/BaseAlgorithm.sol//src/interfaces/IAlgorithm.sol/interface.IAlgorithm.html">IAlgorithm</a></p>
+<h2 id="state-variables"><a class="header" href="#state-variables">State Variables</a></h2>
+<h3 id="hookaddress"><a class="header" href="#hookaddress">HOOKADDRESS</a></h3>
+<p>The address of the hook that will call this algorithm.</p>
+<pre><code class="language-solidity">address public immutable HOOKADDRESS
+</code></pre>
+<h2 id="functions"><a class="header" href="#functions">Functions</a></h2>
+<h3 id="constructor"><a class="header" href="#constructor">constructor</a></h3>
+<p>Constructor to set the hook address.</p>
+<pre><code class="language-solidity">constructor(address _hookAddress) ;
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>_hookAddress</code></td><td><code>address</code></td><td>The address of the hook that will call this algorithm.</td></tr>
+</tbody></table>
+</div>
+<h3 id="onlyhook"><a class="header" href="#onlyhook">onlyHook</a></h3>
+<p>Modifier to restrict access to the hook address.</p>
+<p>only hook contract can call</p>
+<pre><code class="language-solidity">modifier onlyHook() ;
+</code></pre>
+<h3 id="_checkcallerishookcontract"><a class="header" href="#_checkcallerishookcontract">_checkCallerIsHookContract</a></h3>
+<pre><code class="language-solidity">function _checkCallerIsHookContract() internal view;
+</code></pre>
+<h3 id="name"><a class="header" href="#name">name</a></h3>
+<p>Returns the name of the ordering algorithm.</p>
+<pre><code class="language-solidity">function name() external pure virtual returns (string memory);
+</code></pre>
+<p><strong>Returns</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>&lt;none&gt;</code></td><td><code>string</code></td><td>The name of the algorithm as a string.</td></tr>
+</tbody></table>
+</div>
+<h3 id="version"><a class="header" href="#version">version</a></h3>
+<p>Version of the algorithm.</p>
+<pre><code class="language-solidity">function version() external pure virtual returns (string memory);
+</code></pre>
+<p><strong>Returns</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>&lt;none&gt;</code></td><td><code>string</code></td><td>The version of the algorithm as a string.</td></tr>
+</tbody></table>
+</div>
+<h3 id="orderingrule"><a class="header" href="#orderingrule">orderingRule</a></h3>
+<p>Executes the transaction ordering algorithm.</p>
+<pre><code class="language-solidity">function orderingRule(bool zeroForOne, uint256 amount) external virtual;
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>zeroForOne</code></td><td><code>bool</code></td><td>Indicates the direction of the trade (true for currency0 to currency1, false for currency1 to currency0).</td></tr>
+<tr><td><code>amount</code></td><td><code>uint256</code></td><td>The amount of the order being processed.</td></tr>
+</tbody></table>
+</div>
+<h3 id="getvolatility"><a class="header" href="#getvolatility">getVolatility</a></h3>
+<pre><code class="language-solidity">function getVolatility(AsyncOrder[] memory orders) external pure virtual override returns (uint256);
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="clvr"><a class="header" href="#clvr">CLVR</a></h1>
+<p><a href="https://github.com/asyncswap/async-swap/blob/13ed5d83adc16bd1626e8399cd966e5d7d3eee9b/src/algorithms/clvr.sol">Git Source</a></p>
+<p><strong>Inherits:</strong>
+<a href="src/algorithms/clvr.sol//src/algorithms/BaseAlgorithm.sol/contract.BaseAlgorithm.html">BaseAlgorithm</a></p>
+<p><strong>Title:</strong>
+Clever Lookahead Volatility Reduction (CLVR) Ordering Contract.</p>
+<p><strong>Author:</strong>
+Meek Msaki @ Async Labs</p>
+<p>This contract implements the CLVR algorithm for ordering transactions.</p>
+<p>CLVR selects the next trade that minimizes price volatility (ln p0 - ln P(d, t))^2.
+The rule picks at each step t as the next trade that causes minimal local one-step price volatility from the status
+quo price p0.</p>
+<p><strong>Note:</strong>
+reference: https://arxiv.org/abs/2408.02634</p>
+<h2 id="functions-1"><a class="header" href="#functions-1">Functions</a></h2>
+<h3 id="constructor-1"><a class="header" href="#constructor-1">constructor</a></h3>
+<pre><code class="language-solidity">constructor(address _hookAddress) BaseAlgorithm(_hookAddress);
+</code></pre>
+<h3 id="name-1"><a class="header" href="#name-1">name</a></h3>
+<p>Returns the name of the ordering algorithm.</p>
+<pre><code class="language-solidity">function name() external pure override returns (string memory);
+</code></pre>
+<p><strong>Returns</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>&lt;none&gt;</code></td><td><code>string</code></td><td>The name of the algorithm as a string.</td></tr>
+</tbody></table>
+</div>
+<h3 id="version-1"><a class="header" href="#version-1">version</a></h3>
+<p>Version of the algorithm.</p>
+<pre><code class="language-solidity">function version() external pure override returns (string memory);
+</code></pre>
+<p><strong>Returns</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>&lt;none&gt;</code></td><td><code>string</code></td><td>The version of the algorithm as a string.</td></tr>
+</tbody></table>
+</div>
+<h3 id="orderingrule-1"><a class="header" href="#orderingrule-1">orderingRule</a></h3>
+<p>Executes the transaction ordering algorithm.</p>
+<pre><code class="language-solidity">function orderingRule(bool zeroForOne, uint256 amount) external override onlyHook;
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>zeroForOne</code></td><td><code>bool</code></td><td>Indicates the direction of the trade (true for currency0 to currency1, false for currency1 to currency0).</td></tr>
+<tr><td><code>amount</code></td><td><code>uint256</code></td><td>The amount of the order being processed.</td></tr>
+</tbody></table>
+</div>
+<h3 id="getvolatility-1"><a class="header" href="#getvolatility-1">getVolatility</a></h3>
+<pre><code class="language-solidity">function getVolatility(AsyncOrder[] memory orders) external pure override returns (uint256);
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="contents-1"><a class="header" href="#contents-1">Contents</a></h1>
+<ul>
+<li><a href="src/interfaces/IAlgorithm.sol/interface.IAlgorithm.html">IAlgorithm</a></li>
+<li><a href="src/interfaces/IAsyncSwapAMM.sol/interface.IAsyncSwapAMM.html">IAsyncSwapAMM</a></li>
+<li><a href="src/interfaces/IAsyncSwapOrder.sol/interface.IAsyncSwapOrder.html">IAsyncSwapOrder</a></li>
+<li><a href="src/interfaces/IRouter.sol/interface.IRouter.html">IRouter</a></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="ialgorithm"><a class="header" href="#ialgorithm">IAlgorithm</a></h1>
+<p><a href="https://github.com/asyncswap/async-swap/blob/13ed5d83adc16bd1626e8399cd966e5d7d3eee9b/src/interfaces/IAlgorithm.sol">Git Source</a></p>
+<p><strong>Title:</strong>
+Algorithm Interface</p>
+<p><strong>Author:</strong>
+Async Labs</p>
+<p>This interface defines the functions for transaction ordering algorithms used in the Async Swap AMM hook.</p>
+<h2 id="functions-2"><a class="header" href="#functions-2">Functions</a></h2>
+<h3 id="orderingrule-2"><a class="header" href="#orderingrule-2">orderingRule</a></h3>
+<p>Executes the transaction ordering algorithm.</p>
+<pre><code class="language-solidity">function orderingRule(bool zeroForOne, uint256 amount) external;
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>zeroForOne</code></td><td><code>bool</code></td><td>Indicates the direction of the trade (true for currency0 to currency1, false for currency1 to currency0).</td></tr>
+<tr><td><code>amount</code></td><td><code>uint256</code></td><td>The amount of the order being processed.</td></tr>
+</tbody></table>
+</div>
+<h3 id="name-2"><a class="header" href="#name-2">name</a></h3>
+<p>Returns the name of the ordering algorithm.</p>
+<pre><code class="language-solidity">function name() external view returns (string memory);
+</code></pre>
+<p><strong>Returns</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>&lt;none&gt;</code></td><td><code>string</code></td><td>The name of the algorithm as a string.</td></tr>
+</tbody></table>
+</div>
+<h3 id="version-2"><a class="header" href="#version-2">version</a></h3>
+<p>Version of the algorithm.</p>
+<pre><code class="language-solidity">function version() external view returns (string memory);
+</code></pre>
+<p><strong>Returns</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>&lt;none&gt;</code></td><td><code>string</code></td><td>The version of the algorithm as a string.</td></tr>
+</tbody></table>
+</div>
+<h3 id="getvolatility-2"><a class="header" href="#getvolatility-2">getVolatility</a></h3>
+<pre><code class="language-solidity">function getVolatility(AsyncOrder[] memory orders) external pure returns (uint256);
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="iasyncswapamm"><a class="header" href="#iasyncswapamm">IAsyncSwapAMM</a></h1>
+<p><a href="https://github.com/asyncswap/async-swap/blob/13ed5d83adc16bd1626e8399cd966e5d7d3eee9b/src/interfaces/IAsyncSwapAMM.sol">Git Source</a></p>
+<p><strong>Inherits:</strong>
+<a href="src/interfaces/IAsyncSwapAMM.sol//src/interfaces/IAsyncSwapOrder.sol/interface.IAsyncSwapOrder.html">IAsyncSwapOrder</a></p>
+<p><strong>Title:</strong>
+Async Swap AMM Interface</p>
+<p><strong>Author:</strong>
+Async Labs</p>
+<p>This interface defines the functions for the Async CSMM (Constant Sum Market Maker) contract.</p>
+<h2 id="functions-3"><a class="header" href="#functions-3">Functions</a></h2>
+<h3 id="executeorder"><a class="header" href="#executeorder">executeOrder</a></h3>
+<p>Fill an async order in an Async Swap AMM.</p>
+<pre><code class="language-solidity">function executeOrder(AsyncOrder calldata order, bytes calldata fillerData)
+  external
+  returns (Currency currencyFill, uint256 amountOut);
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>order</code></td><td><code>AsyncOrder</code></td><td>The async order to be filled.</td></tr>
+<tr><td><code>fillerData</code></td><td><code>bytes</code></td><td>ABI-encoded (address filler, uint256 amountOut).</td></tr>
+</tbody></table>
+</div>
+<p><strong>Returns</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>currencyFill</code></td><td><code>Currency</code></td><td>The currency the filler must settle into the PoolManager.</td></tr>
+<tr><td><code>amountOut</code></td><td><code>uint256</code></td><td>The amount of currencyFill to settle.</td></tr>
+</tbody></table>
+</div>
+<h3 id="withdraw"><a class="header" href="#withdraw">withdraw</a></h3>
+<pre><code class="language-solidity">function withdraw(PoolKey memory key, bool zeroForOne, uint256 amount, address user) external;
+</code></pre>
+<h3 id="batch"><a class="header" href="#batch">batch</a></h3>
+<pre><code class="language-solidity">function batch(
+  AsyncOrder[] memory buys,
+  AsyncOrder[] memory sells,
+  bytes[] calldata buysData,
+  bytes[] calldata sellsData
+) external;
+</code></pre>
+<h2 id="structs"><a class="header" href="#structs">Structs</a></h2>
+<h3 id="userparams"><a class="header" href="#userparams">UserParams</a></h3>
+<p>Struct representing the user parameters for executing an async order.</p>
+<pre><code class="language-solidity">struct UserParams {
+  address user;
+  address executor;
+}
+</code></pre>
+<p><strong>Properties</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>user</code></td><td><code>address</code></td><td></td></tr>
+<tr><td><code>executor</code></td><td><code>address</code></td><td></td></tr>
+</tbody></table>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="iasyncswaporder"><a class="header" href="#iasyncswaporder">IAsyncSwapOrder</a></h1>
+<p><a href="https://github.com/asyncswap/async-swap/blob/13ed5d83adc16bd1626e8399cd966e5d7d3eee9b/src/interfaces/IAsyncSwapOrder.sol">Git Source</a></p>
+<p><strong>Title:</strong>
+Async Swap Interface</p>
+<p><strong>Author:</strong>
+Async Labs</p>
+<p>This interface defines the functions for the Async Swap orders.</p>
+<h2 id="functions-4"><a class="header" href="#functions-4">Functions</a></h2>
+<h3 id="asyncorderamount"><a class="header" href="#asyncorderamount">asyncOrderAmount</a></h3>
+<p>Returns the claimable amount for an async order.</p>
+<pre><code class="language-solidity">function asyncOrderAmount(PoolId poolId, address user, bool zeroForOne) external view returns (uint256 claimable);
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>poolId</code></td><td><code>PoolId</code></td><td>The poolId of the pool where the order is placed.</td></tr>
+<tr><td><code>user</code></td><td><code>address</code></td><td>The user who placed the order.</td></tr>
+<tr><td><code>zeroForOne</code></td><td><code>bool</code></td><td>Whether the order is for a swap from currency0 to currency1 (true) or currency1 to currency0 (false).</td></tr>
+</tbody></table>
+</div>
+<p><strong>Returns</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>claimable</code></td><td><code>uint256</code></td><td>The amount that can be claimed by the user.</td></tr>
+</tbody></table>
+</div>
+<h3 id="isexecutor"><a class="header" href="#isexecutor">isExecutor</a></h3>
+<p>Checks if the given executor is valid for the async order.</p>
+<pre><code class="language-solidity">function isExecutor(PoolId poolId, address owner, address executor) external returns (bool);
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>poolId</code></td><td><code>PoolId</code></td><td>The poolId the executor is interacting with.</td></tr>
+<tr><td><code>owner</code></td><td><code>address</code></td><td>The async order owner be checked against.</td></tr>
+<tr><td><code>executor</code></td><td><code>address</code></td><td>The address of the executor to be checked.</td></tr>
+</tbody></table>
+</div>
+<p><strong>Returns</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>&lt;none&gt;</code></td><td><code>bool</code></td><td>isExecutor True if the executor is valid for the async order, false otherwise.</td></tr>
+</tbody></table>
+</div>
+<h2 id="events"><a class="header" href="#events">Events</a></h2>
+<h3 id="asyncorderfilled"><a class="header" href="#asyncorderfilled">AsyncOrderFilled</a></h3>
+<p>Emitted when an async order is filled.</p>
+<pre><code class="language-solidity">event AsyncOrderFilled(PoolId poolId, address owner, bool zeroForOne, uint256 amount, uint256 deadline);
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>poolId</code></td><td><code>PoolId</code></td><td>The poolId of the pool where the order is placed.</td></tr>
+<tr><td><code>owner</code></td><td><code>address</code></td><td>The owner of the order, who can claim the order.</td></tr>
+<tr><td><code>zeroForOne</code></td><td><code>bool</code></td><td>Whether the order is for a swap from currency0 to currency1 (true) or currency1 to currency0 (false).</td></tr>
+<tr><td><code>amount</code></td><td><code>uint256</code></td><td>The amount of the order.</td></tr>
+<tr><td><code>deadline</code></td><td><code>uint256</code></td><td>The deadline of the order.</td></tr>
+</tbody></table>
+</div>
+<h3 id="asyncswaporder"><a class="header" href="#asyncswaporder">AsyncSwapOrder</a></h3>
+<p>Emitted when an async swap order is created.</p>
+<pre><code class="language-solidity">event AsyncSwapOrder(PoolId poolId, address owner, bool indexed zeroForOne, int256 indexed amountIn);
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>poolId</code></td><td><code>PoolId</code></td><td>The poolId of the pool where the order is placed.</td></tr>
+<tr><td><code>owner</code></td><td><code>address</code></td><td>The owner of the order, who can claim the order.</td></tr>
+<tr><td><code>zeroForOne</code></td><td><code>bool</code></td><td>Whether the order is for a swap from currency0 to currency1 (true) or currency1 to currency0 (false).</td></tr>
+<tr><td><code>amountIn</code></td><td><code>int256</code></td><td>The amount of the order that is being filled.</td></tr>
+</tbody></table>
+</div>
+<h2 id="errors"><a class="header" href="#errors">Errors</a></h2>
+<h3 id="invalidorder"><a class="header" href="#invalidorder">InvalidOrder</a></h3>
+<p>Error thrown when an order is invalid.</p>
+<pre><code class="language-solidity">error InvalidOrder();
+</code></pre>
+<h3 id="zerofillorder"><a class="header" href="#zerofillorder">ZeroFillOrder</a></h3>
+<p>Error thrown when an order is of zero amount.</p>
+<pre><code class="language-solidity">error ZeroFillOrder();
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="irouter"><a class="header" href="#irouter">IRouter</a></h1>
+<p><a href="https://github.com/asyncswap/async-swap/blob/13ed5d83adc16bd1626e8399cd966e5d7d3eee9b/src/interfaces/IRouter.sol">Git Source</a></p>
+<p><strong>Title:</strong>
+Router Interface</p>
+<p><strong>Author:</strong>
+Async Labs</p>
+<p>This interface defines the functions for the Router contract, which allows users to swap tokens and fill
+orders using async orders.</p>
+<h2 id="functions-5"><a class="header" href="#functions-5">Functions</a></h2>
+<h3 id="swap"><a class="header" href="#swap">swap</a></h3>
+<p>Swaps tokens using an async order.</p>
+<pre><code class="language-solidity">function swap(AsyncOrder calldata order, bytes calldata userData) external payable;
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>order</code></td><td><code>AsyncOrder</code></td><td>The async order to be placed.</td></tr>
+<tr><td><code>userData</code></td><td><code>bytes</code></td><td>Additional data for the user, allowing user to specify an executor.</td></tr>
+</tbody></table>
+</div>
+<h3 id="fillorder"><a class="header" href="#fillorder">fillOrder</a></h3>
+<p>Fills an async order.</p>
+<pre><code class="language-solidity">function fillOrder(AsyncOrder calldata order, bytes calldata userData) external payable;
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>order</code></td><td><code>AsyncOrder</code></td><td>The async order to be filled.</td></tr>
+<tr><td><code>userData</code></td><td><code>bytes</code></td><td>Additional data for the user, allowing user to specify an executor.</td></tr>
+</tbody></table>
+</div>
+<h3 id="withdraw-1"><a class="header" href="#withdraw-1">withdraw</a></h3>
+<pre><code class="language-solidity">function withdraw(PoolKey memory key, bool zeroForOne, uint256 amount) external;
+</code></pre>
+<h3 id="multicall"><a class="header" href="#multicall">multicall</a></h3>
+<p>Execute multiple orders with graceful failure handling.</p>
+<p>Individual order failures don't revert the entire transaction.</p>
+<pre><code class="language-solidity">function multicall(AsyncOrder[] calldata orders, bytes[] calldata ordersData)
+  external
+  payable
+  returns (bool[] memory results);
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>orders</code></td><td><code>AsyncOrder[]</code></td><td>Array of orders to execute.</td></tr>
+<tr><td><code>ordersData</code></td><td><code>bytes[]</code></td><td>Array of filler data corresponding to each order.</td></tr>
+</tbody></table>
+</div>
+<p><strong>Returns</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>results</code></td><td><code>bool[]</code></td><td>Array of booleans indicating success/failure for each order.</td></tr>
+</tbody></table>
+</div>
+<h2 id="structs-1"><a class="header" href="#structs-1">Structs</a></h2>
+<h3 id="swapcallback"><a class="header" href="#swapcallback">SwapCallback</a></h3>
+<p>Callback structure for the swap function.</p>
+<pre><code class="language-solidity">struct SwapCallback {
+  ActionType action;
+  AsyncOrder order;
+  uint256 amountOut;
+}
+</code></pre>
+<p><strong>Properties</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>action</code></td><td><code>ActionType</code></td><td>The action type, either Swap or FillOrder.</td></tr>
+<tr><td><code>order</code></td><td><code>AsyncOrder</code></td><td>The async order that is in context for the swap or fill operation.</td></tr>
+<tr><td><code>amountOut</code></td><td><code>uint256</code></td><td>The amount the filler is offering (only used for FillOrder action).</td></tr>
+</tbody></table>
+</div>
+<h3 id="withdrawcallback"><a class="header" href="#withdrawcallback">WithdrawCallback</a></h3>
+<pre><code class="language-solidity">struct WithdrawCallback {
+  ActionType action;
+  PoolKey key;
+  bool zeroForOne;
+  uint256 amount;
+  address user;
+}
+</code></pre>
+<h3 id="multicallcallback"><a class="header" href="#multicallcallback">MulticallCallback</a></h3>
+<pre><code class="language-solidity">struct MulticallCallback {
+  ActionType action;
+  AsyncOrder[] orders;
+  bytes[] ordersData;
+}
+</code></pre>
+<h2 id="enums"><a class="header" href="#enums">Enums</a></h2>
+<h3 id="actiontype"><a class="header" href="#actiontype">ActionType</a></h3>
+<p>Enum representing the action type for the swap callback.</p>
+<ol>
+<li>Swap - If the action is a swap, this will specify the async swap order intent.</li>
+<li>FillOrder - If the action is a fill order, this will specify fill order intent.</li>
+<li>Withdrawal - If the action is a withdrawal, this will specify withdrawal intent.</li>
+<li>Multicall - If the action is a multicall, this will specify multicall intent.</li>
+</ol>
+<pre><code class="language-solidity">enum ActionType {
+  Swap,
+  FillOrder,
+  Withdrawal,
+  Multicall
+}
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="contents-2"><a class="header" href="#contents-2">Contents</a></h1>
+<ul>
+<li><a href="src/libraries/AsyncFiller.sol/library.AsyncFiller.html">AsyncFiller</a></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="asyncfiller"><a class="header" href="#asyncfiller">AsyncFiller</a></h1>
+<p><a href="https://github.com/asyncswap/async-swap/blob/13ed5d83adc16bd1626e8399cd966e5d7d3eee9b/src/libraries/AsyncFiller.sol">Git Source</a></p>
+<p><strong>Title:</strong>
+AsyncFiller library</p>
+<p><strong>Author:</strong>
+Async Labs</p>
+<p>This library provides functionality for filling async swap orders in the Uniswap V4 pool.</p>
+<h2 id="functions-6"><a class="header" href="#functions-6">Functions</a></h2>
+<h3 id="isexecutor-1"><a class="header" href="#isexecutor-1">isExecutor</a></h3>
+<p>Checks if the given executor is valid for the async order.</p>
+<pre><code class="language-solidity">function isExecutor(AsyncOrder calldata order, State storage self, address executor) internal view returns (bool);
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>order</code></td><td><code>AsyncOrder</code></td><td>The async order to be filled.</td></tr>
+<tr><td><code>self</code></td><td><code>State</code></td><td>The storage slot that controls the state of orders.</td></tr>
+<tr><td><code>executor</code></td><td><code>address</code></td><td>The address of the executor to be checked.</td></tr>
+</tbody></table>
+</div>
+<p><strong>Returns</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>&lt;none&gt;</code></td><td><code>bool</code></td><td>isExecutor True if the executor is valid for the async order, false otherwise.</td></tr>
+</tbody></table>
+</div>
+<h3 id="executeorder-1"><a class="header" href="#executeorder-1">executeOrder</a></h3>
+<p>Fills async orders in batching mode, allowing multiple orders to be executed in a single transaction.</p>
+<pre><code class="language-solidity">function executeOrder(AsyncOrder[] calldata orders, State storage self, bytes calldata userParams) external;
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>orders</code></td><td><code>AsyncOrder[]</code></td><td>An array of async orders to be executed.</td></tr>
+<tr><td><code>self</code></td><td><code>State</code></td><td></td></tr>
+<tr><td><code>userParams</code></td><td><code>bytes</code></td><td>Additional data for the user, allowing user to specify an executor.</td></tr>
+</tbody></table>
+</div>
+<h3 id="_execute"><a class="header" href="#_execute">_execute</a></h3>
+<p>Fill an async order in an Async Swap AMM.</p>
+<pre><code class="language-solidity">function _execute(AsyncOrder calldata order, State storage self, bytes calldata) internal;
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>order</code></td><td><code>AsyncOrder</code></td><td>The async order to be filled.</td></tr>
+<tr><td><code>self</code></td><td><code>State</code></td><td>The state of the AsyncFiller library, containing async orders and executors.</td></tr>
+<tr><td><code>&lt;none&gt;</code></td><td><code>bytes</code></td><td></td></tr>
+</tbody></table>
+</div>
+<h2 id="events-1"><a class="header" href="#events-1">Events</a></h2>
+<h3 id="asyncorderfilled-1"><a class="header" href="#asyncorderfilled-1">AsyncOrderFilled</a></h3>
+<p>Emitted when an async order is filled.</p>
+<pre><code class="language-solidity">event AsyncOrderFilled(PoolId poolId, address owner, bool zeroForOne, uint256 amount);
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>poolId</code></td><td><code>PoolId</code></td><td>The poolId of the pool where the order is placed.</td></tr>
+<tr><td><code>owner</code></td><td><code>address</code></td><td>The owner of the order, who can claim the order.</td></tr>
+<tr><td><code>zeroForOne</code></td><td><code>bool</code></td><td>Whether the order is for a swap from currency0 to currency1 (true) or currency1 to currency0 (false).</td></tr>
+<tr><td><code>amount</code></td><td><code>uint256</code></td><td>The amount of the order.</td></tr>
+</tbody></table>
+</div>
+<h2 id="errors-1"><a class="header" href="#errors-1">Errors</a></h2>
+<h3 id="invalidorder-1"><a class="header" href="#invalidorder-1">InvalidOrder</a></h3>
+<p>Error thrown when an order is invalid.</p>
+<pre><code class="language-solidity">error InvalidOrder();
+</code></pre>
+<h3 id="zerofillorder-1"><a class="header" href="#zerofillorder-1">ZeroFillOrder</a></h3>
+<p>Error thrown when an order is of zero amount.</p>
+<pre><code class="language-solidity">error ZeroFillOrder();
+</code></pre>
+<h2 id="structs-2"><a class="header" href="#structs-2">Structs</a></h2>
+<h3 id="state"><a class="header" href="#state">State</a></h3>
+<p>Represents the state of the AsyncFiller library storage for async orders and executors.</p>
+<pre><code class="language-solidity">struct State {
+  IPoolManager poolManager;
+  IAlgorithm algorithm;
+  mapping(address user =&gt; mapping(bool zeroForOne =&gt; uint256 claimable)) asyncOrderAmount;
+  mapping(address owner =&gt; mapping(address executor =&gt; bool)) isExecutor;
+}
+</code></pre>
+<p><strong>Properties</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>poolManager</code></td><td><code>IPoolManager</code></td><td>The PoolManager contract that manages the pools.</td></tr>
+<tr><td><code>algorithm</code></td><td><code>IAlgorithm</code></td><td></td></tr>
+<tr><td><code>asyncOrderAmount</code></td><td><code>mapping(address user =&gt; mapping(bool zeroForOne =&gt; uint256 claimable))</code></td><td></td></tr>
+<tr><td><code>isExecutor</code></td><td><code>mapping(address owner =&gt; mapping(address executor =&gt; bool))</code></td><td></td></tr>
+</tbody></table>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="contents-3"><a class="header" href="#contents-3">Contents</a></h1>
+<ul>
+<li><a href="src/types/AsyncOrder.sol/struct.AsyncOrder.html">AsyncOrder</a></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="asyncorder"><a class="header" href="#asyncorder">AsyncOrder</a></h1>
+<p><a href="https://github.com/asyncswap/async-swap/blob/13ed5d83adc16bd1626e8399cd966e5d7d3eee9b/src/types/AsyncOrder.sol">Git Source</a></p>
+<p>Represents an async order for a swap in the Uniswap V4 pool.</p>
+<pre><code class="language-solidity">struct AsyncOrder {
+PoolKey key;
+address owner;
+bool zeroForOne;
+uint256 amountIn;
+uint256 minAmountOut;
+uint256 maxAmountIn;
+uint160 sqrtPrice;
+uint256 deadline;
+}
+</code></pre>
+<p><strong>Properties</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>key</code></td><td><code>PoolKey</code></td><td>The Uniswap V4 PoolKey that identifies the pool.</td></tr>
+<tr><td><code>owner</code></td><td><code>address</code></td><td>The owner of the order, who can claim the order.</td></tr>
+<tr><td><code>zeroForOne</code></td><td><code>bool</code></td><td>Whether the order is for a swap from currency0 to currency1 (true) or currency1 to currency0 (false).</td></tr>
+<tr><td><code>amountIn</code></td><td><code>uint256</code></td><td>The amount of the order that is being filled.</td></tr>
+<tr><td><code>minAmountOut</code></td><td><code>uint256</code></td><td>The minimum amount of output tokens the user is willing to accept (slippage protection).</td></tr>
+<tr><td><code>maxAmountIn</code></td><td><code>uint256</code></td><td>The maximum amount of input tokens the user is willing to pay (for exact output swaps).</td></tr>
+<tr><td><code>sqrtPrice</code></td><td><code>uint160</code></td><td>The square root price of the pool at the time of the order.</td></tr>
+<tr><td><code>deadline</code></td><td><code>uint256</code></td><td>The timestamp after which the order cannot be executed.</td></tr>
+</tbody></table>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="contents-4"><a class="header" href="#contents-4">Contents</a></h1>
+<ul>
+<li><a href="src/utils/TransientStorage.sol/contract.TransientStorage.html">TransientStorage</a></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="transientstorage"><a class="header" href="#transientstorage">TransientStorage</a></h1>
+<p><a href="https://github.com/asyncswap/async-swap/blob/13ed5d83adc16bd1626e8399cd966e5d7d3eee9b/src/utils/TransientStorage.sol">Git Source</a></p>
+<p><strong>Title:</strong>
+TransientStorage helper contract</p>
+<p><strong>Author:</strong>
+Async Labs</p>
+<p>This contract provides functions to interact with the transient storage.</p>
+<h2 id="functions-7"><a class="header" href="#functions-7">Functions</a></h2>
+<h3 id="tload"><a class="header" href="#tload">tload</a></h3>
+<p>Load a value from the transient storage.</p>
+<pre><code class="language-solidity">function tload(bytes32 key) internal view returns (bytes32 value);
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>key</code></td><td><code>bytes32</code></td><td>The key to store or retrieve the value.</td></tr>
+</tbody></table>
+</div>
+<h3 id="tstore"><a class="header" href="#tstore">tstore</a></h3>
+<p>Store a value in the transient storage.</p>
+<pre><code class="language-solidity">function tstore(bytes32 key, bytes32 value) internal;
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>key</code></td><td><code>bytes32</code></td><td>The key to store or retrieve the value.</td></tr>
+<tr><td><code>value</code></td><td><code>bytes32</code></td><td>The value to store in the transient storage.</td></tr>
+</tbody></table>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="asyncswap"><a class="header" href="#asyncswap">AsyncSwap</a></h1>
+<p><a href="https://github.com/asyncswap/async-swap/blob/13ed5d83adc16bd1626e8399cd966e5d7d3eee9b/src/AsyncSwap.sol">Git Source</a></p>
+<p><strong>Inherits:</strong>
+BaseHook, <a href="src/AsyncSwap.sol//src/interfaces/IAsyncSwapAMM.sol/interface.IAsyncSwapAMM.html">IAsyncSwapAMM</a></p>
+<p><strong>Title:</strong>
+Async Swap Contract</p>
+<p><strong>Author:</strong>
+Asyncswap Labs</p>
+<h2 id="state-variables-1"><a class="header" href="#state-variables-1">State Variables</a></h2>
+<h3 id="asyncorders"><a class="header" href="#asyncorders">asyncOrders</a></h3>
+<p>Mapping to store async orders.</p>
+<pre><code class="language-solidity">mapping(PoolId poolId =&gt; AsyncFiller.State) public asyncOrders
+</code></pre>
+<h3 id="algorithm"><a class="header" href="#algorithm">ALGORITHM</a></h3>
+<p>Ordering algorithm</p>
+<pre><code class="language-solidity">IAlgorithm public immutable ALGORITHM
+</code></pre>
+<h3 id="kvolatility"><a class="header" href="#kvolatility">kvolatility</a></h3>
+<pre><code class="language-solidity">mapping(uint256 block =&gt; uint256 volatility) public kvolatility
+</code></pre>
+<h2 id="functions-8"><a class="header" href="#functions-8">Functions</a></h2>
+<h3 id="constructor-2"><a class="header" href="#constructor-2">constructor</a></h3>
+<p>Initializes the Async Swap Hook contract with the PoolManager address and sets an transaction ordering algorithm.</p>
+<pre><code class="language-solidity">constructor(IPoolManager poolManager) BaseHook(poolManager);
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>poolManager</code></td><td><code>IPoolManager</code></td><td>The address of the PoolManager contract.</td></tr>
+</tbody></table>
+</div>
+<h3 id="_beforeinitialize"><a class="header" href="#_beforeinitialize">_beforeInitialize</a></h3>
+<pre><code class="language-solidity">function _beforeInitialize(address, PoolKey calldata key, uint160) internal virtual override returns (bytes4);
+</code></pre>
+<h3 id="gethookpermissions"><a class="header" href="#gethookpermissions">getHookPermissions</a></h3>
+<p>Returns a struct of permissions to signal which hook functions are to be implemented</p>
+<p>Used at deployment to validate the address correctly represents the expected permissions</p>
+<pre><code class="language-solidity">function getHookPermissions() public pure override returns (Hooks.Permissions memory);
+</code></pre>
+<h3 id="_beforeaddliquidity"><a class="header" href="#_beforeaddliquidity">_beforeAddLiquidity</a></h3>
+<pre><code class="language-solidity">function _beforeAddLiquidity(address, PoolKey calldata, IPoolManager.ModifyLiquidityParams calldata, bytes calldata)
+  internal
+  pure
+  override
+  returns (bytes4);
+</code></pre>
+<h3 id="asyncorderamount-1"><a class="header" href="#asyncorderamount-1">asyncOrderAmount</a></h3>
+<pre><code class="language-solidity">function asyncOrderAmount(PoolId poolId, address user, bool zeroForOne) external view returns (uint256 claimable);
+</code></pre>
+<h3 id="isexecutor-2"><a class="header" href="#isexecutor-2">isExecutor</a></h3>
+<pre><code class="language-solidity">function isExecutor(PoolId poolId, address user, address executor) external view returns (bool);
+</code></pre>
+<h3 id="calculatehookfee"><a class="header" href="#calculatehookfee">calculateHookFee</a></h3>
+<pre><code class="language-solidity">function calculateHookFee(uint256) public pure returns (uint256);
+</code></pre>
+<h3 id="calculatepoolfee"><a class="header" href="#calculatepoolfee">calculatePoolFee</a></h3>
+<pre><code class="language-solidity">function calculatePoolFee(uint24, uint256) public pure returns (uint256);
+</code></pre>
+<h3 id="batch-1"><a class="header" href="#batch-1">batch</a></h3>
+<pre><code class="language-solidity">function batch(
+  AsyncOrder[] calldata buys,
+  AsyncOrder[] calldata sells,
+  bytes[] calldata buysData,
+  bytes[] calldata sellsData
+) external;
+</code></pre>
+<h3 id="executeorder-2"><a class="header" href="#executeorder-2">executeOrder</a></h3>
+<p>Execute an async order fill.</p>
+<p>Validates, updates state, transfers input tokens to filler, and mints output claims for user.
+The caller (router) is responsible for settling the filler's output tokens into the PoolManager.</p>
+<pre><code class="language-solidity">function executeOrder(AsyncOrder memory order, bytes calldata fillerData)
+  external
+  returns (Currency currencyFill, uint256 fillAmount);
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>order</code></td><td><code>AsyncOrder</code></td><td>The async order to fill</td></tr>
+<tr><td><code>fillerData</code></td><td><code>bytes</code></td><td>ABI-encoded (address filler, uint256 amountOut)</td></tr>
+</tbody></table>
+</div>
+<p><strong>Returns</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>currencyFill</code></td><td><code>Currency</code></td><td>The currency the filler must provide</td></tr>
+<tr><td><code>fillAmount</code></td><td><code>uint256</code></td><td>The amount of currencyFill that must be settled into the PoolManager</td></tr>
+</tbody></table>
+</div>
+<h3 id="_beforeswap"><a class="header" href="#_beforeswap">_beforeSwap</a></h3>
+<pre><code class="language-solidity">function _beforeSwap(
+  address sender,
+  PoolKey calldata key,
+  IPoolManager.SwapParams calldata params,
+  bytes calldata hookParams
+) internal override returns (bytes4, BeforeSwapDelta, uint24);
+</code></pre>
+<h3 id="withdraw-2"><a class="header" href="#withdraw-2">withdraw</a></h3>
+<pre><code class="language-solidity">function withdraw(PoolKey memory key, bool zeroForOne, uint256 amount, address user) external;
+</code></pre>
+<h2 id="events-2"><a class="header" href="#events-2">Events</a></h2>
+<h3 id="hookswap"><a class="header" href="#hookswap">HookSwap</a></h3>
+<p>Event emitted when a swap is executed.</p>
+<pre><code class="language-solidity">event HookSwap(
+  bytes32 indexed id,
+  address indexed sender,
+  int128 amount0,
+  int128 amount1,
+  uint128 hookLPfeeAmount0,
+  uint128 hookLPfeeAmount1
+);
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>id</code></td><td><code>bytes32</code></td><td>The poolId of the pool where the swap occurred.</td></tr>
+<tr><td><code>sender</code></td><td><code>address</code></td><td>The address that initiated the swap.</td></tr>
+<tr><td><code>amount0</code></td><td><code>int128</code></td><td>The amount of currency0 taken in the swap (negative for exact input).</td></tr>
+<tr><td><code>amount1</code></td><td><code>int128</code></td><td>The amount of currency1 taken in the swap (negative for exact input).</td></tr>
+<tr><td><code>hookLPfeeAmount0</code></td><td><code>uint128</code></td><td>Fee amount taken for LP in currency0.</td></tr>
+<tr><td><code>hookLPfeeAmount1</code></td><td><code>uint128</code></td><td>Fee amount taken for LP in currency1.</td></tr>
+</tbody></table>
+</div>
+<h2 id="errors-2"><a class="header" href="#errors-2">Errors</a></h2>
+<h3 id="unsupportedliquidity"><a class="header" href="#unsupportedliquidity">UnsupportedLiquidity</a></h3>
+<p>Error thrown when liquidity is not supported in this hook.</p>
+<pre><code class="language-solidity">error UnsupportedLiquidity();
+</code></pre>
+<h3 id="orderexpired"><a class="header" href="#orderexpired">OrderExpired</a></h3>
+<pre><code class="language-solidity">error OrderExpired();
+</code></pre>
+<h3 id="slippageexceeded"><a class="header" href="#slippageexceeded">SlippageExceeded</a></h3>
+<pre><code class="language-solidity">error SlippageExceeded();
+</code></pre>
+<h3 id="maxamountexceeded"><a class="header" href="#maxamountexceeded">MaxAmountExceeded</a></h3>
+<pre><code class="language-solidity">error MaxAmountExceeded();
+</code></pre>
+<h3 id="invalidorderdirection"><a class="header" href="#invalidorderdirection">InvalidOrderDirection</a></h3>
+<p>Error thrown when an order in buys has zeroForOne=true or an order in sells has zeroForOne=false.</p>
+<pre><code class="language-solidity">error InvalidOrderDirection();
+</code></pre>
+<h3 id="invalidwithdrawal"><a class="header" href="#invalidwithdrawal">InvalidWithdrawal</a></h3>
+<pre><code class="language-solidity">error InvalidWithdrawal();
+</code></pre>
+<h3 id="notapprovedexecutor"><a class="header" href="#notapprovedexecutor">NotApprovedExecutor</a></h3>
+<pre><code class="language-solidity">error NotApprovedExecutor();
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="router"><a class="header" href="#router">Router</a></h1>
+<p><a href="https://github.com/asyncswap/async-swap/blob/13ed5d83adc16bd1626e8399cd966e5d7d3eee9b/src/router.sol">Git Source</a></p>
+<p><strong>Inherits:</strong>
+<a href="src/router.sol//src/interfaces/IRouter.sol/interface.IRouter.html">IRouter</a></p>
+<p><strong>Title:</strong>
+Router Contract</p>
+<p><strong>Author:</strong>
+Async Labs</p>
+<p>This contract implements the Router interface, allowing users to swap tokens and fill async orders through
+the PoolManager and Async Swap hook.</p>
+<h2 id="state-variables-2"><a class="header" href="#state-variables-2">State Variables</a></h2>
+<h3 id="poolmanager"><a class="header" href="#poolmanager">POOLMANAGER</a></h3>
+<p>PoolManager contract to interact with the pools.</p>
+<pre><code class="language-solidity">IPoolManager immutable POOLMANAGER
+</code></pre>
+<h3 id="hook"><a class="header" href="#hook">HOOK</a></h3>
+<p>Async Swap Hook contract to execute async orders.</p>
+<pre><code class="language-solidity">IAsyncSwapAMM immutable HOOK
+</code></pre>
+<h3 id="action_location"><a class="header" href="#action_location">ACTION_LOCATION</a></h3>
+<p>keccak256("Router.ActionType") - 1</p>
+<pre><code class="language-solidity">bytes32 constant ACTION_LOCATION = 0xf3b150ebf41dad0872df6788629edb438733cb4a5c9ea779b1b1f3614faffc69
+</code></pre>
+<h3 id="user_location"><a class="header" href="#user_location">USER_LOCATION</a></h3>
+<p>keccak256("Router.User") - 1</p>
+<pre><code class="language-solidity">bytes32 constant USER_LOCATION = 0x3dde20d9bf5cc25a9f487c6d6b54d3c19e3fa4738b91a7a509d4fc4180a72356
+</code></pre>
+<h3 id="async_filler_location"><a class="header" href="#async_filler_location">ASYNC_FILLER_LOCATION</a></h3>
+<p>keccak256("Router.AsyncFiller") - 1</p>
+<pre><code class="language-solidity">bytes32 constant ASYNC_FILLER_LOCATION = 0xd972a937b59dc5cb8c692dd9f211e85afa8def4caee6e05b31db0f53e16d02e0
+</code></pre>
+<h2 id="functions-9"><a class="header" href="#functions-9">Functions</a></h2>
+<h3 id="constructor-3"><a class="header" href="#constructor-3">constructor</a></h3>
+<p>Initializes the Router contract with the PoolManager and Async CSMM hook.</p>
+<pre><code class="language-solidity">constructor(IPoolManager _poolManager, IAsyncSwapAMM _hook) ;
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>_poolManager</code></td><td><code>IPoolManager</code></td><td>The PoolManager contract that manages the pools.</td></tr>
+<tr><td><code>_hook</code></td><td><code>IAsyncSwapAMM</code></td><td>The Async CSMM hook contract that executes async orders.</td></tr>
+</tbody></table>
+</div>
+<h3 id="onlypoolmanager"><a class="header" href="#onlypoolmanager">onlyPoolManager</a></h3>
+<p>Only allow the PoolManager to call certain functions.</p>
+<pre><code class="language-solidity">modifier onlyPoolManager() ;
+</code></pre>
+<h3 id="_checkcallerispoolmanager"><a class="header" href="#_checkcallerispoolmanager">_checkCallerIsPoolManager</a></h3>
+<pre><code class="language-solidity">function _checkCallerIsPoolManager() internal view;
+</code></pre>
+<h3 id="swap-1"><a class="header" href="#swap-1">swap</a></h3>
+<p>Swaps tokens using an async order.</p>
+<pre><code class="language-solidity">function swap(AsyncOrder calldata order, bytes memory userData) external payable;
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>order</code></td><td><code>AsyncOrder</code></td><td>The async order to be placed.</td></tr>
+<tr><td><code>userData</code></td><td><code>bytes</code></td><td>Additional data for the user, allowing user to specify an executor.</td></tr>
+</tbody></table>
+</div>
+<h3 id="fillorder-1"><a class="header" href="#fillorder-1">fillOrder</a></h3>
+<p>Fills an async order.</p>
+<pre><code class="language-solidity">function fillOrder(AsyncOrder calldata order, bytes calldata userData) external payable;
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>order</code></td><td><code>AsyncOrder</code></td><td>The async order to be filled.</td></tr>
+<tr><td><code>userData</code></td><td><code>bytes</code></td><td>Additional data for the user, allowing user to specify an executor.</td></tr>
+</tbody></table>
+</div>
+<h3 id="withdraw-3"><a class="header" href="#withdraw-3">withdraw</a></h3>
+<pre><code class="language-solidity">function withdraw(PoolKey memory key, bool zeroForOne, uint256 amount) external;
+</code></pre>
+<h3 id="multicall-1"><a class="header" href="#multicall-1">multicall</a></h3>
+<p>Execute multiple orders with graceful failure handling.</p>
+<p>Individual order failures don't revert the entire transaction.</p>
+<pre><code class="language-solidity">function multicall(AsyncOrder[] calldata orders, bytes[] calldata ordersData)
+  external
+  payable
+  returns (bool[] memory results);
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>orders</code></td><td><code>AsyncOrder[]</code></td><td>Array of orders to execute.</td></tr>
+<tr><td><code>ordersData</code></td><td><code>bytes[]</code></td><td>Array of filler data corresponding to each order.</td></tr>
+</tbody></table>
+</div>
+<p><strong>Returns</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>results</code></td><td><code>bool[]</code></td><td>Array of booleans indicating success/failure for each order.</td></tr>
+</tbody></table>
+</div>
+<h3 id="unlockcallback"><a class="header" href="#unlockcallback">unlockCallback</a></h3>
+<p>Callback handler to unlock the PoolManager after a swap or fill order.</p>
+<pre><code class="language-solidity">function unlockCallback(bytes calldata data) external onlyPoolManager returns (bytes memory);
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>data</code></td><td><code>bytes</code></td><td>The callback data containing the action type and order information.</td></tr>
+</tbody></table>
+</div>
+<p><strong>Returns</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>&lt;none&gt;</code></td><td><code>bytes</code></td><td>Data to return back to the PoolManager after unlock.</td></tr>
+</tbody></table>
+</div>
+<h3 id="_trymulticall"><a class="header" href="#_trymulticall">_tryMulticall</a></h3>
+<p>Internal function to try decoding and executing as multicall</p>
+<p>This is external to enable try-catch, but should only be called by this contract</p>
+<pre><code class="language-solidity">function _tryMulticall(bytes calldata data) external returns (bool[] memory results);
+</code></pre>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="solidity.min.js"></script>
+
+        <script>
+        window.addEventListener('load', function() {
+            MathJax.Hub.Register.StartupHook('End', function() {
+                window.setTimeout(window.print, 100);
+            });
+        });
+        </script>
+
+
+    </div>
+    </body>
+</html>
