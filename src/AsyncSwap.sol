@@ -160,7 +160,8 @@ contract AsyncSwap layout at 1000 is IHooks {
 
     function beforeAddLiquidity(address, PoolKey calldata, ModifyLiquidityParams calldata, bytes calldata)
         external
-        pure
+        view
+        onlyPoolManager
         returns (bytes4)
     {
         revert HOOK_NOT_IN_USE();
@@ -173,13 +174,14 @@ contract AsyncSwap layout at 1000 is IHooks {
         BalanceDelta,
         BalanceDelta,
         bytes calldata
-    ) external pure returns (bytes4, BalanceDelta) {
+    ) external view onlyPoolManager returns (bytes4, BalanceDelta) {
         revert HOOK_NOT_IN_USE();
     }
 
     function beforeRemoveLiquidity(address, PoolKey calldata, ModifyLiquidityParams calldata, bytes calldata)
         external
-        pure
+        view
+        onlyPoolManager
         returns (bytes4)
     {
         revert HOOK_NOT_IN_USE();
@@ -192,23 +194,34 @@ contract AsyncSwap layout at 1000 is IHooks {
         BalanceDelta,
         BalanceDelta,
         bytes calldata
-    ) external pure returns (bytes4, BalanceDelta) {
+    ) external view onlyPoolManager returns (bytes4, BalanceDelta) {
         revert HOOK_NOT_IN_USE();
     }
 
     function afterSwap(address, PoolKey calldata, SwapParams calldata, BalanceDelta, bytes calldata)
         external
-        pure
+        view
+        onlyPoolManager
         returns (bytes4, int128)
     {
         revert HOOK_NOT_IN_USE();
     }
 
-    function beforeDonate(address, PoolKey calldata, uint256, uint256, bytes calldata) external pure returns (bytes4) {
+    function beforeDonate(address, PoolKey calldata, uint256, uint256, bytes calldata)
+        external
+        view
+        onlyPoolManager
+        returns (bytes4)
+    {
         revert HOOK_NOT_IN_USE();
     }
 
-    function afterDonate(address, PoolKey calldata, uint256, uint256, bytes calldata) external pure returns (bytes4) {
+    function afterDonate(address, PoolKey calldata, uint256, uint256, bytes calldata)
+        external
+        view
+        onlyPoolManager
+        returns (bytes4)
+    {
         revert HOOK_NOT_IN_USE();
     }
 }
