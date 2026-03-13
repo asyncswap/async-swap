@@ -133,8 +133,6 @@ contract AsyncSwap layout at 1000 is IHooks {
         return this.beforeInitialize.selector;
     }
 
-    function getLatestPrice(Currency currency) public returns (uint256) {}
-
     function afterInitialize(address sender, PoolKey calldata key, uint160 sqrtPriceX96, int24 tick)
         external
         view
