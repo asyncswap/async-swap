@@ -3,7 +3,7 @@ pragma solidity 0.8.34;
 
 import {Script} from "forge-std/Script.sol";
 import {AsyncSwap} from "../src/AsyncSwap.sol";
-import { PoolManager } from "v4-core/src/PoolManager.sol";
+import {PoolManager} from "v4-core/src/PoolManager.sol";
 
 contract CounterScript is Script {
     AsyncSwap public counter;
