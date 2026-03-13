@@ -127,7 +127,8 @@ contract AsyncSwap layout at 1000 is IHooks {
         onlyPoolManager
         returns (bytes4)
     {
-        // ignores price validation
+        // ignores sqrtPrice
+        // input validation is done during swap order with tick validations on amountIn and amountOut
 
         /// @dev only owner of this hook is allowed to initialize pools
         require(sender == owner, "NOT HOOK OWNER");
@@ -144,7 +145,8 @@ contract AsyncSwap layout at 1000 is IHooks {
         onlyPoolManager
         returns (bytes4)
     {
-        // ignores price and tick validation
+        // ignores sqrtPrice and tick
+        // input validation of is done during swap order with tick validations on amountIn and amountOut
 
         /// @dev only owner of this contract can modify pools initialization
         require(sender == owner);
