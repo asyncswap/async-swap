@@ -14,6 +14,7 @@ import {PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {CurrencySettler} from "v4-core/test/utils/CurrencySettler.sol";
 import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 import {FullMath} from "v4-core/src/libraries/FullMath.sol";
+import {FixedPoint96} from "v4-core/src/libraries/FixedPoint96.sol";
 
 contract AsyncSwap layout at 1000 is IHooks {
     using PoolIdLibrary for PoolKey;
@@ -176,21 +177,78 @@ contract AsyncSwap layout at 1000 is IHooks {
         Order memory order = abi.decode(hookData, (Order));
         if (sender != router) revert("UNTRUSTED ROUTER");
 
-        Currency specified = params.zeroForOne ? key.currency0 : key.currency1;
+        Currency input = params.zeroForOne ? key.currency0 : key.currency1;
+        uint160 sqrtPrice = TickMath.getSqrtPriceAtTick(order.tick);
+        uint256 amountIn;
+        uint256 amountOut;
+        uint256 feeAmount;
 
         if (params.amountSpecified > 0) {
-            BeforeSwapDelta beforeSwapDelta = toBeforeSwapDelta(int128(-params.amountSpecified), 0);
-            uint160 sqrtPrice = TickMath.getSqrtPriceAtTick(order.tick);
-            uint256 amountTaken = uint256(params.amountSpecified) / uint256(sqrtPrice);
-            // amount1
-            // amount0
-            specified.take(POOL_MANAGER, address(this), amountTaken, true);
-            return (this.beforeSwap.selector, beforeSwapDelta, key.fee);
-        } else {
-            uint256 amountTaken = uint256(-params.amountSpecified);
-            specified.take(POOL_MANAGER, address(this), amountTaken, true);
+            // EXACT OUTPUT: user wants this many tokens out
+            // Calculate how much they need to pay
+            amountOut = uint256(params.amountSpecified);
 
-            BeforeSwapDelta beforeSwapDelta = toBeforeSwapDelta(int128(-params.amountSpecified), 0);
+            // Back-calculate net input needed for this output
+            uint256 amountInAfterFee;
+            if (params.zeroForOne) {
+                // Want token1, pay token0: amountIn = amountOut / price
+                amountInAfterFee = FullMath.mulDivRoundingUp(
+                    FullMath.mulDivRoundingUp(amountOut, FixedPoint96.Q96, sqrtPrice), FixedPoint96.Q96, sqrtPrice
+                );
+            } else {
+                // Want token0, pay token1: amountIn = amountOut * price
+                amountInAfterFee = FullMath.mulDivRoundingUp(
+                    FullMath.mulDivRoundingUp(amountOut, sqrtPrice, FixedPoint96.Q96), sqrtPrice, FixedPoint96.Q96
+                );
+            }
+
+            // Gross up to include fee (round up)
+            amountIn = FullMath.mulDivRoundingUp(amountInAfterFee, 1_000_000, 1_000_000 - key.fee);
+            feeAmount = amountIn - amountInAfterFee;
+        } else {
+            // EXACT INPUT: user specifies how much they're giving
+            amountIn = uint256(-params.amountSpecified);
+
+            // Take fee first (round-up - protocol keeps more)
+            feeAmount = FullMath.mulDivRoundingUp(amountIn, key.fee, 1_000_000);
+            uint256 amountInAfterFee = amountIn - feeAmount;
+
+            // Compute output from net input (round down)
+            if (params.zeroForOne) {
+                // Selling token0 for token1: amountOut = amountIn * price
+                amountOut = FullMath.mulDiv(
+                    FullMath.mulDiv(amountInAfterFee, sqrtPrice, FixedPoint96.Q96), sqrtPrice, FixedPoint96.Q96
+                );
+            } else {
+                amountOut = FullMath.mulDiv(
+                    FullMath.mulDiv(amountInAfterFee, FixedPoint96.Q96, sqrtPrice), FixedPoint96.Q96, sqrtPrice
+                );
+            }
+
+            // Slippage protection
+            require(amountOut >= order.amountOut, "SLIPPAGE");
+
+            // Take gross input
+            input.take(POOL_MANAGER, address(this), amountIn, true);
+
+            // Record order for filler
+            bytes32 orderId = keccak256(abi.encode(order));
+            balancesIn[orderId][params.zeroForOne] += amountIn;
+            balancesOut[orderId][params.zeroForOne] += amountOut;
+
+            emit Swap(orderId, order);
+
+            BeforeSwapDelta beforeSwapDelta;
+            if (params.amountSpecified < 0) {
+                // EXACT INPUT: hook takes from the specified (input) side
+                // deltaSpecified = positive = hook takes specified tokens
+                beforeSwapDelta = toBeforeSwapDelta(int128(-params.amountSpecified), 0);
+            } else {
+                // EXACT OUTPUT: specified = output token, unspecified = input token
+                // deltaSpecified = -amountSpecified to zero out AMM
+                // deltaUnpecified = +amountIn to account for the input we're taking
+                beforeSwapDelta = toBeforeSwapDelta(int128(-params.amountSpecified), int128(int256(amountIn)));
+            }
             return (this.beforeSwap.selector, beforeSwapDelta, key.fee);
         }
     }
