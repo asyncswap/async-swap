@@ -120,6 +120,7 @@ contract AsyncSwap layout at 1000 is IHooks {
     ///// HOOK ACTIVATED /////
     //////////////////////////
 
+    /// @inheritdoc IHooks
     function beforeInitialize(address sender, PoolKey calldata key, uint160 sqrtPriceX96)
         external
         view
@@ -133,6 +134,7 @@ contract AsyncSwap layout at 1000 is IHooks {
         return this.beforeInitialize.selector;
     }
 
+    /// @inheritdoc IHooks
     function afterInitialize(address sender, PoolKey calldata key, uint160 sqrtPriceX96, int24 tick)
         external
         view
@@ -146,6 +148,7 @@ contract AsyncSwap layout at 1000 is IHooks {
         return this.afterInitialize.selector;
     }
 
+    /// @inheritdoc IHooks
     function beforeSwap(address sender, PoolKey calldata key, SwapParams calldata params, bytes calldata hookData)
         external
         onlyPoolManager
@@ -156,6 +159,7 @@ contract AsyncSwap layout at 1000 is IHooks {
     ///// HOOK NOT IN USE /////
     ///////////////////////////
 
+    /// @inheritdoc IHooks
     function beforeAddLiquidity(address, PoolKey calldata, ModifyLiquidityParams calldata, bytes calldata)
         external
         view
@@ -165,6 +169,7 @@ contract AsyncSwap layout at 1000 is IHooks {
         revert HOOK_NOT_IN_USE();
     }
 
+    /// @inheritdoc IHooks
     function afterAddLiquidity(
         address,
         PoolKey calldata,
@@ -176,6 +181,7 @@ contract AsyncSwap layout at 1000 is IHooks {
         revert HOOK_NOT_IN_USE();
     }
 
+    /// @inheritdoc IHooks
     function beforeRemoveLiquidity(address, PoolKey calldata, ModifyLiquidityParams calldata, bytes calldata)
         external
         view
@@ -185,6 +191,7 @@ contract AsyncSwap layout at 1000 is IHooks {
         revert HOOK_NOT_IN_USE();
     }
 
+    /// @inheritdoc IHooks
     function afterRemoveLiquidity(
         address,
         PoolKey calldata,
@@ -196,6 +203,7 @@ contract AsyncSwap layout at 1000 is IHooks {
         revert HOOK_NOT_IN_USE();
     }
 
+    /// @inheritdoc IHooks
     function afterSwap(address, PoolKey calldata, SwapParams calldata, BalanceDelta, bytes calldata)
         external
         view
@@ -205,6 +213,7 @@ contract AsyncSwap layout at 1000 is IHooks {
         revert HOOK_NOT_IN_USE();
     }
 
+    /// @inheritdoc IHooks
     function beforeDonate(address, PoolKey calldata, uint256, uint256, bytes calldata)
         external
         view
@@ -214,6 +223,7 @@ contract AsyncSwap layout at 1000 is IHooks {
         revert HOOK_NOT_IN_USE();
     }
 
+    /// @inheritdoc IHooks
     function afterDonate(address, PoolKey calldata, uint256, uint256, bytes calldata)
         external
         view
