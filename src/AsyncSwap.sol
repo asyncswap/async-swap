@@ -11,9 +11,13 @@ import {Currency} from "v4-core/src/types/Currency.sol";
 import {ModifyLiquidityParams, SwapParams} from "v4-core/src/types/PoolOperation.sol";
 import {PoolId} from "v4-core/src/types/PoolId.sol";
 import {PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
+import {CurrencySettler} from "v4-core/test/utils/CurrencySettler.sol";
+import {TickMath} from "v4-core/src/libraries/TickMath.sol";
+import {FullMath} from "v4-core/src/libraries/FullMath.sol";
 
 contract AsyncSwap layout at 1000 is IHooks {
     using PoolIdLibrary for PoolKey;
+    using CurrencySettler for Currency;
 
     /// @notice The PoolManager contract address
     IPoolManager public immutable POOL_MANAGER;
@@ -23,15 +27,17 @@ contract AsyncSwap layout at 1000 is IHooks {
 
     /// @notice The Owner
     address public owner;
+    /// @notice The Router
+    address public router;
 
     /// Stores pools registered on this hook
     mapping(PoolId poolId => PoolKey key) public pools;
     /// Swap orders for input token0
     /// balancesIn initialized by swapper and mutated by filler
-    mapping(bytes32 orderId => mapping(bool zeroForOne => uint256 amountGiven)) balancesIn;
+    mapping(bytes32 orderId => mapping(bool zeroForOne => uint256 amountGiven)) public balancesIn;
     /// Swap orders for output token1
     /// balancesOut initialized by swapper and mutated by filler
-    mapping(bytes32 orderId => mapping(bool zeroForOne => uint256 amountTaken)) balancesOut;
+    mapping(bytes32 orderId => mapping(bool zeroForOne => uint256 amountTaken)) public balancesOut;
 
     /// @param swapper creator of order
     /// @param zeroForOne direction of order
@@ -164,17 +170,26 @@ contract AsyncSwap layout at 1000 is IHooks {
     /// @inheritdoc IHooks
     function beforeSwap(address sender, PoolKey calldata key, SwapParams calldata params, bytes calldata hookData)
         external
-        view
         onlyPoolManager
         returns (bytes4, BeforeSwapDelta, uint24)
     {
         Order memory order = abi.decode(hookData, (Order));
+        if (sender != router) revert("UNTRUSTED ROUTER");
+
+        Currency specified = params.zeroForOne ? key.currency0 : key.currency1;
+
         if (params.amountSpecified > 0) {
-            sender;
-            key;
             BeforeSwapDelta beforeSwapDelta = toBeforeSwapDelta(int128(-params.amountSpecified), 0);
+            uint160 sqrtPrice = TickMath.getSqrtPriceAtTick(order.tick);
+            uint256 amountTaken = uint256(params.amountSpecified) / uint256(sqrtPrice);
+            // amount1
+            // amount0
+            specified.take(POOL_MANAGER, address(this), amountTaken, true);
             return (this.beforeSwap.selector, beforeSwapDelta, key.fee);
         } else {
+            uint256 amountTaken = uint256(-params.amountSpecified);
+            specified.take(POOL_MANAGER, address(this), amountTaken, true);
+
             BeforeSwapDelta beforeSwapDelta = toBeforeSwapDelta(int128(-params.amountSpecified), 0);
             return (this.beforeSwap.selector, beforeSwapDelta, key.fee);
         }
