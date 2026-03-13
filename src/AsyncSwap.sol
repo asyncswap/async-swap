@@ -52,6 +52,9 @@ contract AsyncSwap layout at 1000 is IHooks {
     /// @notice Error for method not implemented
     error HOOK_NOT_IN_USE();
 
+    /// @notice Just become a filler instead
+    error PROVIDE_LIQUIDITY_BY_SOLVING();
+
     /// @notice Initialize PoolManager storage variable
     constructor(IPoolManager _pm) {
         POOL_MANAGER = _pm;
@@ -82,7 +85,7 @@ contract AsyncSwap layout at 1000 is IHooks {
             beforeInitialize: true, // true
             afterInitialize: true, // true
             beforeAddLiquidity: false,
-            afterAddLiquidity: false,
+            afterAddLiquidity: true, // prevent liquidity adds
             beforeRemoveLiquidity: false,
             afterRemoveLiquidity: false,
             beforeSwap: true, // true
@@ -186,7 +189,7 @@ contract AsyncSwap layout at 1000 is IHooks {
         BalanceDelta,
         bytes calldata
     ) external view onlyPoolManager returns (bytes4, BalanceDelta) {
-        revert HOOK_NOT_IN_USE();
+        revert PROVIDE_LIQUIDITY_BY_SOLVING();
     }
 
     /// @inheritdoc IHooks
