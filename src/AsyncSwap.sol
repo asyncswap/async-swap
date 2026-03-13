@@ -22,17 +22,18 @@ contract AsyncSwap layout at 1000 is IHooks {
 
     /// @notice Swap orders for input token0
     /// @dev balancesIn is initialized by swapper and mutated by filler
-    mapping(address swapper => mapping(bool zeroForOne => uint256 amountGiven)) balancesIn;
+    mapping(bytes32 orderId => mapping(address swapper => mapping(bool zeroForOne => uint256 amountGiven))) balancesIn;
     /// @notice Swap orders for output token1
     /// @dev balancesOut is initialized by swapper and mutated by filler
-    mapping(address swapper => mapping(bool zeroForOne => uint256 amountTaken)) balancesOut;
+    mapping(bytes32 orderId => mapping(address swapper => mapping(bool zeroForOne => uint256 amountTaken))) balancesOut;
 
     /// @param swapper creator of order
     /// @param zeroForOne direction of order
-    /// @param sqrtPrice price to execute order
+    /// @param sqrtPrice priced market value to execute order
     /// @param amountIn amount of token given
     /// @param amountOut amount of token to be taken
     struct Order {
+        PoolKey key;
         address swapper;
         bool zeroForOne;
         uint160 sqrtPrice;
@@ -91,6 +92,26 @@ contract AsyncSwap layout at 1000 is IHooks {
             afterAddLiquidityReturnDelta: false,
             afterRemoveLiquidityReturnDelta: false
         });
+    }
+
+    //////////////////////////
+    ///////// Core ///////////
+    //////////////////////////
+
+    /// @notice The balance of remaining tokens to be filled by solver
+    /// @param order The swap order
+    /// @return amountGiven The amount supplied by swapper
+    function getBalanceIn(Order memory order) public view returns (uint256 amountGiven) {
+        bytes32 orderId = keccak256(abi.encode(order));
+        amountGiven = balancesIn[orderId][order.swapper][order.zeroForOne];
+    }
+
+    /// @notice The balance of remaining tokens to be taken by swapper
+    /// @param order The order submitted by swapper
+    /// @return amountRemaining The remaining amount output tokens to be solved by filler
+    function getBalanceOut(Order memory order) public view returns (uint256 amountRemaining) {
+        bytes32 orderId = keccak256(abi.encode(order));
+        amountRemaining = balancesOut[orderId][order.swapper][order.zeroForOne];
     }
 
     //////////////////////////
