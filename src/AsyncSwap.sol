@@ -20,11 +20,13 @@ contract AsyncSwap layout at 1000 is IHooks {
     /// @notice The Owner
     address public owner;
 
-    /// @notice Swap orders for input token0
-    /// @dev balancesIn is initialized by swapper and mutated by filler
+    /// Stores pools registered on this hook
+    mapping(bytes32 poolId => PoolKey key) public pools;
+    /// Swap orders for input token0
+    /// balancesIn initialized by swapper and mutated by filler
     mapping(bytes32 orderId => mapping(bool zeroForOne => uint256 amountGiven)) balancesIn;
-    /// @notice Swap orders for output token1
-    /// @dev balancesOut is initialized by swapper and mutated by filler
+    /// Swap orders for output token1
+    /// balancesOut initialized by swapper and mutated by filler
     mapping(bytes32 orderId => mapping(bool zeroForOne => uint256 amountTaken)) balancesOut;
 
     /// @param swapper creator of order
@@ -33,7 +35,7 @@ contract AsyncSwap layout at 1000 is IHooks {
     /// @param amountIn amount of token given
     /// @param amountOut amount of token to be taken
     struct Order {
-        PoolKey key;
+        bytes32 poolId;
         address swapper;
         bool zeroForOne;
         int24 tick;
@@ -103,7 +105,7 @@ contract AsyncSwap layout at 1000 is IHooks {
     /// @return amountGiven The amount supplied by swapper
     function getBalanceIn(Order memory order) public view returns (uint256 amountGiven) {
         bytes32 orderId = keccak256(abi.encode(order));
-        amountGiven = balancesIn[orderId][order.swapper][order.zeroForOne];
+        amountGiven = balancesIn[orderId][order.zeroForOne];
     }
 
     /// @notice The balance of remaining tokens to be taken by swapper
@@ -111,7 +113,7 @@ contract AsyncSwap layout at 1000 is IHooks {
     /// @return amountRemaining The remaining amount output tokens to be solved by filler
     function getBalanceOut(Order memory order) public view returns (uint256 amountRemaining) {
         bytes32 orderId = keccak256(abi.encode(order));
-        amountRemaining = balancesOut[orderId][order.swapper][order.zeroForOne];
+        amountRemaining = balancesOut[orderId][order.zeroForOne];
     }
 
     //////////////////////////
