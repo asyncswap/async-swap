@@ -28,14 +28,12 @@ contract AsyncSwap layout at 1000 is IHooks {
     mapping(address swapper => mapping(bool zeroForOne => uint256 amountTaken)) balancesOut;
 
     /// @param swapper creator of order
-    /// @param deadline order expiration time
     /// @param zeroForOne direction of order
     /// @param sqrtPrice price to execute order
     /// @param amountIn amount of token given
     /// @param amountOut amount of token to be taken
     struct Order {
         address swapper;
-        uint64 deadline;
         bool zeroForOne;
         uint160 sqrtPrice;
         uint256 amountIn;
