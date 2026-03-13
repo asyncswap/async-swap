@@ -121,30 +121,36 @@ contract AsyncSwap layout at 1000 is IHooks {
     //////////////////////////
 
     /// @inheritdoc IHooks
-    function beforeInitialize(address sender, PoolKey calldata key, uint160 sqrtPriceX96)
+    function beforeInitialize(address sender, PoolKey calldata key, uint160)
         external
         view
         onlyPoolManager
         returns (bytes4)
     {
+        // ignores price validation
+
+        /// @dev only owner of this hook is allowed to initialize pools
         require(sender == owner, "NOT HOOK OWNER");
         require(address(key.hooks) == address(this));
+        /// @dev require a minimum fee
         require(key.fee >= 1_2000, "FEE SET TOO LOW"); // 1.2 %
-        sqrtPriceX96;
+
         return this.beforeInitialize.selector;
     }
 
     /// @inheritdoc IHooks
-    function afterInitialize(address sender, PoolKey calldata key, uint160 sqrtPriceX96, int24 tick)
+    function afterInitialize(address sender, PoolKey calldata key, uint160, int24)
         external
-        view
         onlyPoolManager
         returns (bytes4)
     {
+        // ignores price and tick validation
+
+        /// @dev only owner of this contract can modify pools initialization
         require(sender == owner);
-        key;
-        sqrtPriceX96;
-        tick;
+        /// @dev store poolId
+        pools[keccak256(abi.encode(key))] = key;
+
         return this.afterInitialize.selector;
     }
 
