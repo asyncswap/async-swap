@@ -22,10 +22,10 @@ contract AsyncSwap layout at 1000 is IHooks {
 
     /// @notice Swap orders for input token0
     /// @dev balancesIn is initialized by swapper and mutated by filler
-    mapping(bytes32 orderId => mapping(address swapper => mapping(bool zeroForOne => uint256 amountGiven))) balancesIn;
+    mapping(bytes32 orderId => mapping(bool zeroForOne => uint256 amountGiven)) balancesIn;
     /// @notice Swap orders for output token1
     /// @dev balancesOut is initialized by swapper and mutated by filler
-    mapping(bytes32 orderId => mapping(address swapper => mapping(bool zeroForOne => uint256 amountTaken))) balancesOut;
+    mapping(bytes32 orderId => mapping(bool zeroForOne => uint256 amountTaken)) balancesOut;
 
     /// @param swapper creator of order
     /// @param zeroForOne direction of order
