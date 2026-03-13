@@ -1,6 +1,0 @@
-[submodule "lib/forge-std"]
-	path = lib/forge-std
-	url = https://github.com/foundry-rs/forge-std
-[submodule "dependencies/v4-core"]
-	path = dependencies/v4-core
-	url = https://github.com/uniswap/v4-core
