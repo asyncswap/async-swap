@@ -2,15 +2,19 @@
 pragma solidity 0.8.34;
 
 import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
-import {BeforeSwapDelta} from "v4-core/src/types/BeforeSwapDelta.sol";
+import {BeforeSwapDelta, toBeforeSwapDelta} from "v4-core/src/types/BeforeSwapDelta.sol";
 import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
 import {ModifyLiquidityParams, SwapParams} from "v4-core/src/types/PoolOperation.sol";
+import {PoolId} from "v4-core/src/types/PoolId.sol";
+import {PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 
 contract AsyncSwap layout at 1000 is IHooks {
+    using PoolIdLibrary for PoolKey;
+
     /// @notice The PoolManager contract address
     IPoolManager public immutable POOL_MANAGER;
 
@@ -21,7 +25,7 @@ contract AsyncSwap layout at 1000 is IHooks {
     address public owner;
 
     /// Stores pools registered on this hook
-    mapping(bytes32 poolId => PoolKey key) public pools;
+    mapping(PoolId poolId => PoolKey key) public pools;
     /// Swap orders for input token0
     /// balancesIn initialized by swapper and mutated by filler
     mapping(bytes32 orderId => mapping(bool zeroForOne => uint256 amountGiven)) balancesIn;
@@ -35,11 +39,9 @@ contract AsyncSwap layout at 1000 is IHooks {
     /// @param amountIn amount of token given
     /// @param amountOut amount of token to be taken
     struct Order {
-        bytes32 poolId;
+        PoolId poolId;
         address swapper;
-        bool zeroForOne;
         int24 tick;
-        uint256 amountIn;
         uint256 amountOut;
     }
 
@@ -106,17 +108,17 @@ contract AsyncSwap layout at 1000 is IHooks {
     /// @notice The balance of remaining tokens to be filled by solver
     /// @param order The swap order
     /// @return amountGiven The amount supplied by swapper
-    function getBalanceIn(Order memory order) public view returns (uint256 amountGiven) {
+    function getBalanceIn(Order memory order, bool zeroForOne) public view returns (uint256 amountGiven) {
         bytes32 orderId = keccak256(abi.encode(order));
-        amountGiven = balancesIn[orderId][order.zeroForOne];
+        amountGiven = balancesIn[orderId][zeroForOne];
     }
 
     /// @notice The balance of remaining tokens to be taken by swapper
     /// @param order The order submitted by swapper
     /// @return amountRemaining The remaining amount output tokens to be solved by filler
-    function getBalanceOut(Order memory order) public view returns (uint256 amountRemaining) {
+    function getBalanceOut(Order memory order, bool zeroForOne) public view returns (uint256 amountRemaining) {
         bytes32 orderId = keccak256(abi.encode(order));
-        amountRemaining = balancesOut[orderId][order.zeroForOne];
+        amountRemaining = balancesOut[orderId][zeroForOne];
     }
 
     //////////////////////////
@@ -154,7 +156,7 @@ contract AsyncSwap layout at 1000 is IHooks {
         /// @dev only owner of this contract can modify pools initialization
         require(sender == owner);
         /// @dev store poolId
-        pools[keccak256(abi.encode(key))] = key;
+        pools[key.toId()] = key;
 
         return this.afterInitialize.selector;
     }
@@ -162,9 +164,21 @@ contract AsyncSwap layout at 1000 is IHooks {
     /// @inheritdoc IHooks
     function beforeSwap(address sender, PoolKey calldata key, SwapParams calldata params, bytes calldata hookData)
         external
+        view
         onlyPoolManager
         returns (bytes4, BeforeSwapDelta, uint24)
-    {}
+    {
+        Order memory order = abi.decode(hookData, (Order));
+        if (params.amountSpecified > 0) {
+            sender;
+            key;
+            BeforeSwapDelta beforeSwapDelta = toBeforeSwapDelta(int128(-params.amountSpecified), 0);
+            return (this.beforeSwap.selector, beforeSwapDelta, key.fee);
+        } else {
+            BeforeSwapDelta beforeSwapDelta = toBeforeSwapDelta(int128(-params.amountSpecified), 0);
+            return (this.beforeSwap.selector, beforeSwapDelta, key.fee);
+        }
+    }
 
     ///////////////////////////
     ///// HOOK NOT IN USE /////
