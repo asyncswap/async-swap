@@ -29,14 +29,14 @@ contract AsyncSwap layout at 1000 is IHooks {
 
     /// @param swapper creator of order
     /// @param zeroForOne direction of order
-    /// @param sqrtPrice priced market value to execute order
+    /// @param tick the tick market value to execute order
     /// @param amountIn amount of token given
     /// @param amountOut amount of token to be taken
     struct Order {
         PoolKey key;
         address swapper;
         bool zeroForOne;
-        uint160 sqrtPrice;
+        int24 tick;
         uint256 amountIn;
         uint256 amountOut;
     }
