@@ -11,7 +11,7 @@ import {ModifyLiquidityParams, SwapParams} from "v4-core/src/types/PoolOperation
 
 contract AsyncSwap layout at 1000 is IHooks {
     /// @notice The PoolManager contract address
-    IPoolManager public immutable poolManager;
+    IPoolManager public immutable POOL_MANAGER;
 
     /// @notice Error if caller is not poolmanager address
     error CALLER_NOT_POOL_MANAGER();
@@ -20,7 +20,7 @@ contract AsyncSwap layout at 1000 is IHooks {
 
     /// @notice Initialize PoolManager storage variable
     constructor(IPoolManager _pm) {
-        poolManager = _pm;
+        POOL_MANAGER = _pm;
     }
 
     /// @notice Only PoolManager contract allowed as msg.sender
@@ -31,7 +31,7 @@ contract AsyncSwap layout at 1000 is IHooks {
 
     /// @notice internal function requires caller is PoolManager
     function _onlyPoolManager() internal view {
-        require(msg.sender == address(poolManager), CALLER_NOT_POOL_MANAGER());
+        require(msg.sender == address(POOL_MANAGER), CALLER_NOT_POOL_MANAGER());
     }
 
     /// @notice Validates the deployed hook
