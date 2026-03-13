@@ -25,7 +25,7 @@ contract AsyncSwap layout at 1000 is IHooks {
     mapping(address swapper => mapping(bool zeroForOne => uint256 amountGiven)) balancesIn;
     /// @notice Swap orders for output token1
     /// @dev balancesOut is initialized by swapper and mutated by filler
-    mapping(address swapper => mapping(bool zeroForOne => uint256 amountLeft)) balancesOut;
+    mapping(address swapper => mapping(bool zeroForOne => uint256 amountTaken)) balancesOut;
 
     /// @param owner creator of order
     /// @param deadline order expiration time
