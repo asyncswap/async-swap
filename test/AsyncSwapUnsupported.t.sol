@@ -100,10 +100,7 @@ contract AsyncSwapUnsupportedTest is Test, Deployers {
         modifyLiquidityRouter.modifyLiquidity(
             poolKey,
             ModifyLiquidityParams({
-                tickLower: -TICK_SPACING * 10,
-                tickUpper: TICK_SPACING * 10,
-                liquidityDelta: 100e18,
-                salt: 0
+                tickLower: -TICK_SPACING * 10, tickUpper: TICK_SPACING * 10, liquidityDelta: 100e18, salt: 0
             }),
             ""
         );
@@ -126,8 +123,10 @@ contract AsyncSwapUnsupportedTest is Test, Deployers {
         vm.prank(address(manager));
         vm.expectRevert(AsyncSwap.HOOK_NOT_IN_USE.selector);
         hook.beforeAddLiquidity(
-            address(this), poolKey,
-            ModifyLiquidityParams({tickLower: -120, tickUpper: 120, liquidityDelta: 1e18, salt: 0}), ""
+            address(this),
+            poolKey,
+            ModifyLiquidityParams({tickLower: -120, tickUpper: 120, liquidityDelta: 1e18, salt: 0}),
+            ""
         );
     }
 
@@ -135,9 +134,12 @@ contract AsyncSwapUnsupportedTest is Test, Deployers {
         vm.prank(address(manager));
         vm.expectRevert(AsyncSwap.PROVIDE_LIQUIDITY_BY_SOLVING.selector);
         hook.afterAddLiquidity(
-            address(this), poolKey,
+            address(this),
+            poolKey,
             ModifyLiquidityParams({tickLower: -120, tickUpper: 120, liquidityDelta: 1e18, salt: 0}),
-            BalanceDelta.wrap(0), BalanceDelta.wrap(0), ""
+            BalanceDelta.wrap(0),
+            BalanceDelta.wrap(0),
+            ""
         );
     }
 
@@ -145,8 +147,10 @@ contract AsyncSwapUnsupportedTest is Test, Deployers {
         vm.prank(address(manager));
         vm.expectRevert(AsyncSwap.HOOK_NOT_IN_USE.selector);
         hook.beforeRemoveLiquidity(
-            address(this), poolKey,
-            ModifyLiquidityParams({tickLower: -120, tickUpper: 120, liquidityDelta: -1e18, salt: 0}), ""
+            address(this),
+            poolKey,
+            ModifyLiquidityParams({tickLower: -120, tickUpper: 120, liquidityDelta: -1e18, salt: 0}),
+            ""
         );
     }
 
@@ -154,9 +158,12 @@ contract AsyncSwapUnsupportedTest is Test, Deployers {
         vm.prank(address(manager));
         vm.expectRevert(AsyncSwap.HOOK_NOT_IN_USE.selector);
         hook.afterRemoveLiquidity(
-            address(this), poolKey,
+            address(this),
+            poolKey,
             ModifyLiquidityParams({tickLower: -120, tickUpper: 120, liquidityDelta: -1e18, salt: 0}),
-            BalanceDelta.wrap(0), BalanceDelta.wrap(0), ""
+            BalanceDelta.wrap(0),
+            BalanceDelta.wrap(0),
+            ""
         );
     }
 
@@ -164,9 +171,11 @@ contract AsyncSwapUnsupportedTest is Test, Deployers {
         vm.prank(address(manager));
         vm.expectRevert(AsyncSwap.HOOK_NOT_IN_USE.selector);
         hook.afterSwap(
-            address(this), poolKey,
+            address(this),
+            poolKey,
             SwapParams({zeroForOne: true, amountSpecified: -1e18, sqrtPriceLimitX96: 0}),
-            BalanceDelta.wrap(0), ""
+            BalanceDelta.wrap(0),
+            ""
         );
     }
 

@@ -68,9 +68,8 @@ contract AsyncRouter is IUnlockCallback {
         if (value != 0) revert INVALID_NATIVE_VALUE();
 
         POOL_MANAGER.sync(inputCurrency);
-        (bool callSuccess, bytes memory returndata) = Currency.unwrap(inputCurrency).call(
-            abi.encodeWithSelector(IERC20Minimal.transferFrom.selector, payer, address(POOL_MANAGER), amount)
-        );
+        (bool callSuccess, bytes memory returndata) = Currency.unwrap(inputCurrency)
+            .call(abi.encodeWithSelector(IERC20Minimal.transferFrom.selector, payer, address(POOL_MANAGER), amount));
         if (!callSuccess || (returndata.length > 0 && !abi.decode(returndata, (bool)))) {
             revert INPUT_TRANSFER_FAILED();
         }

@@ -380,9 +380,8 @@ contract AsyncSwap layout at 1000 is IntentAuth, IHooks, IUnlockCallback {
 
         address token = Currency.unwrap(outputCurrency);
         uint256 beforeBal = IERC20Minimal(token).balanceOf(recipient);
-        (bool callSuccess, bytes memory returndata) = token.call(
-            abi.encodeWithSelector(IERC20Minimal.transferFrom.selector, filler, recipient, amount)
-        );
+        (bool callSuccess, bytes memory returndata) =
+            token.call(abi.encodeWithSelector(IERC20Minimal.transferFrom.selector, filler, recipient, amount));
         if (!callSuccess || (returndata.length > 0 && !abi.decode(returndata, (bool)))) {
             revert OUTPUT_TRANSFER_FAILED();
         }

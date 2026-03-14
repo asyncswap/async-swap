@@ -175,7 +175,11 @@ contract AsyncSwapFillTest is Test, Deployers {
         vm.prank(filler);
         hook.fill(order, true, expectedOut);
 
-        assertEq(manager.balanceOf(filler, currency0.toId()) - claimsBefore, _netInput(swapAmount), "filler should receive net input only");
+        assertEq(
+            manager.balanceOf(filler, currency0.toId()) - claimsBefore,
+            _netInput(swapAmount),
+            "filler should receive net input only"
+        );
         assertEq(hook.accruedFees(currency0), expectedFee, "fee should accrue on fill");
         assertEq(hook.feeRemaining(keccak256(abi.encode(order)), true), 0, "fee remainder should clear on full fill");
     }
@@ -199,7 +203,11 @@ contract AsyncSwapFillTest is Test, Deployers {
 
         hook.cancelOrder(order, true);
 
-        assertEq(currency0.balanceOf(address(this)) - balBefore, remainingGross, "cancel should return full remaining gross input in on-fill mode");
+        assertEq(
+            currency0.balanceOf(address(this)) - balBefore,
+            remainingGross,
+            "cancel should return full remaining gross input in on-fill mode"
+        );
         assertEq(hook.accruedFees(currency0), feeAccruedBefore, "cancel should not accrue fees for unfilled portion");
         assertEq(hook.feeRemaining(keccak256(abi.encode(order)), true), 0, "fee remainder should clear on cancel");
     }

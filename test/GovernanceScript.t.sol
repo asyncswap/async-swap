@@ -20,8 +20,9 @@ contract GovernanceScriptTest is Test {
         vm.setEnv("RUN_MODE", "broadcast");
         ScriptHelperHarness harness = new ScriptHelperHarness("");
         string memory root = vm.projectRoot();
-        string memory expected =
-            string.concat(root, "/broadcast/01_DeployGovernance.s.sol/", vm.toString(block.chainid), "/run-latest.json");
+        string memory expected = string.concat(
+            root, "/broadcast/01_DeployGovernance.s.sol/", vm.toString(block.chainid), "/run-latest.json"
+        );
         assertEq(harness.broadcastPath("01_DeployGovernance"), expected);
     }
 
@@ -79,11 +80,13 @@ contract GovernanceScriptTest is Test {
         vm.setEnv("ASYNCSWAP_ADDRESS", vm.toString(address(hook)));
         vm.setEnv("ASYNC_TOKEN_ADDRESS", vm.toString(address(token)));
 
-        TransferAsyncSwapOwnershipHarness wire = new TransferAsyncSwapOwnershipHarness(address(hook), address(timelock), address(token));
+        TransferAsyncSwapOwnershipHarness wire =
+            new TransferAsyncSwapOwnershipHarness(address(hook), address(timelock), address(token));
         wire.run();
         assertEq(hook.pendingOwner(), address(timelock));
 
-        SetAsyncTokenMinterHarness minterWire = new SetAsyncTokenMinterHarness(address(hook), address(timelock), address(token));
+        SetAsyncTokenMinterHarness minterWire =
+            new SetAsyncTokenMinterHarness(address(hook), address(timelock), address(token));
         minterWire.run();
         assertEq(token.minter(), address(timelock));
     }
@@ -111,7 +114,9 @@ contract GovernanceScriptTest is Test {
         ScheduleOwnershipHarness schedule = new ScheduleOwnershipHarness(address(hook), address(timelock));
         schedule.run();
 
-        bytes32 opId = timelock.hashOperation(address(hook), 0, abi.encodeWithSignature("acceptOwnership()"), bytes32(0), bytes32(0));
+        bytes32 opId = timelock.hashOperation(
+            address(hook), 0, abi.encodeWithSignature("acceptOwnership()"), bytes32(0), bytes32(0)
+        );
         assertTrue(timelock.isOperationPending(opId) || timelock.isOperationReady(opId));
 
         vm.warp(block.timestamp + 1 days + 1);
@@ -197,7 +202,12 @@ contract TransferAsyncSwapOwnershipHarness is TransferAsyncSwapOwnershipScript {
         asyncTokenAddr = _asyncTokenAddr;
     }
 
-    function _readDeployedContractAddress(string memory scriptName, uint256 txIndex) internal view override returns (address) {
+    function _readDeployedContractAddress(string memory scriptName, uint256 txIndex)
+        internal
+        view
+        override
+        returns (address)
+    {
         if (keccak256(bytes(scriptName)) == keccak256(bytes("00_DeployAsyncSwap")) && txIndex == 1) {
             return asyncSwapAddr;
         }
@@ -222,7 +232,12 @@ contract SetAsyncTokenMinterHarness is SetAsyncTokenMinterScript {
         asyncTokenAddr = _asyncTokenAddr;
     }
 
-    function _readDeployedContractAddress(string memory scriptName, uint256 txIndex) internal view override returns (address) {
+    function _readDeployedContractAddress(string memory scriptName, uint256 txIndex)
+        internal
+        view
+        override
+        returns (address)
+    {
         if (keccak256(bytes(scriptName)) == keccak256(bytes("00_DeployAsyncSwap")) && txIndex == 1) {
             return asyncSwapAddr;
         }

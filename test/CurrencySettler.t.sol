@@ -67,9 +67,7 @@ contract CurrencySettlerTest is Test {
         harness.settleAndMintClaims(Currency.wrap(address(token)), alice, bob, amount);
 
         assertEq(
-            manager.balanceOf(bob, Currency.wrap(address(token)).toId()) - claimsBefore,
-            amount,
-            "claims mint failed"
+            manager.balanceOf(bob, Currency.wrap(address(token)).toId()) - claimsBefore, amount, "claims mint failed"
         );
     }
 

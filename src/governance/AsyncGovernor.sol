@@ -3,8 +3,9 @@ pragma solidity 0.8.34;
 
 import {Governor} from "@openzeppelin/contracts/governance/Governor.sol";
 import {GovernorVotes} from "@openzeppelin/contracts/governance/extensions/GovernorVotes.sol";
-import {GovernorVotesQuorumFraction} from
-    "@openzeppelin/contracts/governance/extensions/GovernorVotesQuorumFraction.sol";
+import {
+    GovernorVotesQuorumFraction
+} from "@openzeppelin/contracts/governance/extensions/GovernorVotesQuorumFraction.sol";
 import {GovernorCountingSimple} from "@openzeppelin/contracts/governance/extensions/GovernorCountingSimple.sol";
 import {GovernorSettings} from "@openzeppelin/contracts/governance/extensions/GovernorSettings.sol";
 import {GovernorTimelockControl} from "@openzeppelin/contracts/governance/extensions/GovernorTimelockControl.sol";
@@ -108,12 +109,7 @@ contract AsyncGovernor is
         return super._executor();
     }
 
-    function state(uint256 proposalId)
-        public
-        view
-        override(Governor, GovernorTimelockControl)
-        returns (ProposalState)
-    {
+    function state(uint256 proposalId) public view override(Governor, GovernorTimelockControl) returns (ProposalState) {
         return super.state(proposalId);
     }
 }

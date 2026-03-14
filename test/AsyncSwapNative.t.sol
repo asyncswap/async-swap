@@ -107,7 +107,11 @@ contract AsyncSwapNativeTest is Test, Deployers {
         hook.fill(order, true, expectedOut);
 
         assertEq(token1.balanceOf(alice) - aliceTokenBefore, expectedOut, "alice did not receive output");
-        assertEq(manager.balanceOf(filler, poolKey.currency0.toId()) - fillerClaimsBefore, _netInput(amountIn), "filler claims wrong");
+        assertEq(
+            manager.balanceOf(filler, poolKey.currency0.toId()) - fillerClaimsBefore,
+            _netInput(amountIn),
+            "filler claims wrong"
+        );
         assertEq(hook.getBalanceIn(order, true), 0, "remaining input should be zero");
         assertEq(hook.getBalanceOut(order, true), 0, "remaining output should be zero");
     }
@@ -128,7 +132,11 @@ contract AsyncSwapNativeTest is Test, Deployers {
         hook.fill{value: expectedOut}(order, false, expectedOut);
 
         assertEq(alice.balance - aliceEthBefore, expectedOut, "alice did not receive native output");
-        assertEq(manager.balanceOf(filler, poolKey.currency1.toId()) - fillerClaimsBefore, _netInput(amountIn), "filler claims wrong");
+        assertEq(
+            manager.balanceOf(filler, poolKey.currency1.toId()) - fillerClaimsBefore,
+            _netInput(amountIn),
+            "filler claims wrong"
+        );
         assertEq(hook.getBalanceIn(order, false), 0, "remaining input should be zero");
         assertEq(hook.getBalanceOut(order, false), 0, "remaining output should be zero");
     }

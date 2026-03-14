@@ -33,20 +33,21 @@ contract CreateDemoOrderScript is ScriptHelper {
 
         uint256 deadline = vm.envOr("ORDER_DEADLINE", uint256(0));
 
-        AsyncSwap(asyncSwap).swap(
-            PoolKey({
-                currency0: currency0,
-                currency1: currency1,
-                fee: LPFeeLibrary.DYNAMIC_FEE_FLAG,
-                tickSpacing: tickSpacing,
-                hooks: IHooks(asyncSwap)
-            }),
-            zeroForOne,
-            amountIn,
-            tick,
-            minAmountOut,
-            deadline
-        );
+        AsyncSwap(asyncSwap)
+            .swap(
+                PoolKey({
+                    currency0: currency0,
+                    currency1: currency1,
+                    fee: LPFeeLibrary.DYNAMIC_FEE_FLAG,
+                    tickSpacing: tickSpacing,
+                    hooks: IHooks(asyncSwap)
+                }),
+                zeroForOne,
+                amountIn,
+                tick,
+                minAmountOut,
+                deadline
+            );
         vm.stopBroadcast();
     }
 }

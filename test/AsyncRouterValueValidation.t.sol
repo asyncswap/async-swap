@@ -79,13 +79,7 @@ contract AsyncRouterValueValidationTest is Test {
         });
 
         AsyncRouter.SwapData memory data = AsyncRouter.SwapData({
-            user: address(this),
-            key: erc20Key,
-            tick: 0,
-            amountIn: 1e18,
-            zeroForOne: true,
-            minAmountOut: 0,
-            value: 1
+            user: address(this), key: erc20Key, tick: 0, amountIn: 1e18, zeroForOne: true, minAmountOut: 0, value: 1
         });
 
         vm.expectRevert(AsyncRouter.INVALID_NATIVE_VALUE.selector);
