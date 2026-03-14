@@ -416,18 +416,14 @@ contract AsyncSwap layout at 1000 is IntentAuth, IHooks, IUnlockCallback {
         uint256 remainingIn = balancesIn[orderId][zeroForOne];
         if (remainingIn == 0) revert NOTHING_TO_CANCEL();
 
-        // Accrue any remaining deferred fee before refunding
-        Currency inputCurrency = zeroForOne ? key.currency0 : key.currency1;
-        uint256 remainingFee = feeRemaining[orderId][zeroForOne];
-        if (remainingFee > 0) {
-            accruedFees[inputCurrency] += remainingFee;
-            remainingIn -= remainingFee;
-        }
-
         // Clear storage (gas refund)
+        // In on-fill mode, feeRemaining is forgiven — unfilled swaps do not pay fees.
         delete balancesIn[orderId][zeroForOne];
         delete balancesOut[orderId][zeroForOne];
         delete feeRemaining[orderId][zeroForOne];
+
+        // Unlock PoolManager to burn claim tokens and send real ERC-20 to swapper
+        Currency inputCurrency = zeroForOne ? key.currency0 : key.currency1;
 
         POOL_MANAGER.unlock(
             abi.encode(CancelCallback({currency: inputCurrency, to: order.swapper, amount: remainingIn}))
