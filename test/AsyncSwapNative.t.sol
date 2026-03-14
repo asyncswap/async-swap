@@ -125,6 +125,77 @@ contract AsyncSwapNativeTest is Test, Deployers {
         assertEq(hook.getBalanceOut(order, false), 0, "remaining output should be zero");
     }
 
+    function test_nativeOutput_partialFill() public {
+        uint256 amountIn = 1e18;
+
+        vm.prank(alice);
+        hook.swap(poolKey, false, amountIn, ORDER_TICK, 0);
+
+        AsyncSwap.Order memory order = _order(alice, ORDER_TICK);
+        uint256 remainingOutBefore = hook.getBalanceOut(order, false);
+        uint256 remainingInBefore = hook.getBalanceIn(order, false);
+        uint256 fillAmount = remainingOutBefore / 2;
+        uint256 aliceEthBefore = alice.balance;
+        uint256 fillerClaimsBefore = manager.balanceOf(filler, poolKey.currency1.toId());
+
+        vm.prank(filler);
+        hook.fill{value: fillAmount}(order, false, fillAmount);
+
+        assertEq(alice.balance - aliceEthBefore, fillAmount, "alice native output mismatch");
+        assertEq(hook.getBalanceOut(order, false), remainingOutBefore - fillAmount, "remaining output mismatch");
+        assertEq(
+            hook.getBalanceIn(order, false),
+            remainingInBefore - (fillAmount * remainingInBefore / remainingOutBefore),
+            "remaining input mismatch"
+        );
+        assertEq(
+            manager.balanceOf(filler, poolKey.currency1.toId()) - fillerClaimsBefore,
+            fillAmount * remainingInBefore / remainingOutBefore,
+            "filler claims mismatch"
+        );
+    }
+
+    function test_nativeOutput_fill_exactMin50Percent() public {
+        uint256 amountIn = 1e18;
+
+        vm.prank(alice);
+        hook.swap(poolKey, false, amountIn, ORDER_TICK, 0);
+
+        AsyncSwap.Order memory order = _order(alice, ORDER_TICK);
+        uint256 remainingOut = hook.getBalanceOut(order, false);
+        uint256 minFill = (remainingOut + 1) / 2;
+
+        vm.prank(filler);
+        hook.fill{value: minFill}(order, false, minFill);
+
+        assertEq(hook.getBalanceOut(order, false), remainingOut - minFill, "exact min fill should succeed");
+    }
+
+    function test_nativeOutput_cancelAfterPartialFill() public {
+        vm.txGasPrice(0);
+        uint256 amountIn = 1e18;
+
+        vm.prank(alice);
+        hook.swap(poolKey, false, amountIn, ORDER_TICK, 0);
+
+        AsyncSwap.Order memory order = _order(alice, ORDER_TICK);
+        uint256 remainingOutBefore = hook.getBalanceOut(order, false);
+        uint256 fillAmount = remainingOutBefore / 2;
+
+        vm.prank(filler);
+        hook.fill{value: fillAmount}(order, false, fillAmount);
+
+        uint256 remainingIn = hook.getBalanceIn(order, false);
+        uint256 aliceTokenBefore = token1.balanceOf(alice);
+
+        vm.prank(alice);
+        hook.cancelOrder(order, false);
+
+        assertEq(token1.balanceOf(alice) - aliceTokenBefore, remainingIn, "cancel should return remaining token1 input");
+        assertEq(hook.getBalanceIn(order, false), 0, "input should be cleared");
+        assertEq(hook.getBalanceOut(order, false), 0, "output should be cleared");
+    }
+
     function test_nativeInput_cancel_returns_eth() public {
         vm.txGasPrice(0);
         uint256 amountIn = 1 ether;

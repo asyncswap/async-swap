@@ -16,6 +16,7 @@ import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 import {SwapParams, ModifyLiquidityParams} from "v4-core/src/types/PoolOperation.sol";
 import {PoolModifyLiquidityTest} from "v4-core/src/test/PoolModifyLiquidityTest.sol";
 import {IERC20Minimal} from "v4-core/src/interfaces/external/IERC20Minimal.sol";
+import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 
 /// @notice Tests that adding liquidity is blocked (afterAddLiquidity flag is enabled to reject LPs).
 contract AsyncSwapUnsupportedTest is Test, Deployers {
@@ -200,6 +201,19 @@ contract AsyncSwapUnsupportedTest is Test, Deployers {
 
         assertEq(hook.getBalanceIn(order, zeroForOne), 0, "input should not be recorded");
         assertEq(hook.getBalanceOut(order, zeroForOne), 0, "output should not be recorded");
+    }
+
+    function test_beforeSwap_untrustedRouter_reverts() public {
+        AsyncSwap.Order memory order = AsyncSwap.Order({poolId: poolKey.toId(), swapper: address(this), tick: 0});
+
+        vm.prank(address(manager));
+        vm.expectRevert(bytes("UNTRUSTED ROUTER"));
+        hook.beforeSwap(
+            address(this),
+            poolKey,
+            SwapParams({zeroForOne: true, amountSpecified: -1e18, sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1}),
+            abi.encode(order, uint256(0))
+        );
     }
 
     function test_falseReturnInput_revertsAndCreatesNoOrder() public {

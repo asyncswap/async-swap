@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity 0.8.34;
+
+import {Test} from "forge-std/Test.sol";
+import {DeployAsyncSwapScript} from "../script/AsyncSwap.s.sol";
+import {HookMiner} from "../script/utils/HookMiner.sol";
+import {AsyncSwap} from "../src/AsyncSwap.sol";
+import {Hooks} from "v4-core/src/libraries/Hooks.sol";
+
+contract DeployScriptTest is Test {
+    address internal constant LOCAL_CREATE2_FACTORY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
+
+    function _flags() internal pure returns (uint160) {
+        return uint160(
+            Hooks.BEFORE_INITIALIZE_FLAG | Hooks.AFTER_INITIALIZE_FLAG | Hooks.AFTER_ADD_LIQUIDITY_FLAG
+                | Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+        );
+    }
+
+    function test_hookMiner_find_returnsFlaggedEmptyAddress() public view {
+        bytes memory constructorArgs = abi.encode(address(0xBEEF));
+        (address mined, bytes32 salt) =
+            HookMiner.find(LOCAL_CREATE2_FACTORY, _flags(), type(AsyncSwap).creationCode, constructorArgs);
+
+        bytes memory creationCodeWithArgs = abi.encodePacked(type(AsyncSwap).creationCode, constructorArgs);
+        address recomputed = HookMiner.computeAddress(LOCAL_CREATE2_FACTORY, uint256(salt), creationCodeWithArgs);
+
+        assertEq(mined, recomputed, "mined address mismatch");
+        assertEq(uint160(mined) & Hooks.ALL_HOOK_MASK, _flags(), "hook flags mismatch");
+        assertEq(mined.code.length, 0, "mined address should be empty");
+    }
+
+    function test_deployScript_run_deploysMinedHook() public {
+        uint256 pk = 0xA11CE;
+        address deployer = vm.addr(pk);
+        vm.deal(deployer, 100 ether);
+        vm.setEnv("PRIVATE_KEY", vm.toString(pk));
+
+        DeployAsyncSwapScript script = new DeployAsyncSwapScript();
+        script.run();
+
+        address manager = address(script.manager());
+        address hook = address(script.hook());
+
+        assertTrue(manager != address(0), "manager not deployed");
+        assertTrue(hook != address(0), "hook not deployed");
+        assertEq(uint160(hook) & Hooks.ALL_HOOK_MASK, _flags(), "deployed hook flags mismatch");
+        assertEq(address(AsyncSwap(hook).POOL_MANAGER()), manager, "hook manager mismatch");
+    }
+}

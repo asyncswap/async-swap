@@ -30,7 +30,7 @@ contract DeployAsyncSwapScript is Script {
         (address minedHookAddress, bytes32 salt) =
             HookMiner.find(CREATE2_FACTORY, flags, type(AsyncSwap).creationCode, abi.encode(address(manager)));
 
-        hook = AsyncSwap(vm.deployCode("AsyncSwap.sol:AsyncSwap", abi.encode(address(manager)), salt));
+        hook = new AsyncSwap{salt: salt}(manager);
         require(address(hook) == minedHookAddress, "HOOK_ADDRESS_MISMATCH");
 
         vm.stopBroadcast();
