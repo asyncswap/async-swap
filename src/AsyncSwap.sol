@@ -326,11 +326,15 @@ contract AsyncSwap layout at 1000 is IntentAuth, IHooks, IUnlockCallback {
 
         if (value != 0) revert INVALID_NATIVE_OUTPUT_VALUE();
 
-        IERC20Minimal token = IERC20Minimal(Currency.unwrap(outputCurrency));
-        uint256 beforeBal = token.balanceOf(recipient);
-        bool success = token.transferFrom(filler, recipient, amount);
-        if (!success) revert OUTPUT_TRANSFER_FAILED();
-        uint256 received = token.balanceOf(recipient) - beforeBal;
+        address token = Currency.unwrap(outputCurrency);
+        uint256 beforeBal = IERC20Minimal(token).balanceOf(recipient);
+        (bool callSuccess, bytes memory returndata) = token.call(
+            abi.encodeWithSelector(IERC20Minimal.transferFrom.selector, filler, recipient, amount)
+        );
+        if (!callSuccess || (returndata.length > 0 && !abi.decode(returndata, (bool)))) {
+            revert OUTPUT_TRANSFER_FAILED();
+        }
+        uint256 received = IERC20Minimal(token).balanceOf(recipient) - beforeBal;
         if (received != amount) revert INSUFFICIENT_OUTPUT_RECEIVED();
     }
 
@@ -372,8 +376,8 @@ contract AsyncSwap layout at 1000 is IntentAuth, IHooks, IUnlockCallback {
         Currency outputCurrency = zeroForOne ? key.currency1 : key.currency0;
 
         uint256 claimShare = inputShare;
-        if (feeRefundToggle) {
-            uint256 remainingFee = feeRemaining[orderId][zeroForOne];
+        uint256 remainingFee = feeRemaining[orderId][zeroForOne];
+        if (remainingFee > 0) {
             uint256 feeShare = fillAmount == remainingOut
                 ? remainingFee
                 : FullMath.mulDivRoundingUp(inputShare, remainingFee, remainingIn);
@@ -412,13 +416,18 @@ contract AsyncSwap layout at 1000 is IntentAuth, IHooks, IUnlockCallback {
         uint256 remainingIn = balancesIn[orderId][zeroForOne];
         if (remainingIn == 0) revert NOTHING_TO_CANCEL();
 
+        // Accrue any remaining deferred fee before refunding
+        Currency inputCurrency = zeroForOne ? key.currency0 : key.currency1;
+        uint256 remainingFee = feeRemaining[orderId][zeroForOne];
+        if (remainingFee > 0) {
+            accruedFees[inputCurrency] += remainingFee;
+            remainingIn -= remainingFee;
+        }
+
         // Clear storage (gas refund)
         delete balancesIn[orderId][zeroForOne];
         delete balancesOut[orderId][zeroForOne];
         delete feeRemaining[orderId][zeroForOne];
-
-        // Unlock PoolManager to burn claim tokens and send real ERC-20 to swapper
-        Currency inputCurrency = zeroForOne ? key.currency0 : key.currency1;
 
         POOL_MANAGER.unlock(
             abi.encode(CancelCallback({currency: inputCurrency, to: order.swapper, amount: remainingIn}))

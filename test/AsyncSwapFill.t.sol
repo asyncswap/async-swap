@@ -194,14 +194,17 @@ contract AsyncSwapFillTest is Test, Deployers {
         hook.fill(order, true, fillAmount);
 
         uint256 remainingGross = hook.getBalanceIn(order, true);
+        bytes32 oid = keccak256(abi.encode(order));
+        uint256 remainingFee = hook.feeRemaining(oid, true);
+        uint256 expectedRefund = remainingGross - remainingFee;
         uint256 feeAccruedBefore = hook.accruedFees(currency0);
         uint256 balBefore = currency0.balanceOf(address(this));
 
         hook.cancelOrder(order, true);
 
-        assertEq(currency0.balanceOf(address(this)) - balBefore, remainingGross, "cancel should return remaining gross input when toggle is on");
-        assertEq(hook.accruedFees(currency0), feeAccruedBefore, "cancel should not accrue more fees");
-        assertEq(hook.feeRemaining(keccak256(abi.encode(order)), true), 0, "fee remainder should clear on cancel");
+        assertEq(currency0.balanceOf(address(this)) - balBefore, expectedRefund, "cancel should return remaining input minus deferred fee");
+        assertEq(hook.accruedFees(currency0), feeAccruedBefore + remainingFee, "cancel should accrue remaining deferred fee");
+        assertEq(hook.feeRemaining(oid, true), 0, "fee remainder should clear on cancel");
     }
 
     function test_upfrontFee_accountingInvariant_halfFill() public {

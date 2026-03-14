@@ -166,7 +166,7 @@ contract AsyncGovernanceExecutionTest is Test, Deployers {
         vm.roll(block.number + 1);
         vm.prank(voter);
         token.delegate(voter);
-        vm.roll(block.number + 1);
+        vm.roll(block.number + 2);
     }
 
     function test_governance_can_setTreasury_onAsyncSwap() public {
