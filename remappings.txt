@@ -1,3 +1,4 @@
 @openzeppelin/contracts/=dependencies/v4-core-4/lib/openzeppelin-contracts/contracts/
 forge-std=dependencies/forge-std-1.15.0/src/
+solmate/=dependencies/v4-core-4/lib/solmate/
 v4-core=dependencies/v4-core-4/
