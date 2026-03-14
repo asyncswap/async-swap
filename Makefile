@@ -15,7 +15,7 @@ PROPOSAL_THRESHOLD ?= 100000000000000000000
 QUORUM_PERCENT ?= 4
 AUTO_EXECUTE_LOCAL ?= true
 
-FORGE_SCRIPT = forge script --rpc-url $(RPC_URL) --account $(ACCOUNT) --sender $(DEPLOYER_ADDRESS) --broadcast --password yes -vvvv --no-cache
+FORGE_SCRIPT = forge script --rpc-url $(RPC_URL) --account $(ACCOUNT) --sender $(DEPLOYER_ADDRESS) --broadcast -vvvv --no-cache
 
 help:
 	@printf "Available targets:\n"
