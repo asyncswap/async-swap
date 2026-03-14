@@ -6,10 +6,32 @@ import {AsyncSwap} from "../src/AsyncSwap.sol";
 import {AsyncToken} from "../src/governance/AsyncToken.sol";
 import {TimelockController} from "@openzeppelin/contracts/governance/TimelockController.sol";
 
-contract WireGovernanceToAsyncSwapScript is ScriptHelper {
+abstract contract GovernanceAddressResolver is ScriptHelper {
+    function _timelockAddress() internal view returns (address) {
+        return vm.envOr("TIMELOCK_ADDRESS", _readDeployedContractAddress("01_DeployGovernance", 1));
+    }
+
+    function _asyncSwapAddress() internal view returns (address) {
+        return vm.envOr("ASYNCSWAP_ADDRESS", _readDeployedContractAddress("00_DeployAsyncSwap", 1));
+    }
+
+    function _asyncTokenAddress() internal view returns (address) {
+        return vm.envOr("ASYNC_TOKEN_ADDRESS", _readDeployedContractAddress("01_DeployGovernance", 0));
+    }
+
+    function _governorAddress() internal view returns (address) {
+        return vm.envOr("GOVERNOR_ADDRESS", _readDeployedContractAddress("01_DeployGovernance", 2));
+    }
+
+    function _acceptOwnershipCalldata() internal pure returns (bytes memory) {
+        return abi.encodeWithSignature("acceptOwnership()");
+    }
+}
+
+contract WireGovernanceToAsyncSwapScript is GovernanceAddressResolver {
     function run() public {
-        address timelock = vm.envOr("TIMELOCK_ADDRESS", _readDeployedContractAddress("01_DeployGovernance", 1));
-        address asyncSwap = vm.envOr("ASYNCSWAP_ADDRESS", _readDeployedContractAddress("00_DeployAsyncSwap", 1));
+        address timelock = _timelockAddress();
+        address asyncSwap = _asyncSwapAddress();
 
         vm.startBroadcast();
         AsyncSwap(asyncSwap).transferOwnership(timelock);
@@ -17,10 +39,10 @@ contract WireGovernanceToAsyncSwapScript is ScriptHelper {
     }
 }
 
-contract TransferAsyncTokenMinterToTimelockScript is ScriptHelper {
+contract TransferAsyncTokenMinterToTimelockScript is GovernanceAddressResolver {
     function run() public {
-        address timelock = vm.envOr("TIMELOCK_ADDRESS", _readDeployedContractAddress("01_DeployGovernance", 1));
-        address asyncToken = vm.envOr("ASYNC_TOKEN_ADDRESS", _readDeployedContractAddress("01_DeployGovernance", 0));
+        address timelock = _timelockAddress();
+        address asyncToken = _asyncTokenAddress();
 
         vm.startBroadcast();
         AsyncToken(asyncToken).setMinter(timelock);
@@ -28,13 +50,13 @@ contract TransferAsyncTokenMinterToTimelockScript is ScriptHelper {
     }
 }
 
-contract AcceptAsyncSwapOwnershipViaTimelockScript is ScriptHelper {
+contract AcceptAsyncSwapOwnershipViaTimelockScript is GovernanceAddressResolver {
     function run() public {
-        address timelockAddr = vm.envOr("TIMELOCK_ADDRESS", _readDeployedContractAddress("01_DeployGovernance", 1));
-        address asyncSwap = vm.envOr("ASYNCSWAP_ADDRESS", _readDeployedContractAddress("00_DeployAsyncSwap", 1));
+        address timelockAddr = _timelockAddress();
+        address asyncSwap = _asyncSwapAddress();
 
         TimelockController timelock = TimelockController(payable(timelockAddr));
-        bytes memory data = abi.encodeWithSignature("acceptOwnership()");
+        bytes memory data = _acceptOwnershipCalldata();
         bytes32 predecessor = bytes32(0);
         bytes32 salt = bytes32(uint256(0));
 
@@ -44,13 +66,13 @@ contract AcceptAsyncSwapOwnershipViaTimelockScript is ScriptHelper {
     }
 }
 
-contract ExecuteAsyncSwapOwnershipAcceptanceScript is ScriptHelper {
+contract ExecuteAsyncSwapOwnershipAcceptanceScript is GovernanceAddressResolver {
     function run() public {
-        address timelockAddr = vm.envOr("TIMELOCK_ADDRESS", _readDeployedContractAddress("01_DeployGovernance", 1));
-        address asyncSwap = vm.envOr("ASYNCSWAP_ADDRESS", _readDeployedContractAddress("00_DeployAsyncSwap", 1));
+        address timelockAddr = _timelockAddress();
+        address asyncSwap = _asyncSwapAddress();
 
         TimelockController timelock = TimelockController(payable(timelockAddr));
-        bytes memory data = abi.encodeWithSignature("acceptOwnership()");
+        bytes memory data = _acceptOwnershipCalldata();
         bytes32 predecessor = bytes32(0);
         bytes32 salt = bytes32(uint256(0));
 
@@ -60,10 +82,10 @@ contract ExecuteAsyncSwapOwnershipAcceptanceScript is ScriptHelper {
     }
 }
 
-contract RevokeBootstrapTimelockRolesScript is ScriptHelper {
+contract RevokeBootstrapTimelockRolesScript is GovernanceAddressResolver {
     function run() public {
-        address timelockAddr = vm.envOr("TIMELOCK_ADDRESS", _readDeployedContractAddress("01_DeployGovernance", 1));
-        address governor = vm.envOr("GOVERNOR_ADDRESS", _readDeployedContractAddress("01_DeployGovernance", 2));
+        address timelockAddr = _timelockAddress();
+        address governor = _governorAddress();
         address deployer = vm.envAddress("DEPLOYER_ADDRESS");
 
         TimelockController timelock = TimelockController(payable(timelockAddr));
