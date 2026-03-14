@@ -40,64 +40,11 @@ Instead of executing trades against AMM liquidity immediately, AsyncSwap records
 - `src/governance/` - token + governor contracts
 - `script/README.md` - deployment and governance runbook
 
-## Development
+## Links
 
-### Build
+Documentation: TBA
+Website: [asyncswap.org](https://asyncswap.org)
+Discord: [Discord](https://discord.gg/Eh8fxHf8Sg)
+Twitter: [@asyncswap](https://x.com/asyncswap)
 
-```shell
-forge build
-```
-
-### Test
-
-```shell
-forge test
-```
-
-### Format
-
-```shell
-forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-forge snapshot
-```
-
-### Anvil
-
-```shell
-anvil
-```
-
-### Deploy
-
-```shell
-forge script script/00_DeployAsyncSwap.s.sol:DeployAsyncSwapScript \
-  --rpc-url $RPC_URL \
-  --account <foundry-account-name> \
-  --sender $DEPLOYER_ADDRESS \
-  --broadcast
-```
-
-For the full deployment, governance, and operator runbook, see:
-
-```text
-script/README.md
-```
-
-### Cast
-
-```shell
-cast <subcommand>
-```
-
-### Help
-
-```shell
-forge --help
-anvil --help
-cast --help
-```
+© AsyncSwap Labs, Inc.

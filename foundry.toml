@@ -8,9 +8,9 @@ optimizer_runs = 200
 via_ir = true
 fs_permissions = [
   { access = "read", path = "./broadcast" },
-  { access = "read-write", path = "./cache" }
+  { access = "read-write", path = "./cache" },
 ]
-ignored_error_codes = [2424, 8429]
+ignored_error_codes = [2424, 8429, 3860]
 
 [dependencies]
 forge-std = "1.15.0"
