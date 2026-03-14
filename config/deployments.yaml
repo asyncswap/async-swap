@@ -1,0 +1,29 @@
+chains:
+  anvil:
+    chainId: 31337
+
+  unichain-sepolia:
+    chainId: 1301
+    poolManager: "0x00B036B58a818B1BC34d502D3fE730Db729e62AC"
+    chronicle:
+      ethUsd: "0x1a16742c2f612eC46f52687BE5d1731EC12cBD89"
+      selfKisser: "0x7AB42CC558fc92EC990B22E663E5a7bc5879fc9f"
+    tokens:
+      usdc: "0x31d0220469e10c4E71834a79b1f276d740d3768F"
+
+pool_presets:
+  unichain-sepolia:
+    native-usdc:
+      token0: "0x0000000000000000000000000000000000000000"
+      token1: "0x31d0220469e10c4E71834a79b1f276d740d3768F"
+      tickSpacing: 240
+      oracle:
+        type: chronicle-eth-usd
+        inverse: false
+        scaleNumerator: 1000000
+        scaleDenominator: 1000000000000000000
+        maxAge: 300
+        maxDeviationBps: 100
+        userSurplusBps: 5000
+        fillerSurplusBps: 2500
+        protocolSurplusBps: 2500

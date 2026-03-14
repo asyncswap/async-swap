@@ -7,6 +7,7 @@ import {AsyncSwap} from "../src/AsyncSwap.sol";
 import {IntentAuth} from "../src/IntentAuth.sol";
 import {AsyncToken} from "../src/governance/AsyncToken.sol";
 import {AsyncGovernor} from "../src/governance/AsyncGovernor.sol";
+import {IAsyncSwapOracle} from "../src/interfaces/IAsyncSwapOracle.sol";
 import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
 import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
@@ -243,5 +244,61 @@ contract AsyncGovernanceExecutionTest is Test, Deployers {
         governor.execute(targets, values, calldatas, descriptionHash);
 
         assertTrue(hook.feeRefundToggle());
+    }
+
+    function test_governance_can_setOracleConfig_onAsyncSwap() public {
+        MockGovernanceOracle oracle = new MockGovernanceOracle();
+
+        address[] memory targets = new address[](1);
+        targets[0] = address(hook);
+        uint256[] memory values = new uint256[](1);
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encodeWithSelector(
+            IntentAuth.setOracleConfig.selector,
+            poolId,
+            IAsyncSwapOracle(address(oracle)),
+            uint32(300),
+            uint16(100),
+            uint16(5000),
+            uint16(2500),
+            uint16(2500)
+        );
+        string memory description = "set oracle config";
+
+        vm.prank(voter);
+        uint256 proposalId = governor.propose(targets, values, calldatas, description);
+
+        vm.roll(block.number + governor.votingDelay() + 1);
+        vm.prank(voter);
+        governor.castVote(proposalId, 1);
+
+        vm.roll(block.number + governor.votingPeriod() + 1);
+        bytes32 descriptionHash = keccak256(bytes(description));
+        governor.queue(targets, values, calldatas, descriptionHash);
+
+        vm.warp(block.timestamp + 1 days + 1);
+        governor.execute(targets, values, calldatas, descriptionHash);
+
+        (
+            IAsyncSwapOracle configuredOracle,
+            uint32 maxAge,
+            uint16 maxDeviationBps,
+            uint16 userSurplusBps,
+            uint16 fillerSurplusBps,
+            uint16 protocolSurplusBps
+        ) = hook.oracleConfig(poolId);
+
+        assertEq(address(configuredOracle), address(oracle));
+        assertEq(maxAge, 300);
+        assertEq(maxDeviationBps, 100);
+        assertEq(userSurplusBps, 5000);
+        assertEq(fillerSurplusBps, 2500);
+        assertEq(protocolSurplusBps, 2500);
+    }
+}
+
+contract MockGovernanceOracle is IAsyncSwapOracle {
+    function getQuoteSqrtPriceX96(PoolId) external pure returns (uint160 sqrtPriceX96, uint256 updatedAt) {
+        return (79228162514264337593543950336, 1);
     }
 }

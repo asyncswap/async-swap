@@ -27,6 +27,8 @@ contract ScriptHelper is Script {
     address internal constant SEPOLIA_POOL_MANAGER = 0xE03A1074c86CFeDd5C142C4F04F1a1536e203543;
     address internal constant BASE_SEPOLIA_POOL_MANAGER = 0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408;
     address internal constant ARBITRUM_SEPOLIA_POOL_MANAGER = 0xFB3e0C6F74eB1a21CC1Da29aeC80D2Dfe6C9a317;
+    address internal constant UNICHAIN_SEPOLIA_CHRONICLE_ETH_USD = 0x1a16742c2f612eC46f52687BE5d1731EC12cBD89;
+    address internal constant UNICHAIN_SEPOLIA_SELF_KISSER = 0x7AB42CC558fc92EC990B22E663E5a7bc5879fc9f;
 
     enum SelectChain {
         Anvil,
@@ -174,6 +176,13 @@ contract ScriptHelper is Script {
         return _readDeployedContractAddress("01_DeployGovernance", 2);
     }
 
+    function _deployedOracleAdapter() internal view returns (address) {
+        if (vm.envExists("ORACLE_ADAPTER_ADDRESS")) {
+            return vm.envAddress("ORACLE_ADAPTER_ADDRESS");
+        }
+        return _readDeployedContractAddress("11_DeployChronicleOracleAdapter", 0);
+    }
+
     function _deployedDemoToken0() internal view returns (address) {
         if (vm.envExists("TOKEN0_ADDRESS")) {
             return vm.envAddress("TOKEN0_ADDRESS");
@@ -224,5 +233,25 @@ contract ScriptHelper is Script {
         if (selectedChain == SelectChain.BaseSepolia) return BASE_SEPOLIA_POOL_MANAGER;
         if (selectedChain == SelectChain.ArbitrumSepolia) return ARBITRUM_SEPOLIA_POOL_MANAGER;
         revert("UNSUPPORTED_CHAIN");
+    }
+
+    function _chronicleOracleAddress() internal view returns (address) {
+        if (vm.envExists("CHRONICLE_ORACLE")) {
+            return vm.envAddress("CHRONICLE_ORACLE");
+        }
+        if (_selectedChain() == SelectChain.UnichainSepolia) {
+            return UNICHAIN_SEPOLIA_CHRONICLE_ETH_USD;
+        }
+        revert("MISSING_CHRONICLE_ORACLE");
+    }
+
+    function _chronicleSelfKisserAddress() internal view returns (address) {
+        if (vm.envExists("CHRONICLE_SELF_KISSER")) {
+            return vm.envAddress("CHRONICLE_SELF_KISSER");
+        }
+        if (_selectedChain() == SelectChain.UnichainSepolia) {
+            return UNICHAIN_SEPOLIA_SELF_KISSER;
+        }
+        revert("MISSING_CHRONICLE_SELF_KISSER");
     }
 }

@@ -1,4 +1,4 @@
-.PHONY: help deploy-asyncswap deploy-governance transfer-asyncswap-ownership set-token-minter schedule-ownership-accept execute-ownership-accept revoke-bootstrap-roles demo-deploy-tokens demo-init-pool demo-init-native-pool demo-create-order demo-fill-order deploy-all deploy-local require-broadcast
+.PHONY: help deploy-asyncswap deploy-governance transfer-asyncswap-ownership set-token-minter schedule-ownership-accept execute-ownership-accept revoke-bootstrap-roles deploy-oracle-adapter set-pool-oracle set-unichain-sepolia-eth-usdc-oracle print-pool-id demo-deploy-tokens demo-init-pool demo-init-native-pool demo-create-order demo-fill-order deploy-all deploy-local require-broadcast
 
 ifneq (,$(wildcard .env))
 include .env
@@ -30,6 +30,10 @@ help:
 	@printf "  schedule-ownership-accept Schedule AsyncSwap.acceptOwnership() through the timelock\n"
 	@printf "  execute-ownership-accept  Execute the scheduled AsyncSwap.acceptOwnership() call after the timelock delay\n"
 	@printf "  revoke-bootstrap-roles    Remove temporary deployer timelock roles after bootstrap is complete\n"
+	@printf "  deploy-oracle-adapter     Deploy the Chronicle oracle adapter\n"
+	@printf "  set-pool-oracle           Configure the adapter and set oracle config for a pool\n"
+	@printf "  set-unichain-sepolia-eth-usdc-oracle Configure Chronicle ETH/USD oracle defaults for native/USDC on Unichain Sepolia\n"
+	@printf "  print-pool-id             Print the deterministic PoolId for token pair + hook\n"
 	@printf "  deploy-all                Run steps 00-04 in order\n"
 	@printf "  deploy-local              Run the full local anvil flow, including timelock fast-forward and steps 05-06\n"
 	@printf "  demo-deploy-tokens        Deploy local demo ERC20 tokens for swap flow testing\n"
@@ -67,6 +71,26 @@ execute-ownership-accept: require-account-env require-broadcast
 
 revoke-bootstrap-roles: require-account-env require-broadcast
 	CHAIN=$(CHAIN) RUN_MODE=$(RUN_MODE) $(FORGE_SCRIPT) script/06_RevokeBootstrapTimelockRoles.s.sol:RevokeBootstrapTimelockRolesScript
+
+deploy-oracle-adapter: require-account-env require-broadcast
+	CHAIN=$(CHAIN) RUN_MODE=$(RUN_MODE) $(FORGE_SCRIPT) script/11_DeployChronicleOracleAdapter.s.sol:DeployChronicleOracleAdapterScript
+
+set-pool-oracle: require-account-env require-broadcast
+	CHAIN=$(CHAIN) RUN_MODE=$(RUN_MODE) $(FORGE_SCRIPT) script/12_SetPoolOracleConfig.s.sol:SetPoolOracleConfigScript
+
+set-unichain-sepolia-eth-usdc-oracle: require-account-env require-broadcast
+	@if [ -z "$(POOL_ID)" ]; then echo "Missing POOL_ID" && exit 1; fi
+	CHAIN=unichain-sepolia RUN_MODE=$(RUN_MODE) \
+	CHRONICLE_ORACLE=0x1a16742c2f612eC46f52687BE5d1731EC12cBD89 \
+	TOKEN0_ADDRESS=0x0000000000000000000000000000000000000000 \
+	TOKEN1_ADDRESS=0x31d0220469e10c4E71834a79b1f276d740d3768F \
+	ORACLE_INVERSE=false \
+	ORACLE_SCALE_NUMERATOR=1000000 \
+	ORACLE_SCALE_DENOMINATOR=1000000000000000000 \
+	$(FORGE_SCRIPT) script/12_SetPoolOracleConfig.s.sol:SetPoolOracleConfigScript
+
+print-pool-id:
+	bash script/print-pool-id.sh
 
 deploy-all: deploy-asyncswap deploy-governance transfer-asyncswap-ownership set-token-minter schedule-ownership-accept
 

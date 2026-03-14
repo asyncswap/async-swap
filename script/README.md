@@ -50,6 +50,8 @@ export AUTO_EXECUTE_LOCAL=true
 10. `08_InitializeNativeTokenPool.s.sol`
 11. `09_CreateDemoOrder.s.sol`
 12. `10_FillDemoOrder.s.sol`
+13. `11_DeployChronicleOracleAdapter.s.sol`
+14. `12_SetPoolOracleConfig.s.sol`
 
 ## Deploy AsyncSwap
 
@@ -168,6 +170,9 @@ make set-token-minter
 make schedule-ownership-accept
 make execute-ownership-accept
 make revoke-bootstrap-roles
+make deploy-oracle-adapter
+make set-pool-oracle
+make print-pool-id
 make demo-deploy-tokens
 make demo-init-pool
 make demo-init-native-pool
@@ -191,6 +196,84 @@ Named helper getters resolve:
 - deployed `TimelockController`
 - deployed `AsyncGovernor`
 - chain-specific `PoolManager`
+
+## Oracle Deployment
+
+Deploy the Chronicle oracle adapter:
+
+```shell
+make deploy-oracle-adapter
+```
+
+Then configure a pool oracle:
+
+```shell
+export ORACLE_ADAPTER_ADDRESS=0x...
+export CHRONICLE_ORACLE=0x1a16742c2f612eC46f52687BE5d1731EC12cBD89
+export CHRONICLE_SELF_KISSER=0x7AB42CC558fc92EC990B22E663E5a7bc5879fc9f
+export POOL_ID=0x...
+export ORACLE_MAX_AGE=300
+export ORACLE_MAX_DEVIATION_BPS=100
+export USER_SURPLUS_BPS=5000
+export FILLER_SURPLUS_BPS=2500
+export PROTOCOL_SURPLUS_BPS=2500
+
+make set-pool-oracle
+```
+
+### Unichain Sepolia native ETH / USDC example
+
+Known addresses:
+
+```shell
+export CHAIN=unichain-sepolia
+export TOKEN0_ADDRESS=0x0000000000000000000000000000000000000000
+export TOKEN1_ADDRESS=0x31d0220469e10c4E71834a79b1f276d740d3768F
+export CHRONICLE_ORACLE=0x1a16742c2f612eC46f52687BE5d1731EC12cBD89
+export CHRONICLE_SELF_KISSER=0x7AB42CC558fc92EC990B22E663E5a7bc5879fc9f
+```
+
+On `CHAIN=unichain-sepolia`, these two Chronicle addresses are used as defaults by the scripts, so you only need to override them if Chronicle changes deployments.
+
+Print the `POOL_ID` first:
+
+```shell
+make print-pool-id
+```
+
+Then configure the pool oracle:
+
+```shell
+export POOL_ID=0x...
+export ORACLE_MAX_AGE=300
+export ORACLE_MAX_DEVIATION_BPS=100
+export USER_SURPLUS_BPS=5000
+export FILLER_SURPLUS_BPS=2500
+export PROTOCOL_SURPLUS_BPS=2500
+
+make set-unichain-sepolia-eth-usdc-oracle
+```
+
+That convenience target uses:
+- `ORACLE_INVERSE=false`
+- `ORACLE_SCALE_NUMERATOR=1000000`
+- `ORACLE_SCALE_DENOMINATOR=1000000000000000000`
+
+This maps an 18-decimal ETH/USD Chronicle price into the native/USDC pool price domain.
+
+To compute the deterministic `POOL_ID` for a token pair and hook:
+
+```shell
+export TOKEN0_ADDRESS=0x...
+export TOKEN1_ADDRESS=0x...
+
+make print-pool-id
+```
+
+Notes:
+- the adapter is configured per `poolId`
+- Chronicle access may require the adapter contract to be whitelisted / self-kissed on the target network
+- the current adapter uses `sqrtPriceX96` as the oracle output format for surplus capture math
 
 ## Recommended Local Flow
 
