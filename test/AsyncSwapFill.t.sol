@@ -916,6 +916,162 @@ contract AsyncSwapFillTest is Test, Deployers {
         _swap(true, swapAmount, ORDER_TICK, 0);
         assertEq(hook.getBalanceIn(order, true), _netInput(swapAmount), "should be fresh after cancel");
     }
+
+    // ========================================
+    // Test: batchFill
+    // ========================================
+
+    function test_batchFill_twoOrders_sameDirection() public {
+        address alice = makeAddr("alice");
+        address bob = makeAddr("bob");
+
+        MockERC20(Currency.unwrap(currency0)).mint(alice, 10e18);
+        MockERC20(Currency.unwrap(currency0)).mint(bob, 10e18);
+        address routerAddr = address(hook.router());
+        vm.prank(alice);
+        MockERC20(Currency.unwrap(currency0)).approve(routerAddr, type(uint256).max);
+        vm.prank(bob);
+        MockERC20(Currency.unwrap(currency0)).approve(routerAddr, type(uint256).max);
+
+        vm.prank(alice);
+        hook.swap(poolKey, true, 5e18, ORDER_TICK, 0, 0);
+        vm.prank(bob);
+        hook.swap(poolKey, true, 3e18, ORDER_TICK, 0, 0);
+
+        AsyncSwap.Order memory orderA = AsyncSwap.Order({poolId: poolId, swapper: alice, tick: ORDER_TICK});
+        AsyncSwap.Order memory orderB = AsyncSwap.Order({poolId: poolId, swapper: bob, tick: ORDER_TICK});
+
+        uint256 outA = hook.getBalanceOut(orderA, true);
+        uint256 outB = hook.getBalanceOut(orderB, true);
+
+        address filler = makeAddr("filler");
+        MockERC20(Currency.unwrap(currency1)).mint(filler, outA + outB);
+        vm.prank(filler);
+        MockERC20(Currency.unwrap(currency1)).approve(address(hook), type(uint256).max);
+
+        AsyncSwap.Order[] memory orders = new AsyncSwap.Order[](2);
+        orders[0] = orderA;
+        orders[1] = orderB;
+        bool[] memory directions = new bool[](2);
+        directions[0] = true;
+        directions[1] = true;
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = outA;
+        amounts[1] = outB;
+
+        vm.prank(filler);
+        hook.batchFill(orders, directions, amounts);
+
+        assertEq(hook.getBalanceOut(orderA, true), 0, "order A should be fully filled");
+        assertEq(hook.getBalanceOut(orderB, true), 0, "order B should be fully filled");
+        assertGt(manager.balanceOf(filler, currency0.toId()), 0, "filler should have claim tokens");
+    }
+
+    function test_batchFill_coincidenceOfWants() public {
+        address alice = makeAddr("alice");
+        address bob = makeAddr("bob");
+
+        MockERC20(Currency.unwrap(currency0)).mint(alice, 10e18);
+        MockERC20(Currency.unwrap(currency1)).mint(bob, 10e18);
+        address routerAddr = address(hook.router());
+        vm.prank(alice);
+        MockERC20(Currency.unwrap(currency0)).approve(routerAddr, type(uint256).max);
+        vm.prank(bob);
+        MockERC20(Currency.unwrap(currency1)).approve(routerAddr, type(uint256).max);
+
+        // Alice sells token0 for token1
+        vm.prank(alice);
+        hook.swap(poolKey, true, 5e18, ORDER_TICK, 0, 0);
+        // Bob sells token1 for token0
+        vm.prank(bob);
+        hook.swap(poolKey, false, 5e18, ORDER_TICK, 0, 0);
+
+        AsyncSwap.Order memory orderA = AsyncSwap.Order({poolId: poolId, swapper: alice, tick: ORDER_TICK});
+        AsyncSwap.Order memory orderB = AsyncSwap.Order({poolId: poolId, swapper: bob, tick: ORDER_TICK});
+
+        uint256 outA = hook.getBalanceOut(orderA, true);
+        uint256 outB = hook.getBalanceOut(orderB, false);
+
+        // Solver fills both — uses output from each to cover the other
+        address solver = makeAddr("solver");
+        MockERC20(Currency.unwrap(currency1)).mint(solver, outA);
+        MockERC20(Currency.unwrap(currency0)).mint(solver, outB);
+        vm.startPrank(solver);
+        MockERC20(Currency.unwrap(currency1)).approve(address(hook), type(uint256).max);
+        MockERC20(Currency.unwrap(currency0)).approve(address(hook), type(uint256).max);
+
+        AsyncSwap.Order[] memory orders = new AsyncSwap.Order[](2);
+        orders[0] = orderA;
+        orders[1] = orderB;
+        bool[] memory directions = new bool[](2);
+        directions[0] = true;
+        directions[1] = false;
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = outA;
+        amounts[1] = outB;
+
+        hook.batchFill(orders, directions, amounts);
+        vm.stopPrank();
+
+        assertEq(hook.getBalanceOut(orderA, true), 0, "order A should be fully filled");
+        assertEq(hook.getBalanceOut(orderB, false), 0, "order B should be fully filled");
+
+        // Alice should have received token1
+        assertGt(MockERC20(Currency.unwrap(currency1)).balanceOf(alice), 0, "alice should have token1");
+        // Bob should have received token0
+        assertGt(MockERC20(Currency.unwrap(currency0)).balanceOf(bob), 0, "bob should have token0");
+    }
+
+    function test_batchFill_lengthMismatch_reverts() public {
+        AsyncSwap.Order[] memory orders = new AsyncSwap.Order[](2);
+        bool[] memory directions = new bool[](1);
+        uint256[] memory amounts = new uint256[](2);
+
+        vm.expectRevert("LENGTH_MISMATCH");
+        hook.batchFill(orders, directions, amounts);
+    }
+
+    function test_batchFill_expiredOrder_reverts() public {
+        uint256 swapAmount = 5e18;
+        _swap(true, swapAmount, ORDER_TICK, 0);
+
+        // Set deadline on the order (no expiry for this one)
+        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+
+        // Create a second order with a deadline
+        address bob = makeAddr("bob");
+        MockERC20(Currency.unwrap(currency0)).mint(bob, 10e18);
+        address routerAddr = address(hook.router());
+        vm.prank(bob);
+        MockERC20(Currency.unwrap(currency0)).approve(routerAddr, type(uint256).max);
+        vm.prank(bob);
+        hook.swap(poolKey, true, 3e18, ORDER_TICK, 0, block.timestamp + 1 hours);
+
+        AsyncSwap.Order memory orderB = AsyncSwap.Order({poolId: poolId, swapper: bob, tick: ORDER_TICK});
+
+        uint256 outA = hook.getBalanceOut(order, true);
+        uint256 outB = hook.getBalanceOut(orderB, true);
+
+        address filler = makeAddr("filler");
+        _setupFiller(filler, currency1, outA + outB);
+
+        // Warp past deadline
+        vm.warp(block.timestamp + 2 hours);
+
+        AsyncSwap.Order[] memory orders = new AsyncSwap.Order[](2);
+        orders[0] = orderB;
+        orders[1] = order;
+        bool[] memory directions = new bool[](2);
+        directions[0] = true;
+        directions[1] = true;
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = outB;
+        amounts[1] = outA;
+
+        vm.prank(filler);
+        vm.expectRevert(AsyncSwap.ORDER_EXPIRED.selector);
+        hook.batchFill(orders, directions, amounts);
+    }
 }
 
 contract LyingTransferFromToken is MockERC20 {
