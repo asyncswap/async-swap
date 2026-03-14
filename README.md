@@ -15,6 +15,7 @@ Instead of executing trades against AMM liquidity immediately, AsyncSwap records
 ### Design
 
 - intent-based: users express what they want, fillers decide how to deliver
+- OTC-like pricing: users post a target price and wait for a counterparty to accept it, instead of taking live AMM spot execution
 - on-chain escrow: input tokens are held by the hook until filled or cancelled
 - permissionless filling: anyone can fill any order, no solver auction or selection
 - coincidence of wants: fillers can batch-settle opposite-direction orders via `batchFill`
