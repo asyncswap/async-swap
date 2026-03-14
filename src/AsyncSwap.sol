@@ -95,6 +95,9 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
     /// @notice Output token did not deliver the exact requested amount
     error INSUFFICIENT_OUTPUT_RECEIVED();
 
+    /// @notice Native output fill used the wrong msg.value or ERC20 fill sent stray ETH
+    error INVALID_NATIVE_OUTPUT_VALUE();
+
     /// @notice Only the order's swapper can cancel
     error NOT_ORDER_OWNER();
 
@@ -182,17 +185,21 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
     /// @param amountIn Exact input amount
     /// @param tick The order's price tick
     /// @param minAmountOut Minimum output (slippage protection)
-    function swap(PoolKey calldata key, bool zeroForOne, uint256 amountIn, int24 tick, uint256 minAmountOut) external {
+    function swap(PoolKey calldata key, bool zeroForOne, uint256 amountIn, int24 tick, uint256 minAmountOut)
+        external
+        payable
+    {
         require(amountIn > 0, "ZERO_AMOUNT");
 
-        router.executeSwap(
+        router.executeSwap{value: msg.value}(
             AsyncRouter.SwapData({
                 user: msg.sender,
                 key: key,
                 tick: tick,
                 amountIn: amountIn,
                 zeroForOne: zeroForOne,
-                minAmountOut: minAmountOut
+                minAmountOut: minAmountOut,
+                value: msg.value
             })
         );
     }
@@ -315,7 +322,17 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
     }
 
     /// @notice Deliver output tokens from filler to swapper and require exact delivery.
-    function _deliverOutput(address filler, Currency outputCurrency, address recipient, uint256 amount) internal {
+    function _deliverOutput(address filler, Currency outputCurrency, address recipient, uint256 amount, uint256 value)
+        internal
+    {
+        if (outputCurrency.isAddressZero()) {
+            if (value != amount) revert INVALID_NATIVE_OUTPUT_VALUE();
+            outputCurrency.transfer(recipient, amount);
+            return;
+        }
+
+        if (value != 0) revert INVALID_NATIVE_OUTPUT_VALUE();
+
         IERC20Minimal token = IERC20Minimal(Currency.unwrap(outputCurrency));
         uint256 beforeBal = token.balanceOf(recipient);
         bool success = token.transferFrom(filler, recipient, amount);
@@ -334,7 +351,7 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
     /// @param order The order to fill (must match an existing orderId with remaining balance)
     /// @param zeroForOne The swap direction of the original order
     /// @param fillAmount The amount of output tokens the filler is providing
-    function fill(Order memory order, bool zeroForOne, uint256 fillAmount) external {
+    function fill(Order memory order, bool zeroForOne, uint256 fillAmount) external payable {
         bytes32 orderId = keccak256(abi.encode(order));
 
         PoolKey memory key = pools[order.poolId];
@@ -361,7 +378,7 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
         Currency outputCurrency = zeroForOne ? key.currency1 : key.currency0;
 
         // Transfer output tokens from filler directly to swapper (ERC-20)
-        _deliverOutput(msg.sender, outputCurrency, order.swapper, fillAmount);
+        _deliverOutput(msg.sender, outputCurrency, order.swapper, fillAmount, msg.value);
 
         // Transfer proportional input claim tokens (ERC-6909) from hook to filler
         POOL_MANAGER.transfer(msg.sender, inputCurrency.toId(), inputShare);

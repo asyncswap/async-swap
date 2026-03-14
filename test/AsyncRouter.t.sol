@@ -74,7 +74,8 @@ contract AsyncRouterTest is Test, Deployers {
             tick: ORDER_TICK,
             amountIn: 1e18,
             zeroForOne: true,
-            minAmountOut: 0
+            minAmountOut: 0,
+            value: 0
         });
 
         // Random address calling executeSwap should revert
@@ -91,7 +92,8 @@ contract AsyncRouterTest is Test, Deployers {
             tick: ORDER_TICK,
             amountIn: 1e18,
             zeroForOne: true,
-            minAmountOut: 0
+            minAmountOut: 0,
+            value: 0
         });
 
         vm.prank(caller);

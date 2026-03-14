@@ -28,6 +28,7 @@ contract AsyncRouter is IUnlockCallback {
         uint256 amountIn;
         bool zeroForOne;
         uint256 minAmountOut;
+        uint256 value;
     }
 
     error ONLY_HOOK();
@@ -35,6 +36,7 @@ contract AsyncRouter is IUnlockCallback {
     error SWAP_NOT_NOOPED();
     error UNSUPPORTED_INPUT_TOKEN();
     error INPUT_TRANSFER_FAILED();
+    error INVALID_NATIVE_VALUE();
 
     constructor(IPoolManager _pm, address _hook) {
         POOL_MANAGER = _pm;
@@ -42,13 +44,28 @@ contract AsyncRouter is IUnlockCallback {
     }
 
     /// @notice Called by the hook to execute a swap through PM.swap()
-    function executeSwap(SwapData calldata data) external {
+    function executeSwap(SwapData calldata data) external payable {
         if (msg.sender != HOOK) revert ONLY_HOOK();
+
+        Currency inputCurrency = data.zeroForOne ? data.key.currency0 : data.key.currency1;
+        if (inputCurrency.isAddressZero()) {
+            if (msg.value != data.amountIn || data.value != data.amountIn) revert INVALID_NATIVE_VALUE();
+        } else {
+            if (msg.value != 0 || data.value != 0) revert INVALID_NATIVE_VALUE();
+        }
+
         POOL_MANAGER.unlock(abi.encode(data));
     }
 
-    function _settleExactInput(Currency inputCurrency, address payer, uint256 amount) internal {
-        if (inputCurrency.isAddressZero()) revert UNSUPPORTED_INPUT_TOKEN();
+    function _settleExactInput(Currency inputCurrency, address payer, uint256 amount, uint256 value) internal {
+        if (inputCurrency.isAddressZero()) {
+            if (value != amount) revert INVALID_NATIVE_VALUE();
+            uint256 paidNative = POOL_MANAGER.settle{value: amount}();
+            if (paidNative != amount) revert UNSUPPORTED_INPUT_TOKEN();
+            return;
+        }
+
+        if (value != 0) revert INVALID_NATIVE_VALUE();
 
         POOL_MANAGER.sync(inputCurrency);
         bool success = IERC20Minimal(Currency.unwrap(inputCurrency)).transferFrom(payer, address(POOL_MANAGER), amount);
@@ -85,8 +102,10 @@ contract AsyncRouter is IUnlockCallback {
 
         // Settle: user pays exactly what the delta requires
         Currency inputCurrency = cb.zeroForOne ? cb.key.currency0 : cb.key.currency1;
-        _settleExactInput(inputCurrency, cb.user, cb.amountIn);
+        _settleExactInput(inputCurrency, cb.user, cb.amountIn, cb.value);
 
         return "";
     }
+
+    receive() external payable {}
 }
