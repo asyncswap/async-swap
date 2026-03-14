@@ -23,7 +23,7 @@ contract AsyncSwap layout at 1000 is IHooks {
     /// @notice The PoolManager contract address
     IPoolManager public immutable POOL_MANAGER;
 
-    /// @notice The minimum fee charged by the protocol in bips 1.2%
+    /// @notice The minimum fee charged by the protocol in ppm (12000 = 1.2%)
     uint24 public minimumFee = 1_2000;
 
     /// @notice The Owner
@@ -33,18 +33,17 @@ contract AsyncSwap layout at 1000 is IHooks {
 
     /// Stores pools registered on this hook
     mapping(PoolId poolId => PoolKey key) public pools;
-    /// Swap orders for input token0
+    /// Swap orders for input token
     /// balancesIn initialized by swapper and mutated by filler
     mapping(bytes32 orderId => mapping(bool zeroForOne => uint256 amountGiven)) public balancesIn;
-    /// Swap orders for output token1
+    /// Swap orders for output token
     /// balancesOut initialized by swapper and mutated by filler
     mapping(bytes32 orderId => mapping(bool zeroForOne => uint256 amountTaken)) public balancesOut;
 
-    /// @param swapper creator of order
-    /// @param zeroForOne direction of order
-    /// @param tick the tick market value to execute order
-    /// @param amountIn amount of token given
-    /// @param amountOut amount of token to be taken
+    /// @param poolId The pool this order belongs to
+    /// @param swapper The creator of the order
+    /// @param tick The tick (price point) at which to execute the order
+    /// @param amountOut The minimum amount of output tokens the user will accept (slippage protection)
     struct Order {
         PoolId poolId;
         address swapper;
@@ -52,7 +51,7 @@ contract AsyncSwap layout at 1000 is IHooks {
         uint256 amountOut;
     }
 
-    /// @notice A swap event
+    /// @notice Emitted when an async swap order is created
     event Swap(bytes32 orderId, Order order);
 
     /// @notice Error if caller is not poolmanager address
@@ -68,6 +67,13 @@ contract AsyncSwap layout at 1000 is IHooks {
     constructor(IPoolManager _pm) {
         POOL_MANAGER = _pm;
         owner = msg.sender;
+    }
+
+    /// @notice Set the trusted router address
+    /// @param _router The router contract that is allowed to initiate swaps
+    function setRouter(address _router) external {
+        require(msg.sender == owner, "NOT OWNER");
+        router = _router;
     }
 
     /// @notice Only PoolManager contract allowed as msg.sender
@@ -168,7 +174,36 @@ contract AsyncSwap layout at 1000 is IHooks {
         return this.afterInitialize.selector;
     }
 
+    /// @notice Compute the output amount given net input, price tick, and swap direction.
+    ///         Rounds down so the user gets slightly less (protocol never loses).
+    /// @param amountInAfterFee Net input after fee deduction
+    /// @param tick The order's price tick
+    /// @param zeroForOne Swap direction
+    /// @return amountOut The computed output amount
+    function _computeAmountOut(uint256 amountInAfterFee, int24 tick, bool zeroForOne)
+        internal
+        pure
+        returns (uint256 amountOut)
+    {
+        uint160 sqrtPrice = TickMath.getSqrtPriceAtTick(tick);
+        if (zeroForOne) {
+            // Selling token0 for token1: amountOut = amountInAfterFee * price
+            amountOut = FullMath.mulDiv(
+                FullMath.mulDiv(amountInAfterFee, sqrtPrice, FixedPoint96.Q96), sqrtPrice, FixedPoint96.Q96
+            );
+        } else {
+            // Selling token1 for token0: amountOut = amountInAfterFee / price
+            amountOut = FullMath.mulDiv(
+                FullMath.mulDiv(amountInAfterFee, FixedPoint96.Q96, sqrtPrice), FixedPoint96.Q96, sqrtPrice
+            );
+        }
+    }
+
     /// @inheritdoc IHooks
+    /// @notice Only exact-input swaps (amountSpecified < 0) are supported.
+    ///         For "exact output" intents, the router should pre-compute the required
+    ///         input amount and submit as exact-input. The order.amountOut field serves
+    ///         as slippage protection for the user's minimum acceptable output.
     function beforeSwap(address sender, PoolKey calldata key, SwapParams calldata params, bytes calldata hookData)
         external
         onlyPoolManager
@@ -177,80 +212,36 @@ contract AsyncSwap layout at 1000 is IHooks {
         Order memory order = abi.decode(hookData, (Order));
         if (sender != router) revert("UNTRUSTED ROUTER");
 
-        Currency input = params.zeroForOne ? key.currency0 : key.currency1;
-        uint160 sqrtPrice = TickMath.getSqrtPriceAtTick(order.tick);
-        uint256 amountIn;
-        uint256 amountOut;
-        uint256 feeAmount;
+        // Only exact-input supported. Exact-output intents should be converted
+        // to exact-input by the router before calling swap().
+        require(params.amountSpecified < 0, "EXACT INPUT ONLY");
 
-        if (params.amountSpecified > 0) {
-            // EXACT OUTPUT: user wants this many tokens out
-            // Calculate how much they need to pay
-            amountOut = uint256(params.amountSpecified);
+        uint256 amountIn = uint256(-params.amountSpecified);
 
-            // Back-calculate net input needed for this output
-            uint256 amountInAfterFee;
-            if (params.zeroForOne) {
-                // Want token1, pay token0: amountIn = amountOut / price
-                amountInAfterFee = FullMath.mulDivRoundingUp(
-                    FullMath.mulDivRoundingUp(amountOut, FixedPoint96.Q96, sqrtPrice), FixedPoint96.Q96, sqrtPrice
-                );
-            } else {
-                // Want token0, pay token1: amountIn = amountOut * price
-                amountInAfterFee = FullMath.mulDivRoundingUp(
-                    FullMath.mulDivRoundingUp(amountOut, sqrtPrice, FixedPoint96.Q96), sqrtPrice, FixedPoint96.Q96
-                );
-            }
+        // Take fee from input (round up so protocol keeps more)
+        uint256 feeAmount = FullMath.mulDivRoundingUp(amountIn, key.fee, 1_000_000);
 
-            // Gross up to include fee (round up)
-            amountIn = FullMath.mulDivRoundingUp(amountInAfterFee, 1_000_000, 1_000_000 - key.fee);
-            feeAmount = amountIn - amountInAfterFee;
-        } else {
-            // EXACT INPUT: user specifies how much they're giving
-            amountIn = uint256(-params.amountSpecified);
+        // Compute output from net input after fee (round down so user gets less)
+        uint256 amountOut = _computeAmountOut(amountIn - feeAmount, order.tick, params.zeroForOne);
 
-            // Take fee first (round-up - protocol keeps more)
-            feeAmount = FullMath.mulDivRoundingUp(amountIn, key.fee, 1_000_000);
-            uint256 amountInAfterFee = amountIn - feeAmount;
+        // Slippage protection: user's minimum acceptable output
+        require(amountOut >= order.amountOut, "SLIPPAGE");
 
-            // Compute output from net input (round down)
-            if (params.zeroForOne) {
-                // Selling token0 for token1: amountOut = amountIn * price
-                amountOut = FullMath.mulDiv(
-                    FullMath.mulDiv(amountInAfterFee, sqrtPrice, FixedPoint96.Q96), sqrtPrice, FixedPoint96.Q96
-                );
-            } else {
-                amountOut = FullMath.mulDiv(
-                    FullMath.mulDiv(amountInAfterFee, FixedPoint96.Q96, sqrtPrice), FixedPoint96.Q96, sqrtPrice
-                );
-            }
+        // Take full input (including fee) as claim tokens from PoolManager
+        (params.zeroForOne ? key.currency0 : key.currency1).take(POOL_MANAGER, address(this), amountIn, true);
 
-            // Slippage protection
-            require(amountOut >= order.amountOut, "SLIPPAGE");
+        // Record order for filler to settle later
+        bytes32 orderId = keccak256(abi.encode(order));
+        balancesIn[orderId][params.zeroForOne] += amountIn;
+        balancesOut[orderId][params.zeroForOne] += amountOut;
 
-            // Take gross input
-            input.take(POOL_MANAGER, address(this), amountIn, true);
+        emit Swap(orderId, order);
 
-            // Record order for filler
-            bytes32 orderId = keccak256(abi.encode(order));
-            balancesIn[orderId][params.zeroForOne] += amountIn;
-            balancesOut[orderId][params.zeroForOne] += amountOut;
-
-            emit Swap(orderId, order);
-
-            BeforeSwapDelta beforeSwapDelta;
-            if (params.amountSpecified < 0) {
-                // EXACT INPUT: hook takes from the specified (input) side
-                // deltaSpecified = positive = hook takes specified tokens
-                beforeSwapDelta = toBeforeSwapDelta(int128(-params.amountSpecified), 0);
-            } else {
-                // EXACT OUTPUT: specified = output token, unspecified = input token
-                // deltaSpecified = -amountSpecified to zero out AMM
-                // deltaUnpecified = +amountIn to account for the input we're taking
-                beforeSwapDelta = toBeforeSwapDelta(int128(-params.amountSpecified), int128(int256(amountIn)));
-            }
-            return (this.beforeSwap.selector, beforeSwapDelta, key.fee);
-        }
+        // deltaSpecified = -amountSpecified (positive) cancels the AMM swap.
+        // For exact-input, specified currency = input currency.
+        // Hook's +delta from this return is offset by the -delta from take()/mint().
+        // Net hook delta = 0. Router's swapDelta = -hookDelta, so router settles amountIn.
+        return (this.beforeSwap.selector, toBeforeSwapDelta(int128(-params.amountSpecified), 0), key.fee);
     }
 
     ///////////////////////////
