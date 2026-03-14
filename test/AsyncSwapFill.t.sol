@@ -38,20 +38,12 @@ contract AsyncSwapFillTest is Test, Deployers {
         deployMintAndApprove2Currencies();
 
         address hookAddr = address(HOOK_FLAGS);
-        AsyncSwap impl = new AsyncSwap(manager);
-        vm.etch(hookAddr, address(impl).code);
+        deployCodeTo("AsyncSwap.sol:AsyncSwap", abi.encode(address(manager)), hookAddr);
         hook = AsyncSwap(hookAddr);
 
-        bytes32 slot1000 = bytes32(uint256(uint160(address(this)))) << 24 | bytes32(uint256(HOOK_FEE));
-        vm.store(hookAddr, bytes32(uint256(1000)), slot1000);
-
-        // Deploy router and set it as the trusted router on the hook
-        AsyncRouter asyncRouter = new AsyncRouter(manager, hookAddr);
-        hook.setRouter(address(asyncRouter));
-
-        // Approve router for settle (CurrencySettler.transferFrom is called by router as msg.sender)
-        MockERC20(Currency.unwrap(currency0)).approve(address(asyncRouter), type(uint256).max);
-        MockERC20(Currency.unwrap(currency1)).approve(address(asyncRouter), type(uint256).max);
+        address routerAddr = address(hook.router());
+        MockERC20(Currency.unwrap(currency0)).approve(routerAddr, type(uint256).max);
+        MockERC20(Currency.unwrap(currency1)).approve(routerAddr, type(uint256).max);
 
         poolKey = PoolKey({
             currency0: currency0,
@@ -556,5 +548,129 @@ contract AsyncSwapFillTest is Test, Deployers {
         assertEq(currency0.balanceOf(address(this)) - swapperBefore, remainingIn, "fuzz: cancel after fill wrong");
         assertEq(hook.getBalanceIn(order, true), 0, "fuzz: in not zero");
         assertEq(hook.getBalanceOut(order, true), 0, "fuzz: out not zero");
+    }
+
+    // ================================================================
+    //                        EDGE CASE TESTS
+    // ================================================================
+
+    // ========================================
+    // Fill on non-existent order (bogus orderId)
+    // ========================================
+
+    function test_fill_nonExistentOrder_reverts() public {
+        // Order that was never created
+        AsyncSwap.Order memory bogusOrder = _makeOrder(makeAddr("nobody"), 12345);
+
+        address filler = makeAddr("filler");
+        _setupFiller(filler, currency1, 1e18);
+
+        vm.prank(filler);
+        vm.expectRevert(AsyncSwap.ORDER_ALREADY_FILLED.selector);
+        hook.fill(bogusOrder, true, 1e18);
+    }
+
+    // ========================================
+    // Cancel on wrong direction — should revert
+    // ========================================
+
+    function test_cancel_wrongDirection_reverts() public {
+        uint256 swapAmount = 5e18;
+        // Swap zeroForOne
+        (AsyncSwap.Order memory order,) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+
+        // Cancel with oneForZero — that direction was never populated
+        vm.expectRevert(AsyncSwap.NOTHING_TO_CANCEL.selector);
+        hook.cancelOrder(order, false);
+    }
+
+    // ========================================
+    // Fill on wrong direction — should revert
+    // ========================================
+
+    function test_fill_wrongDirection_reverts() public {
+        uint256 swapAmount = 5e18;
+        // Swap zeroForOne
+        (AsyncSwap.Order memory order,) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+
+        address filler = makeAddr("filler");
+        _setupFiller(filler, currency0, 1e18);
+
+        // Fill with oneForZero — no order exists for that direction
+        vm.prank(filler);
+        vm.expectRevert(AsyncSwap.ORDER_ALREADY_FILLED.selector);
+        hook.fill(order, false, 1e18);
+    }
+
+    // ========================================
+    // Fill with no approval — ERC-20 transferFrom fails
+    // ========================================
+
+    function test_fill_noApproval_reverts() public {
+        uint256 swapAmount = 5e18;
+        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+
+        address filler = makeAddr("filler");
+        // Mint tokens but do NOT approve the hook
+        MockERC20(Currency.unwrap(currency1)).mint(filler, expectedOut);
+
+        vm.prank(filler);
+        vm.expectRevert();
+        hook.fill(order, true, expectedOut);
+    }
+
+    // ========================================
+    // Fill with insufficient balance — ERC-20 transferFrom fails
+    // ========================================
+
+    function test_fill_insufficientBalance_reverts() public {
+        uint256 swapAmount = 5e18;
+        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+
+        address filler = makeAddr("filler");
+        // Approve but don't mint enough
+        MockERC20(Currency.unwrap(currency1)).mint(filler, expectedOut - 1);
+        vm.prank(filler);
+        MockERC20(Currency.unwrap(currency1)).approve(address(hook), type(uint256).max);
+
+        vm.prank(filler);
+        vm.expectRevert();
+        hook.fill(order, true, expectedOut);
+    }
+
+    // ========================================
+    // Double cancel reverts
+    // ========================================
+
+    function test_cancel_doubleCancel_reverts() public {
+        uint256 swapAmount = 5e18;
+        (AsyncSwap.Order memory order,) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+
+        hook.cancelOrder(order, true);
+
+        vm.expectRevert(AsyncSwap.NOTHING_TO_CANCEL.selector);
+        hook.cancelOrder(order, true);
+    }
+
+    // ========================================
+    // Swap then cancel then swap again — storage cleared
+    // ========================================
+
+    function test_swapCancelSwap_storageCleared() public {
+        uint256 swapAmount = 5e18;
+        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+
+        // Swap
+        _swap(true, swapAmount, ORDER_TICK, 0);
+        assertEq(hook.getBalanceIn(order, true), swapAmount);
+
+        // Cancel
+        hook.cancelOrder(order, true);
+        assertEq(hook.getBalanceIn(order, true), 0);
+        assertEq(hook.getBalanceOut(order, true), 0);
+
+        // Swap again — should start fresh, not accumulate
+        _swap(true, swapAmount, ORDER_TICK, 0);
+        assertEq(hook.getBalanceIn(order, true), swapAmount, "should be fresh after cancel");
     }
 }

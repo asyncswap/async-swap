@@ -48,26 +48,17 @@ contract AsyncSwapTest is Test, Deployers {
         // Deploy tokens and approve routers
         deployMintAndApprove2Currencies();
 
-        // Deploy hook implementation, then etch it at the flag-aligned address
+        // Deploy hook at the flag-aligned address — constructor runs, deploys router
         address hookAddr = address(HOOK_FLAGS);
-        AsyncSwap impl = new AsyncSwap(manager);
-        vm.etch(hookAddr, address(impl).code);
+        deployCodeTo(
+            "AsyncSwap.sol:AsyncSwap", abi.encode(address(manager)), hookAddr
+        );
         hook = AsyncSwap(hookAddr);
 
-        // vm.etch copies bytecode only — no constructor runs, so storage is empty.
-        // Storage layout (from `layout at 1000`):
-        //   slot 1000: minimumFee (uint24, bytes 0-2) | owner (address, bytes 3-22)
-        // Pack minimumFee (12000 = 0x2EE0) and owner into slot 1000:
-        bytes32 slot1000 = bytes32(uint256(uint160(address(this)))) << 24 | bytes32(uint256(HOOK_FEE));
-        vm.store(hookAddr, bytes32(uint256(1000)), slot1000);
-
-        // Deploy router and set it as the trusted router on the hook
-        AsyncRouter asyncRouter = new AsyncRouter(manager, hookAddr);
-        hook.setRouter(address(asyncRouter));
-
         // Approve router for settle (CurrencySettler.transferFrom is called by router as msg.sender)
-        MockERC20(Currency.unwrap(currency0)).approve(address(asyncRouter), type(uint256).max);
-        MockERC20(Currency.unwrap(currency1)).approve(address(asyncRouter), type(uint256).max);
+        address routerAddr = address(hook.router());
+        MockERC20(Currency.unwrap(currency0)).approve(routerAddr, type(uint256).max);
+        MockERC20(Currency.unwrap(currency1)).approve(routerAddr, type(uint256).max);
 
         // Initialize pool: the hook's beforeInitialize requires sender == owner (address(this))
         // and key.fee >= 12000
@@ -107,6 +98,7 @@ contract AsyncSwapTest is Test, Deployers {
     function test_setUp_hookDeployed() public view {
         assertEq(address(hook.POOL_MANAGER()), address(manager));
         assertEq(hook.owner(), address(this));
+        assertTrue(address(hook.router()) != address(0), "router should be deployed");
     }
 
     function test_setUp_poolInitialized() public view {

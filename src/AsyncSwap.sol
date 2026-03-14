@@ -31,8 +31,8 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
 
     /// @notice The Owner
     address public owner;
-    /// @notice The Router
-    address public router;
+    /// @notice The Router — deployed by constructor, immutable
+    AsyncRouter public immutable router;
 
     /// Stores pools registered on this hook
     mapping(PoolId poolId => PoolKey key) public pools;
@@ -101,17 +101,11 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
     /// @notice Only PoolManager can call unlockCallback
     error CALLER_NOT_POOL_MANAGER_CALLBACK();
 
-    /// @notice Initialize PoolManager storage variable
+    /// @notice Initialize PoolManager storage variable and deploy the router
     constructor(IPoolManager _pm) {
         POOL_MANAGER = _pm;
         owner = msg.sender;
-    }
-
-    /// @notice Set the trusted router address
-    /// @param _router The router contract that is allowed to initiate swaps
-    function setRouter(address _router) external {
-        require(msg.sender == owner, "NOT OWNER");
-        router = _router;
+        router = new AsyncRouter(_pm, address(this));
     }
 
     /// @notice Only PoolManager contract allowed as msg.sender
@@ -182,17 +176,16 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
     function swap(PoolKey calldata key, bool zeroForOne, uint256 amountIn, int24 tick, uint256 minAmountOut) external {
         require(amountIn > 0, "ZERO_AMOUNT");
 
-        AsyncRouter(router)
-            .executeSwap(
-                AsyncRouter.SwapData({
-                    user: msg.sender,
-                    key: key,
-                    tick: tick,
-                    amountIn: amountIn,
-                    zeroForOne: zeroForOne,
-                    minAmountOut: minAmountOut
-                })
-            );
+        router.executeSwap(
+            AsyncRouter.SwapData({
+                user: msg.sender,
+                key: key,
+                tick: tick,
+                amountIn: amountIn,
+                zeroForOne: zeroForOne,
+                minAmountOut: minAmountOut
+            })
+        );
     }
 
     //////////////////////////
@@ -213,7 +206,7 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
         require(sender == owner, "NOT HOOK OWNER");
         require(address(key.hooks) == address(this));
         /// @dev require a minimum fee
-        require(key.fee >= 1_2000, "FEE SET TOO LOW"); // 1.2 %
+        require(key.fee >= minimumFee, "FEE SET TOO LOW");
 
         return this.beforeInitialize.selector;
     }
@@ -269,7 +262,7 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
         onlyPoolManager
         returns (bytes4, BeforeSwapDelta, uint24)
     {
-        if (sender != router) revert("UNTRUSTED ROUTER");
+        if (sender != address(router)) revert("UNTRUSTED ROUTER");
 
         // Only exact-input supported. Exact-output intents should be converted
         // to exact-input by the router before calling swap().

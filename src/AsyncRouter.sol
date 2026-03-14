@@ -7,6 +7,7 @@ import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
 import {SwapParams} from "v4-core/src/types/PoolOperation.sol";
+import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 import {CurrencySettler} from "v4-core/test/utils/CurrencySettler.sol";
 import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 import {AsyncSwap} from "./AsyncSwap.sol";
@@ -32,6 +33,7 @@ contract AsyncRouter is IUnlockCallback {
 
     error ONLY_HOOK();
     error ONLY_POOL_MANAGER();
+    error SWAP_NOT_NOOPED();
 
     constructor(IPoolManager _pm, address _hook) {
         POOL_MANAGER = _pm;
@@ -58,7 +60,7 @@ contract AsyncRouter is IUnlockCallback {
         });
 
         // Call PM.swap() — this triggers hook.beforeSwap() since msg.sender is this router, not the hook
-        POOL_MANAGER.swap(
+        BalanceDelta delta = POOL_MANAGER.swap(
             cb.key,
             SwapParams({
                 zeroForOne: cb.zeroForOne,
@@ -70,7 +72,13 @@ contract AsyncRouter is IUnlockCallback {
             abi.encode(order, cb.minAmountOut)
         );
 
-        // Settle: user pays input tokens to PoolManager
+        // Validate that beforeSwap fully absorbed the swap — AMM should be no-op'd.
+        // The swapDelta is the router's obligation: (-amountIn) on specified, 0 on unspecified.
+        int128 specifiedDelta = cb.zeroForOne ? delta.amount0() : delta.amount1();
+        int128 unspecifiedDelta = cb.zeroForOne ? delta.amount1() : delta.amount0();
+        if (specifiedDelta != -int128(int256(cb.amountIn)) || unspecifiedDelta != 0) revert SWAP_NOT_NOOPED();
+
+        // Settle: user pays exactly what the delta requires
         Currency inputCurrency = cb.zeroForOne ? cb.key.currency0 : cb.key.currency1;
         inputCurrency.settle(POOL_MANAGER, cb.user, cb.amountIn, false);
 
