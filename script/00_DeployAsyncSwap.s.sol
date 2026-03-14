@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.34;
 
-import {Script} from "forge-std/Script.sol";
+import {ScriptHelper} from "./ScriptHelper.sol";
 import {AsyncSwap} from "../src/AsyncSwap.sol";
 import {PoolManager} from "v4-core/src/PoolManager.sol";
 import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {HookMiner} from "./utils/HookMiner.sol";
 
-contract DeployAsyncSwapScript is Script {
+contract DeployAsyncSwapScript is ScriptHelper {
     PoolManager public manager;
     AsyncSwap public hook;
 
@@ -19,10 +19,9 @@ contract DeployAsyncSwapScript is Script {
     }
 
     function run() public {
-        uint256 deployerPk = vm.envUint("PRIVATE_KEY");
-        address deployer = vm.addr(deployerPk);
+        address deployer = vm.envAddress("DEPLOYER_ADDRESS");
 
-        vm.startBroadcast(deployerPk);
+        vm.startBroadcast();
 
         manager = new PoolManager(deployer);
 

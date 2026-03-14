@@ -2,7 +2,7 @@
 pragma solidity 0.8.34;
 
 import {Test} from "forge-std/Test.sol";
-import {DeployAsyncSwapScript} from "../script/AsyncSwap.s.sol";
+import {DeployAsyncSwapScript} from "../script/00_DeployAsyncSwap.s.sol";
 import {HookMiner} from "../script/utils/HookMiner.sol";
 import {AsyncSwap} from "../src/AsyncSwap.sol";
 import {Hooks} from "v4-core/src/libraries/Hooks.sol";
@@ -31,10 +31,9 @@ contract DeployScriptTest is Test {
     }
 
     function test_deployScript_run_deploysMinedHook() public {
-        uint256 pk = 0xA11CE;
-        address deployer = vm.addr(pk);
+        address deployer = makeAddr("deployer");
         vm.deal(deployer, 100 ether);
-        vm.setEnv("PRIVATE_KEY", vm.toString(pk));
+        vm.setEnv("DEPLOYER_ADDRESS", vm.toString(deployer));
 
         DeployAsyncSwapScript script = new DeployAsyncSwapScript();
         script.run();
