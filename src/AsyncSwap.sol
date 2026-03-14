@@ -16,6 +16,7 @@ import {FullMath} from "v4-core/src/libraries/FullMath.sol";
 import {FixedPoint96} from "v4-core/src/libraries/FixedPoint96.sol";
 import {IERC20Minimal} from "v4-core/src/interfaces/external/IERC20Minimal.sol";
 import {IUnlockCallback} from "v4-core/src/interfaces/callback/IUnlockCallback.sol";
+import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
 import {AsyncRouter} from "./AsyncRouter.sol";
 import {CurrencySettler} from "./libraries/CurrencySettler.sol";
 
@@ -36,6 +37,9 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
     /// @notice The Router — deployed by constructor, immutable
     AsyncRouter public immutable router;
 
+    /// @notice The treasury address that receives protocol fees
+    address public treasury;
+
     /// Stores pools registered on this hook
     mapping(PoolId poolId => PoolKey key) public pools;
     /// Swap orders for input token
@@ -44,6 +48,10 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
     /// Swap orders for output token
     /// balancesOut initialized by swapper and mutated by filler
     mapping(bytes32 orderId => mapping(bool zeroForOne => uint256 amountTaken)) public balancesOut;
+    /// Accrued protocol fees per currency (claim tokens held by the hook)
+    mapping(Currency currency => uint256 amount) public accruedFees;
+    /// Dynamic fee per pool — governance can update this on live pools
+    mapping(PoolId poolId => uint24 fee) public poolFee;
 
     /// @param poolId The pool this order belongs to
     /// @param swapper The creator of the order
@@ -118,11 +126,29 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
     /// @notice Only the pending owner can accept ownership
     error NOT_PENDING_OWNER();
 
+    /// @notice No fees accrued for this currency
+    error NO_FEES_ACCRUED();
+
+    /// @notice Treasury address is not set
+    error TREASURY_NOT_SET();
+
     /// @notice Emitted when ownership transfer is initiated
     event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
 
     /// @notice Emitted when ownership is transferred
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    /// @notice Emitted when accrued fees are claimed by the treasury
+    event FeesClaimed(Currency indexed currency, address indexed to, uint256 amount);
+
+    /// @notice Emitted when the treasury address is updated
+    event TreasuryUpdated(address indexed previousTreasury, address indexed newTreasury);
+
+    /// @notice Emitted when the minimum fee is updated
+    event MinimumFeeUpdated(uint24 previousFee, uint24 newFee);
+
+    /// @notice Emitted when a pool's dynamic fee is updated
+    event PoolFeeUpdated(PoolId indexed poolId, uint24 previousFee, uint24 newFee);
 
     /// @notice Initialize PoolManager storage variable and deploy the router
     constructor(IPoolManager _pm) {
@@ -146,6 +172,57 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
         emit OwnershipTransferred(protocolOwner, msg.sender);
         protocolOwner = msg.sender;
         pendingOwner = address(0);
+    }
+
+    //////////////////////////
+    ///// Governance /////////
+    //////////////////////////
+
+    /// @notice Set the treasury address that receives protocol fees. Only callable by protocolOwner.
+    /// @param _treasury The new treasury address
+    function setTreasury(address _treasury) external {
+        require(msg.sender == protocolOwner, "NOT OWNER");
+        emit TreasuryUpdated(treasury, _treasury);
+        treasury = _treasury;
+    }
+
+    /// @notice Update the minimum fee for new pool initialization. Only callable by protocolOwner.
+    /// @param _minimumFee The new minimum fee in ppm
+    function setMinimumFee(uint24 _minimumFee) external {
+        require(msg.sender == protocolOwner, "NOT OWNER");
+        emit MinimumFeeUpdated(minimumFee, _minimumFee);
+        minimumFee = _minimumFee;
+    }
+
+    /// @notice Claim accrued protocol fees for a given currency. Sends to treasury.
+    ///         Burns the hook's claim tokens and transfers real ERC-20 to treasury.
+    /// @param currency The currency to claim fees for
+    function claimFees(Currency currency) external {
+        if (treasury == address(0)) revert TREASURY_NOT_SET();
+
+        uint256 amount = accruedFees[currency];
+        if (amount == 0) revert NO_FEES_ACCRUED();
+
+        // Clear accrued fees
+        delete accruedFees[currency];
+
+        // Unlock PoolManager to burn claim tokens and send real ERC-20 to treasury
+        POOL_MANAGER.unlock(
+            abi.encode(CancelCallback({currency: currency, to: treasury, amount: amount}))
+        );
+
+        emit FeesClaimed(currency, treasury, amount);
+    }
+
+    /// @notice Update the fee for a specific pool. Only callable by protocolOwner (governance).
+    /// @param _poolId The pool to update
+    /// @param _fee The new fee in ppm (must be >= minimumFee and <= 1_000_000)
+    function setPoolFee(PoolId _poolId, uint24 _fee) external {
+        require(msg.sender == protocolOwner, "NOT OWNER");
+        require(_fee >= minimumFee, "FEE BELOW MINIMUM");
+        require(_fee <= 1_000_000, "FEE TOO HIGH");
+        emit PoolFeeUpdated(_poolId, poolFee[_poolId], _fee);
+        poolFee[_poolId] = _fee;
     }
 
     /// @notice Only PoolManager contract allowed as msg.sender
@@ -243,14 +320,11 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
         onlyPoolManager
         returns (bytes4)
     {
-        // ignores sqrtPrice
-        // input validation is done during swap order with tick validations on amountIn and amountOut
-
         /// @dev only owner of this hook is allowed to initialize pools
         require(sender == protocolOwner, "NOT HOOK OWNER");
         require(address(key.hooks) == address(this));
-        /// @dev require a minimum fee
-        require(key.fee >= minimumFee, "FEE SET TOO LOW");
+        /// @dev pool must use dynamic fee flag for governance-controlled fees
+        require(key.fee == LPFeeLibrary.DYNAMIC_FEE_FLAG, "USE DYNAMIC FEE");
 
         return this.beforeInitialize.selector;
     }
@@ -261,13 +335,11 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
         onlyPoolManager
         returns (bytes4)
     {
-        // ignores sqrtPrice and tick
-        // input validation of is done during swap order with tick validations on amountIn and amountOut
-
         /// @dev only owner of this contract can modify pools initialization
         require(sender == protocolOwner);
-        /// @dev store poolId
+        /// @dev store poolId and set initial fee
         pools[key.toId()] = key;
+        poolFee[key.toId()] = minimumFee;
 
         return this.afterInitialize.selector;
     }
@@ -320,7 +392,9 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
         // For exact-input, specified currency = input currency.
         // Hook's +delta from this return is offset by the -delta from take()/mint().
         // Net hook delta = 0. Router's swapDelta = -hookDelta, so router settles amountIn.
-        return (this.beforeSwap.selector, toBeforeSwapDelta(int128(-params.amountSpecified), 0), key.fee);
+        // Return the pool's dynamic fee with override flag set
+        uint24 fee = poolFee[key.toId()] | LPFeeLibrary.OVERRIDE_FEE_FLAG;
+        return (this.beforeSwap.selector, toBeforeSwapDelta(int128(-params.amountSpecified), 0), fee);
     }
 
     /// @notice Decode hookData, compute output, check slippage, take claim tokens, record order
@@ -329,21 +403,27 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
 
         if (PoolId.unwrap(order.poolId) != PoolId.unwrap(key.toId())) revert POOL_MISMATCH();
 
-        // Take fee from input (round up so protocol keeps more)
-        uint256 feeAmount = FullMath.mulDivRoundingUp(amountIn, key.fee, 1_000_000);
+        // Take fee from input using the pool's dynamic fee (round up so protocol keeps more)
+        uint24 fee = poolFee[key.toId()];
+        uint256 feeAmount = FullMath.mulDivRoundingUp(amountIn, fee, 1_000_000);
+        uint256 netInput = amountIn - feeAmount;
 
         // Compute output from net input after fee (round down so user gets less)
-        uint256 amountOut = _computeAmountOut(amountIn - feeAmount, order.tick, zeroForOne);
+        uint256 amountOut = _computeAmountOut(netInput, order.tick, zeroForOne);
 
         // Slippage protection: user's minimum acceptable output
         require(amountOut >= minAmountOut, "SLIPPAGE");
 
         // Take full input (including fee) as claim tokens from PoolManager
-        (zeroForOne ? key.currency0 : key.currency1).take(POOL_MANAGER, address(this), amountIn, true);
+        Currency inputCurrency = zeroForOne ? key.currency0 : key.currency1;
+        inputCurrency.take(POOL_MANAGER, address(this), amountIn, true);
 
-        // Record order for filler to settle later
+        // Accrue protocol fee separately
+        accruedFees[inputCurrency] += feeAmount;
+
+        // Record order for filler to settle later (only net input, not fee)
         bytes32 orderId = keccak256(abi.encode(order));
-        balancesIn[orderId][zeroForOne] += amountIn;
+        balancesIn[orderId][zeroForOne] += netInput;
         balancesOut[orderId][zeroForOne] += amountOut;
 
         emit Swap(orderId, order);

@@ -6,7 +6,6 @@ import {Deployers} from "v4-core/test/utils/Deployers.sol";
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
 import {AsyncSwap} from "../src/AsyncSwap.sol";
 import {AsyncRouter} from "../src/AsyncRouter.sol";
-import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
 import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";

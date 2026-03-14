@@ -1,26 +1,22 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.34;
 
-import {Test, console} from "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 import {Deployers} from "v4-core/test/utils/Deployers.sol";
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
 import {AsyncSwap} from "../src/AsyncSwap.sol";
-import {AsyncRouter} from "../src/AsyncRouter.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
-import {PoolManager} from "v4-core/src/PoolManager.sol";
 import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
 import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
-import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 import {SwapParams} from "v4-core/src/types/PoolOperation.sol";
 import {PoolSwapTest} from "v4-core/src/test/PoolSwapTest.sol";
 import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 import {FullMath} from "v4-core/src/libraries/FullMath.sol";
 import {FixedPoint96} from "v4-core/src/libraries/FixedPoint96.sol";
 import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
-import {CustomRevert} from "v4-core/src/libraries/CustomRevert.sol";
 import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
 
 contract AsyncSwapTest is Test, Deployers {
@@ -51,9 +47,7 @@ contract AsyncSwapTest is Test, Deployers {
 
         // Deploy hook at the flag-aligned address — constructor runs, deploys router
         address hookAddr = address(HOOK_FLAGS);
-        deployCodeTo(
-            "AsyncSwap.sol:AsyncSwap", abi.encode(address(manager)), hookAddr
-        );
+        deployCodeTo("AsyncSwap.sol:AsyncSwap", abi.encode(address(manager)), hookAddr);
         hook = AsyncSwap(hookAddr);
 
         // Approve router for settle (CurrencySettler.transferFrom is called by router as msg.sender)
@@ -826,7 +820,11 @@ contract AsyncSwapTest is Test, Deployers {
             : (Currency.wrap(address(tokenB)), Currency.wrap(address(tokenA)));
 
         PoolKey memory freshKey = PoolKey({
-            currency0: c0, currency1: c1, fee: LPFeeLibrary.DYNAMIC_FEE_FLAG, tickSpacing: TICK_SPACING, hooks: IHooks(address(hook))
+            currency0: c0,
+            currency1: c1,
+            fee: LPFeeLibrary.DYNAMIC_FEE_FLAG,
+            tickSpacing: TICK_SPACING,
+            hooks: IHooks(address(hook))
         });
 
         // Non-owner caller should revert with "NOT HOOK OWNER" (wrapped by PoolManager)
@@ -853,8 +851,9 @@ contract AsyncSwapTest is Test, Deployers {
             ? (Currency.wrap(address(tokenA)), Currency.wrap(address(tokenB)))
             : (Currency.wrap(address(tokenB)), Currency.wrap(address(tokenA)));
 
-        PoolKey memory freshKey =
-            PoolKey({currency0: c0, currency1: c1, fee: badFee, tickSpacing: TICK_SPACING, hooks: IHooks(address(hook))});
+        PoolKey memory freshKey = PoolKey({
+            currency0: c0, currency1: c1, fee: badFee, tickSpacing: TICK_SPACING, hooks: IHooks(address(hook))
+        });
 
         // Should revert with "USE DYNAMIC FEE" (wrapped by PoolManager)
         vm.expectRevert();

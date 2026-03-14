@@ -6,7 +6,6 @@ import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {IERC20Minimal} from "v4-core/src/interfaces/external/IERC20Minimal.sol";
 
 /// @notice Local settlement helpers for interacting with the Uniswap v4 PoolManager.
-/// @dev Kept local to avoid depending on v4-core test utilities in production code.
 library CurrencySettler {
     function settle(Currency currency, IPoolManager manager, address payer, uint256 amount, bool burn) internal {
         if (burn) {

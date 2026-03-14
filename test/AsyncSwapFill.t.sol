@@ -5,16 +5,11 @@ import {Test} from "forge-std/Test.sol";
 import {Deployers} from "v4-core/test/utils/Deployers.sol";
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
 import {AsyncSwap} from "../src/AsyncSwap.sol";
-import {AsyncRouter} from "../src/AsyncRouter.sol";
-import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
 import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
-import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
-import {SwapParams} from "v4-core/src/types/PoolOperation.sol";
-import {PoolSwapTest} from "v4-core/src/test/PoolSwapTest.sol";
 import {FullMath} from "v4-core/src/libraries/FullMath.sol";
 import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
 
@@ -418,7 +413,11 @@ contract AsyncSwapFillTest is Test, Deployers {
 
         hook.cancelOrder(order, true);
 
-        assertEq(currency0.balanceOf(address(this)) - swapperBalBefore, _netInput(swapAmount), "swapper did not receive input back");
+        assertEq(
+            currency0.balanceOf(address(this)) - swapperBalBefore,
+            _netInput(swapAmount),
+            "swapper did not receive input back"
+        );
         assertEq(hook.getBalanceIn(order, true), 0, "balanceIn not zero");
         assertEq(hook.getBalanceOut(order, true), 0, "balanceOut not zero");
     }
@@ -431,7 +430,11 @@ contract AsyncSwapFillTest is Test, Deployers {
 
         hook.cancelOrder(order, false);
 
-        assertEq(currency1.balanceOf(address(this)) - swapperBalBefore, _netInput(swapAmount), "swapper did not receive input back");
+        assertEq(
+            currency1.balanceOf(address(this)) - swapperBalBefore,
+            _netInput(swapAmount),
+            "swapper did not receive input back"
+        );
         assertEq(hook.getBalanceIn(order, false), 0, "balanceIn not zero");
         assertEq(hook.getBalanceOut(order, false), 0, "balanceOut not zero");
     }
@@ -599,11 +602,8 @@ contract AsyncSwapFillTest is Test, Deployers {
     }
 
     function test_fill_unknownPool_reverts() public {
-        AsyncSwap.Order memory bogusOrder = AsyncSwap.Order({
-            poolId: PoolId.wrap(bytes32(uint256(999))),
-            swapper: address(this),
-            tick: ORDER_TICK
-        });
+        AsyncSwap.Order memory bogusOrder =
+            AsyncSwap.Order({poolId: PoolId.wrap(bytes32(uint256(999))), swapper: address(this), tick: ORDER_TICK});
 
         address filler = makeAddr("filler");
         _setupFiller(filler, currency1, 1e18);
@@ -634,10 +634,8 @@ contract AsyncSwapFillTest is Test, Deployers {
         outputToken.approve(address(hook), type(uint256).max);
 
         uint256 swapperBefore = outputToken.balanceOf(address(this));
-        uint256 fillerClaimsBefore = manager.balanceOf(
-            filler,
-            (zeroForOne ? customKey.currency0 : customKey.currency1).toId()
-        );
+        uint256 fillerClaimsBefore =
+            manager.balanceOf(filler, (zeroForOne ? customKey.currency0 : customKey.currency1).toId());
 
         vm.prank(filler);
         vm.expectRevert(AsyncSwap.INSUFFICIENT_OUTPUT_RECEIVED.selector);
@@ -697,11 +695,8 @@ contract AsyncSwapFillTest is Test, Deployers {
     }
 
     function test_cancel_unknownPool_reverts() public {
-        AsyncSwap.Order memory bogusOrder = AsyncSwap.Order({
-            poolId: PoolId.wrap(bytes32(uint256(999))),
-            swapper: address(this),
-            tick: ORDER_TICK
-        });
+        AsyncSwap.Order memory bogusOrder =
+            AsyncSwap.Order({poolId: PoolId.wrap(bytes32(uint256(999))), swapper: address(this), tick: ORDER_TICK});
 
         vm.expectRevert(AsyncSwap.UNKNOWN_POOL.selector);
         hook.cancelOrder(bogusOrder, true);
