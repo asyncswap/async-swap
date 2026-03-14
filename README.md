@@ -42,9 +42,9 @@ Instead of executing trades against AMM liquidity immediately, AsyncSwap records
 
 ## Links
 
-Documentation: TBA
-Website: [asyncswap.org](https://asyncswap.org)
-Discord: [Discord](https://discord.gg/Eh8fxHf8Sg)
-Twitter: [@asyncswap](https://x.com/asyncswap)
+- Documentation: TBA
+- Website: [asyncswap.org](https://asyncswap.org)
+- Discord: [Discord](https://discord.gg/Eh8fxHf8Sg)
+- Twitter: [@asyncswap](https://x.com/asyncswap)
 
 © AsyncSwap Labs, Inc.
