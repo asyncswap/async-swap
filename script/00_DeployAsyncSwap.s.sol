@@ -23,7 +23,7 @@ contract DeployAsyncSwapScript is ScriptHelper {
         address deployer = vm.envAddress("DEPLOYER_ADDRESS");
         address managerAddress;
 
-        vm.startBroadcast();
+        vm.startBroadcast(deployer);
 
         if (_selectedChain() == SelectChain.Anvil && !vm.envExists("POOLMANAGER_ADDRESS")) {
             manager = new PoolManager(deployer);

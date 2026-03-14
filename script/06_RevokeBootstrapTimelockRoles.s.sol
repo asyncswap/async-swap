@@ -12,7 +12,7 @@ contract RevokeBootstrapTimelockRolesScript is GovernanceAddressResolver {
 
         TimelockController timelock = TimelockController(payable(timelockAddr));
 
-        vm.startBroadcast();
+        vm.startBroadcast(deployer);
         timelock.grantRole(timelock.PROPOSER_ROLE(), governor);
         timelock.revokeRole(timelock.PROPOSER_ROLE(), deployer);
         timelock.revokeRole(timelock.DEFAULT_ADMIN_ROLE(), deployer);

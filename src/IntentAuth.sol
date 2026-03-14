@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {PoolId} from "v4-core/src/types/PoolId.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
+import {IAsyncSwapOracle} from "./interfaces/IAsyncSwapOracle.sol";
 
 contract IntentAuth {
     /// @notice The PoolManager contract address
@@ -16,7 +17,19 @@ contract IntentAuth {
     bool public feeRefundToggle;
     address public pendingOwner;
     mapping(Currency currency => uint256 amount) public accruedFees;
+    mapping(Currency currency => uint256 amount) public accruedSurplus;
     mapping(PoolId poolId => uint24 fee) public poolFee;
+
+    struct OracleConfig {
+        IAsyncSwapOracle oracle;
+        uint32 maxAge;
+        uint16 maxDeviationBps;
+        uint16 userSurplusBps;
+        uint16 fillerSurplusBps;
+        uint16 protocolSurplusBps;
+    }
+
+    mapping(PoolId poolId => OracleConfig config) public oracleConfig;
 
     struct CancelCallback {
         Currency currency;
@@ -26,18 +39,29 @@ contract IntentAuth {
 
     error NOT_PENDING_OWNER();
     error NO_FEES_ACCRUED();
+    error NO_SURPLUS_ACCRUED();
     error TREASURY_NOT_SET();
     error PAUSED();
 
     event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event FeesClaimed(Currency indexed currency, address indexed to, uint256 amount);
+    event SurplusClaimed(Currency indexed currency, address indexed to, uint256 amount);
     event TreasuryUpdated(address indexed previousTreasury, address indexed newTreasury);
     event MinimumFeeUpdated(uint24 previousFee, uint24 newFee);
     event PoolFeeUpdated(PoolId indexed poolId, uint24 previousFee, uint24 newFee);
     event Paused(address indexed by);
     event Unpaused(address indexed by);
     event FeeRefundToggleUpdated(bool previousValue, bool newValue);
+    event OracleConfigUpdated(
+        PoolId indexed poolId,
+        address oracle,
+        uint32 maxAge,
+        uint16 maxDeviationBps,
+        uint16 userSurplusBps,
+        uint16 fillerSurplusBps,
+        uint16 protocolSurplusBps
+    );
 
     constructor(IPoolManager _poolManager, address _initialOwner) {
         POOL_MANAGER = _poolManager;
@@ -82,6 +106,18 @@ contract IntentAuth {
         emit FeesClaimed(currency, treasury, amount);
     }
 
+    function claimSurplus(Currency currency) external {
+        if (treasury == address(0)) revert TREASURY_NOT_SET();
+
+        uint256 amount = accruedSurplus[currency];
+        if (amount == 0) revert NO_SURPLUS_ACCRUED();
+
+        delete accruedSurplus[currency];
+        POOL_MANAGER.unlock(abi.encode(CancelCallback({currency: currency, to: treasury, amount: amount})));
+
+        emit SurplusClaimed(currency, treasury, amount);
+    }
+
     function setPoolFee(PoolId _poolId, uint24 _fee) external {
         require(msg.sender == protocolOwner, "NOT OWNER");
         require(_fee >= minimumFee, "FEE BELOW MINIMUM");
@@ -94,6 +130,39 @@ contract IntentAuth {
         require(msg.sender == protocolOwner, "NOT OWNER");
         emit FeeRefundToggleUpdated(feeRefundToggle, _enabled);
         feeRefundToggle = _enabled;
+    }
+
+    function setOracleConfig(
+        PoolId _poolId,
+        IAsyncSwapOracle _oracle,
+        uint32 _maxAge,
+        uint16 _maxDeviationBps,
+        uint16 _userSurplusBps,
+        uint16 _fillerSurplusBps,
+        uint16 _protocolSurplusBps
+    ) external {
+        require(msg.sender == protocolOwner, "NOT OWNER");
+        require(
+            uint256(_userSurplusBps) + uint256(_fillerSurplusBps) + uint256(_protocolSurplusBps) == 10_000,
+            "INVALID_SPLIT"
+        );
+        oracleConfig[_poolId] = OracleConfig({
+            oracle: _oracle,
+            maxAge: _maxAge,
+            maxDeviationBps: _maxDeviationBps,
+            userSurplusBps: _userSurplusBps,
+            fillerSurplusBps: _fillerSurplusBps,
+            protocolSurplusBps: _protocolSurplusBps
+        });
+        emit OracleConfigUpdated(
+            _poolId,
+            address(_oracle),
+            _maxAge,
+            _maxDeviationBps,
+            _userSurplusBps,
+            _fillerSurplusBps,
+            _protocolSurplusBps
+        );
     }
 
     function pause() external {

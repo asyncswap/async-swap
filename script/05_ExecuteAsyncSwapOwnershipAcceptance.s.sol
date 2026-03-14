@@ -6,6 +6,7 @@ import {TimelockController} from "@openzeppelin/contracts/governance/TimelockCon
 
 contract ExecuteAsyncSwapOwnershipAcceptanceScript is GovernanceAddressResolver {
     function run() public {
+        address deployer = vm.envAddress("DEPLOYER_ADDRESS");
         address timelockAddr = _timelockAddress();
         address asyncSwap = _asyncSwapAddress();
 
@@ -14,7 +15,7 @@ contract ExecuteAsyncSwapOwnershipAcceptanceScript is GovernanceAddressResolver 
         bytes32 predecessor = bytes32(0);
         bytes32 salt = bytes32(uint256(0));
 
-        vm.startBroadcast();
+        vm.startBroadcast(deployer);
         timelock.execute(asyncSwap, 0, data, predecessor, salt);
         vm.stopBroadcast();
     }

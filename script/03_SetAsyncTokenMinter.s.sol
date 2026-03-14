@@ -6,10 +6,11 @@ import {AsyncToken} from "../src/governance/AsyncToken.sol";
 
 contract SetAsyncTokenMinterScript is GovernanceAddressResolver {
     function run() public {
+        address deployer = vm.envAddress("DEPLOYER_ADDRESS");
         address timelock = _timelockAddress();
         address asyncToken = _asyncTokenAddress();
 
-        vm.startBroadcast();
+        vm.startBroadcast(deployer);
         AsyncToken(asyncToken).setMinter(timelock);
         vm.stopBroadcast();
     }

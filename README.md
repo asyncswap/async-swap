@@ -28,10 +28,24 @@ Instead of executing trades against AMM liquidity immediately, AsyncSwap records
 - order expiry with permissionless keeper cleanup
 - native input and native output support
 - configurable protocol fee with fee refund toggle (fees only on filled volume)
+- oracle-aware surplus capture so the protocol internalizes MEV from bad quotes instead of leaking it all to fillers
+- configurable user / filler / protocol surplus split via governance-managed oracle settings
 - one-time governance token rewards for swappers, fillers, and keepers
 - pause / unpause controls
 - treasury and per-pool dynamic fee governance
 - governance execution through `AsyncGovernor + TimelockController`
+
+### MEV Capture
+
+AsyncSwap can internalize MEV created by bad user quotes.
+
+When an order is filled at a price meaningfully worse than a governance-configured oracle reference, the protocol computes the surplus between the quoted fill and the oracle-fair fill. That surplus can then be split between:
+
+- the user (kept in the order as additional refundable value)
+- the filler (as an execution incentive)
+- the protocol treasury (as captured surplus)
+
+If the oracle is missing or stale, fills still succeed — the protocol simply skips surplus capture rather than reverting the swap.
 
 ## Repo Guide
 

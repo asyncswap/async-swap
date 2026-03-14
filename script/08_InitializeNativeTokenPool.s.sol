@@ -11,6 +11,7 @@ import {Currency} from "v4-core/src/types/Currency.sol";
 
 contract InitializeNativeTokenPoolScript is ScriptHelper {
     function run() public {
+        address deployer = vm.envAddress("DEPLOYER_ADDRESS");
         address asyncSwap = _deployedAsyncSwap();
         address token = vm.envOr("TOKEN1_ADDRESS", _deployedDemoToken1());
         uint160 sqrtPriceX96 = uint160(vm.envOr("SQRT_PRICE_X96", uint256(79228162514264337593543950336)));
@@ -24,7 +25,7 @@ contract InitializeNativeTokenPoolScript is ScriptHelper {
             hooks: IHooks(asyncSwap)
         });
 
-        vm.startBroadcast();
+        vm.startBroadcast(deployer);
         IPoolManager(_poolManagerAddress()).initialize(key, sqrtPriceX96);
         vm.stopBroadcast();
     }

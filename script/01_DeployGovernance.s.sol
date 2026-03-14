@@ -19,7 +19,7 @@ contract DeployGovernanceScript is ScriptHelper {
         uint256 proposalThreshold = vm.envUint("PROPOSAL_THRESHOLD");
         uint256 quorumPercent = vm.envUint("QUORUM_PERCENT");
 
-        vm.startBroadcast();
+        vm.startBroadcast(deployer);
 
         token = new AsyncToken(deployer);
 

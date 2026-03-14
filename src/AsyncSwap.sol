@@ -21,6 +21,7 @@ import {AsyncRouter} from "./AsyncRouter.sol";
 import {CurrencySettler} from "./libraries/CurrencySettler.sol";
 import {IntentAuth} from "./IntentAuth.sol";
 import {AsyncToken} from "./governance/AsyncToken.sol";
+import {IAsyncSwapOracle} from "./interfaces/IAsyncSwapOracle.sol";
 
 contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
     using PoolIdLibrary for PoolKey;
@@ -62,6 +63,19 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
         PoolId poolId;
         address swapper;
         int24 tick;
+    }
+
+    struct SurplusPreview {
+        bool active;
+        uint256 claimShare;
+        uint256 fairShare;
+        uint256 surplus;
+        uint256 userShare;
+        uint256 fillerShare;
+        uint256 protocolShare;
+        uint256 deviationBps;
+        uint160 oracleSqrtPriceX96;
+        uint256 oracleUpdatedAt;
     }
 
     /// @notice Emitted when an async swap order is created
@@ -184,7 +198,7 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
     /// @return amountGiven The amount supplied by swapper
     function getBalanceIn(Order memory order, bool zeroForOne) public view returns (uint256 amountGiven) {
         bytes32 orderId = keccak256(abi.encode(order));
-        amountGiven = balancesIn[orderId][zeroForOne];
+        amountGiven = balancesIn[orderId][zeroForOne] + feeRemaining[orderId][zeroForOne];
     }
 
     /// @notice The balance of remaining tokens to be taken by swapper
@@ -301,6 +315,104 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
         }
     }
 
+    /// @notice Compute the input required for a target output at a fixed tick.
+    ///         Uses rounding up so the fair share is conservative.
+    function _computeInputForOutput(uint256 amountOut, int24 tick, bool zeroForOne)
+        internal
+        pure
+        returns (uint256 amountIn)
+    {
+        uint160 sqrtPrice = TickMath.getSqrtPriceAtTick(tick);
+        return _computeInputForOutputAtSqrtPrice(amountOut, sqrtPrice, zeroForOne);
+    }
+
+    function _computeInputForOutputAtSqrtPrice(uint256 amountOut, uint160 sqrtPrice, bool zeroForOne)
+        internal
+        pure
+        returns (uint256 amountIn)
+    {
+        if (zeroForOne) {
+            amountIn = FullMath.mulDivRoundingUp(
+                FullMath.mulDivRoundingUp(amountOut, FixedPoint96.Q96, sqrtPrice), FixedPoint96.Q96, sqrtPrice
+            );
+        } else {
+            amountIn = FullMath.mulDivRoundingUp(
+                FullMath.mulDivRoundingUp(amountOut, sqrtPrice, FixedPoint96.Q96), sqrtPrice, FixedPoint96.Q96
+            );
+        }
+    }
+
+    /// @notice Preview oracle-based surplus capture for a proposed fill.
+    function previewSurplusCapture(Order memory order, bool zeroForOne, uint256 fillAmount)
+        public
+        view
+        returns (SurplusPreview memory preview)
+    {
+        PoolKey memory key = pools[order.poolId];
+        if (address(key.hooks) != address(this)) return preview;
+
+        uint256 remainingOut = balancesOut[keccak256(abi.encode(order))][zeroForOne];
+        uint256 remainingIn = balancesIn[keccak256(abi.encode(order))][zeroForOne];
+        if (remainingOut == 0 || fillAmount == 0 || fillAmount > remainingOut) return preview;
+
+        OracleConfig memory cfg = oracleConfig[order.poolId];
+        if (address(cfg.oracle) == address(0)) return preview;
+
+        (uint160 oracleSqrtPriceX96, uint256 updatedAt) = cfg.oracle.getQuoteSqrtPriceX96(order.poolId);
+        if (cfg.maxAge > 0 && block.timestamp > updatedAt + cfg.maxAge) {
+            preview.oracleSqrtPriceX96 = oracleSqrtPriceX96;
+            preview.oracleUpdatedAt = updatedAt;
+            return preview;
+        }
+
+        uint256 inputShare = FullMath.mulDiv(fillAmount, remainingIn, remainingOut);
+        uint256 claimShare = inputShare;
+        uint256 remainingFee = feeRemaining[keccak256(abi.encode(order))][zeroForOne];
+
+        uint256 fairShare = _computeInputForOutputAtSqrtPrice(fillAmount, oracleSqrtPriceX96, zeroForOne);
+        if (remainingFee > 0) {
+            uint24 fee = poolFee[order.poolId];
+            uint256 fairFee = FullMath.mulDivRoundingUp(fairShare, fee, 1_000_000);
+            fairShare -= fairFee;
+        }
+        if (claimShare <= fairShare) {
+            preview.claimShare = claimShare;
+            preview.fairShare = fairShare;
+            preview.oracleSqrtPriceX96 = oracleSqrtPriceX96;
+            preview.oracleUpdatedAt = updatedAt;
+            return preview;
+        }
+
+        uint256 surplus = claimShare - fairShare;
+        uint256 deviationBps = fairShare == 0 ? type(uint256).max : FullMath.mulDiv(surplus, 10_000, fairShare);
+        if (cfg.maxDeviationBps > 0 && deviationBps <= cfg.maxDeviationBps) {
+            preview.claimShare = claimShare;
+            preview.fairShare = fairShare;
+            preview.surplus = surplus;
+            preview.deviationBps = deviationBps;
+            preview.oracleSqrtPriceX96 = oracleSqrtPriceX96;
+            preview.oracleUpdatedAt = updatedAt;
+            return preview;
+        }
+
+        uint256 userShare = FullMath.mulDiv(surplus, cfg.userSurplusBps, 10_000);
+        uint256 fillerBonus = FullMath.mulDiv(surplus, cfg.fillerSurplusBps, 10_000);
+        uint256 protocolShare = surplus - userShare - fillerBonus;
+
+        preview = SurplusPreview({
+            active: true,
+            claimShare: claimShare,
+            fairShare: fairShare,
+            surplus: surplus,
+            userShare: userShare,
+            fillerShare: fairShare + fillerBonus,
+            protocolShare: protocolShare,
+            deviationBps: deviationBps,
+            oracleSqrtPriceX96: oracleSqrtPriceX96,
+            oracleUpdatedAt: updatedAt
+        });
+    }
+
     /// @inheritdoc IHooks
     /// @notice Only exact-input swaps (amountSpecified < 0) are supported.
     ///         For "exact output" intents, the router should pre-compute the required
@@ -359,7 +471,7 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
             balancesIn[orderId][zeroForOne] += netInput;
         } else {
             feeRemaining[orderId][zeroForOne] += feeAmount;
-            balancesIn[orderId][zeroForOne] += amountIn;
+            balancesIn[orderId][zeroForOne] += netInput;
         }
         balancesOut[orderId][zeroForOne] += amountOut;
 
@@ -443,6 +555,9 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
         uint256 remainingIn = balancesIn[orderId][zeroForOne];
         uint256 inputShare = FullMath.mulDiv(fillAmount, remainingIn, remainingOut);
 
+        // Preview oracle-based surplus capture before mutating state.
+        SurplusPreview memory preview = previewSurplusCapture(order, zeroForOne, fillAmount);
+
         // Update state before external calls
         balancesOut[orderId][zeroForOne] = remainingOut - fillAmount;
         balancesIn[orderId][zeroForOne] = remainingIn - inputShare;
@@ -460,7 +575,14 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
 
             feeRemaining[orderId][zeroForOne] = remainingFee - feeShare;
             accruedFees[inputCurrency] += feeShare;
-            claimShare = inputShare - feeShare;
+        }
+
+        // Optional oracle-based surplus capture groundwork.
+        // Currently enabled for upfront-fee mode where balancesIn tracks net input.
+        if (preview.active) {
+            claimShare = preview.fillerShare;
+            balancesIn[orderId][zeroForOne] += preview.userShare;
+            accruedSurplus[inputCurrency] += preview.protocolShare;
         }
 
         // Transfer output tokens from filler directly to swapper
@@ -499,6 +621,9 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
         uint256 remainingIn = balancesIn[orderId][zeroForOne];
         if (remainingIn == 0) revert NOTHING_TO_CANCEL();
 
+        uint256 remainingFee = feeRemaining[orderId][zeroForOne];
+        uint256 refundAmount = remainingIn + remainingFee;
+
         // Clear storage (gas refund)
         // In on-fill mode, feeRemaining is forgiven — unfilled swaps do not pay fees.
         delete balancesIn[orderId][zeroForOne];
@@ -510,10 +635,10 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
         Currency inputCurrency = zeroForOne ? key.currency0 : key.currency1;
 
         POOL_MANAGER.unlock(
-            abi.encode(CancelCallback({currency: inputCurrency, to: order.swapper, amount: remainingIn}))
+            abi.encode(CancelCallback({currency: inputCurrency, to: order.swapper, amount: refundAmount}))
         );
 
-        emit Cancel(orderId, order.swapper, remainingIn);
+        emit Cancel(orderId, order.swapper, refundAmount);
 
         // One-time keeper reward for cleaning up expired orders
         if (expired && msg.sender != order.swapper) {

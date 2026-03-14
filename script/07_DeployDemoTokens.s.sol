@@ -9,11 +9,12 @@ contract DeployDemoTokensScript is ScriptHelper {
     MockERC20 public token1;
 
     function run() public {
+        address deployer = vm.envAddress("DEPLOYER_ADDRESS");
         address user = vm.envAddress("USER_ADDRESS");
         address filler = vm.envAddress("FILLER_ADDRESS");
         uint256 mintAmount = vm.envOr("DEMO_MINT_AMOUNT", uint256(1_000_000e18));
 
-        vm.startBroadcast();
+        vm.startBroadcast(deployer);
 
         token0 = new MockERC20("Async Demo Token 0", "ADT0", 18);
         token1 = new MockERC20("Async Demo Token 1", "ADT1", 18);

@@ -11,6 +11,7 @@ import {Currency} from "v4-core/src/types/Currency.sol";
 
 contract InitializeDemoPoolScript is ScriptHelper {
     function run() public {
+        address deployer = vm.envAddress("DEPLOYER_ADDRESS");
         address asyncSwap = _deployedAsyncSwap();
         address tokenA = _deployedDemoToken0();
         address tokenB = _deployedDemoToken1();
@@ -29,7 +30,7 @@ contract InitializeDemoPoolScript is ScriptHelper {
             hooks: IHooks(asyncSwap)
         });
 
-        vm.startBroadcast();
+        vm.startBroadcast(deployer);
         IPoolManager(_poolManagerAddress()).initialize(key, sqrtPriceX96);
         vm.stopBroadcast();
     }
