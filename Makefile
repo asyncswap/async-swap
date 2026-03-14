@@ -1,4 +1,4 @@
-.PHONY: help deploy-asyncswap deploy-governance connect-asyncswap-owner connect-token-minter schedule-ownership-accept execute-ownership-accept revoke-bootstrap-roles deploy-all deploy-local require-broadcast
+.PHONY: help deploy-asyncswap deploy-governance transfer-asyncswap-ownership set-token-minter schedule-ownership-accept execute-ownership-accept revoke-bootstrap-roles demo-deploy-tokens demo-init-pool demo-init-native-pool demo-create-order demo-fill-order deploy-all deploy-local require-broadcast
 
 ifneq (,$(wildcard .env))
 include .env
@@ -15,23 +15,34 @@ PROPOSAL_THRESHOLD ?= 100000000000000000000
 QUORUM_PERCENT ?= 4
 AUTO_EXECUTE_LOCAL ?= true
 
+ifeq ($(CHAIN),anvil)
+FORGE_SCRIPT = forge script --rpc-url $(RPC_URL) --sender $(DEPLOYER_ADDRESS) --unlocked --broadcast -vvvv
+else
 FORGE_SCRIPT = forge script --rpc-url $(RPC_URL) --account $(ACCOUNT) --sender $(DEPLOYER_ADDRESS) --broadcast -vvvv --no-cache
+endif
 
 help:
 	@printf "Available targets:\n"
-	@printf "  deploy-asyncswap\n"
-	@printf "  deploy-governance\n"
-	@printf "  connect-asyncswap-owner\n"
-	@printf "  connect-token-minter\n"
-	@printf "  schedule-ownership-accept\n"
-	@printf "  execute-ownership-accept\n"
-	@printf "  revoke-bootstrap-roles\n"
-	@printf "  deploy-all\n"
-	@printf "  deploy-local\n"
+	@printf "  deploy-asyncswap          Deploy AsyncSwap and PoolManager (PoolManager only deploys on anvil unless overridden)\n"
+	@printf "  deploy-governance         Deploy AsyncToken, TimelockController, and AsyncGovernor\n"
+	@printf "  transfer-asyncswap-ownership Transfer AsyncSwap ownership to the timelock\n"
+	@printf "  set-token-minter             Set AsyncToken minter to the timelock\n"
+	@printf "  schedule-ownership-accept Schedule AsyncSwap.acceptOwnership() through the timelock\n"
+	@printf "  execute-ownership-accept  Execute the scheduled AsyncSwap.acceptOwnership() call after the timelock delay\n"
+	@printf "  revoke-bootstrap-roles    Remove temporary deployer timelock roles after bootstrap is complete\n"
+	@printf "  deploy-all                Run steps 00-04 in order\n"
+	@printf "  deploy-local              Run the full local anvil flow, including timelock fast-forward and steps 05-06\n"
+	@printf "  demo-deploy-tokens        Deploy local demo ERC20 tokens for swap flow testing\n"
+	@printf "  demo-init-pool            Initialize an ERC20/ERC20 AsyncSwap demo pool\n"
+	@printf "  demo-init-native-pool     Initialize a native/token AsyncSwap demo pool\n"
+	@printf "  demo-create-order         Create a demo AsyncSwap order using the local scripts\n"
+	@printf "  demo-fill-order           Fill the demo AsyncSwap order using the local scripts\n"
 
 require-account-env:
-	@test -n "$(ACCOUNT)" || (echo "Missing ACCOUNT" && exit 1)
 	@test -n "$(DEPLOYER_ADDRESS)" || (echo "Missing DEPLOYER_ADDRESS" && exit 1)
+	@if [ "$(CHAIN)" != "anvil" ]; then \
+		test -n "$(ACCOUNT)" || (echo "Missing ACCOUNT" && exit 1); \
+	fi
 
 require-broadcast:
 	@test "$(RUN_MODE)" = "broadcast" || (echo "This target requires RUN_MODE=broadcast" && exit 1)
@@ -42,11 +53,11 @@ deploy-asyncswap: require-account-env
 deploy-governance: require-account-env
 	CHAIN=$(CHAIN) RUN_MODE=$(RUN_MODE) TIMELOCK_DELAY=$(TIMELOCK_DELAY) VOTING_DELAY=$(VOTING_DELAY) VOTING_PERIOD=$(VOTING_PERIOD) PROPOSAL_THRESHOLD=$(PROPOSAL_THRESHOLD) QUORUM_PERCENT=$(QUORUM_PERCENT) $(FORGE_SCRIPT) script/01_DeployGovernance.s.sol:DeployGovernanceScript
 
-connect-asyncswap-owner: require-account-env require-broadcast
-	CHAIN=$(CHAIN) RUN_MODE=$(RUN_MODE) $(FORGE_SCRIPT) script/02_ConnectAsyncSwapOwnership.s.sol:ConnectGovernanceToAsyncSwapScript
+transfer-asyncswap-ownership: require-account-env require-broadcast
+	CHAIN=$(CHAIN) RUN_MODE=$(RUN_MODE) $(FORGE_SCRIPT) script/02_TransferAsyncSwapOwnership.s.sol:TransferAsyncSwapOwnershipScript
 
-connect-token-minter: require-account-env require-broadcast
-	CHAIN=$(CHAIN) RUN_MODE=$(RUN_MODE) $(FORGE_SCRIPT) script/03_ConnectAsyncTokenMinter.s.sol:ConnectAsyncTokenMinterToTimelockScript
+set-token-minter: require-account-env require-broadcast
+	CHAIN=$(CHAIN) RUN_MODE=$(RUN_MODE) $(FORGE_SCRIPT) script/03_SetAsyncTokenMinter.s.sol:SetAsyncTokenMinterScript
 
 schedule-ownership-accept: require-account-env require-broadcast
 	CHAIN=$(CHAIN) RUN_MODE=$(RUN_MODE) $(FORGE_SCRIPT) script/04_ScheduleAsyncSwapOwnershipAcceptance.s.sol:ScheduleAsyncSwapOwnershipAcceptanceScript
@@ -57,7 +68,22 @@ execute-ownership-accept: require-account-env require-broadcast
 revoke-bootstrap-roles: require-account-env require-broadcast
 	CHAIN=$(CHAIN) RUN_MODE=$(RUN_MODE) $(FORGE_SCRIPT) script/06_RevokeBootstrapTimelockRoles.s.sol:RevokeBootstrapTimelockRolesScript
 
-deploy-all: deploy-asyncswap deploy-governance connect-asyncswap-owner connect-token-minter schedule-ownership-accept
+deploy-all: deploy-asyncswap deploy-governance transfer-asyncswap-ownership set-token-minter schedule-ownership-accept
+
+demo-deploy-tokens: require-account-env require-broadcast
+	CHAIN=$(CHAIN) RUN_MODE=$(RUN_MODE) $(FORGE_SCRIPT) script/07_DeployDemoTokens.s.sol:DeployDemoTokensScript
+
+demo-init-pool: require-account-env require-broadcast
+	CHAIN=$(CHAIN) RUN_MODE=$(RUN_MODE) $(FORGE_SCRIPT) script/08_InitializeDemoPool.s.sol:InitializeDemoPoolScript
+
+demo-init-native-pool: require-account-env require-broadcast
+	CHAIN=$(CHAIN) RUN_MODE=$(RUN_MODE) $(FORGE_SCRIPT) script/08_InitializeNativeTokenPool.s.sol:InitializeNativeTokenPoolScript
+
+demo-create-order: require-account-env require-broadcast
+	CHAIN=$(CHAIN) RUN_MODE=$(RUN_MODE) $(FORGE_SCRIPT) script/09_CreateDemoOrder.s.sol:CreateDemoOrderScript
+
+demo-fill-order: require-account-env require-broadcast
+	CHAIN=$(CHAIN) RUN_MODE=$(RUN_MODE) $(FORGE_SCRIPT) script/10_FillDemoOrder.s.sol:FillDemoOrderScript
 
 deploy-local:
 	$(MAKE) RUN_MODE=broadcast deploy-all

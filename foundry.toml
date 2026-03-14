@@ -10,6 +10,7 @@ fs_permissions = [
   { access = "read", path = "./broadcast" },
   { access = "read-write", path = "./cache" }
 ]
+ignored_error_codes = [2424, 8429]
 
 [dependencies]
 forge-std = "1.15.0"

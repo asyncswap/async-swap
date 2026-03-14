@@ -174,6 +174,20 @@ contract ScriptHelper is Script {
         return _readDeployedContractAddress("01_DeployGovernance", 2);
     }
 
+    function _deployedDemoToken0() internal view returns (address) {
+        if (vm.envExists("TOKEN0_ADDRESS")) {
+            return vm.envAddress("TOKEN0_ADDRESS");
+        }
+        return _readDeployedContractAddress("07_DeployDemoTokens", 0);
+    }
+
+    function _deployedDemoToken1() internal view returns (address) {
+        if (vm.envExists("TOKEN1_ADDRESS")) {
+            return vm.envAddress("TOKEN1_ADDRESS");
+        }
+        return _readDeployedContractAddress("07_DeployDemoTokens", 1);
+    }
+
     function _poolManagerAddress() internal view returns (address) {
         if (vm.envExists("POOLMANAGER_ADDRESS")) {
             return vm.envAddress("POOLMANAGER_ADDRESS");

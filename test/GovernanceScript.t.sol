@@ -3,8 +3,8 @@ pragma solidity 0.8.34;
 
 import {Test} from "forge-std/Test.sol";
 import {DeployGovernanceScript} from "../script/01_DeployGovernance.s.sol";
-import {ConnectGovernanceToAsyncSwapScript} from "../script/02_ConnectAsyncSwapOwnership.s.sol";
-import {ConnectAsyncTokenMinterToTimelockScript} from "../script/03_ConnectAsyncTokenMinter.s.sol";
+import {TransferAsyncSwapOwnershipScript} from "../script/02_TransferAsyncSwapOwnership.s.sol";
+import {SetAsyncTokenMinterScript} from "../script/03_SetAsyncTokenMinter.s.sol";
 import {ScheduleAsyncSwapOwnershipAcceptanceScript} from "../script/04_ScheduleAsyncSwapOwnershipAcceptance.s.sol";
 import {ExecuteAsyncSwapOwnershipAcceptanceScript} from "../script/05_ExecuteAsyncSwapOwnershipAcceptance.s.sol";
 import {RevokeBootstrapTimelockRolesScript} from "../script/06_RevokeBootstrapTimelockRoles.s.sol";
@@ -79,11 +79,11 @@ contract GovernanceScriptTest is Test {
         vm.setEnv("ASYNCSWAP_ADDRESS", vm.toString(address(hook)));
         vm.setEnv("ASYNC_TOKEN_ADDRESS", vm.toString(address(token)));
 
-        ConnectGovernanceHarness wire = new ConnectGovernanceHarness(address(hook), address(timelock), address(token));
+        TransferAsyncSwapOwnershipHarness wire = new TransferAsyncSwapOwnershipHarness(address(hook), address(timelock), address(token));
         wire.run();
         assertEq(hook.pendingOwner(), address(timelock));
 
-        ConnectAsyncTokenMinterHarness minterWire = new ConnectAsyncTokenMinterHarness(address(hook), address(timelock), address(token));
+        SetAsyncTokenMinterHarness minterWire = new SetAsyncTokenMinterHarness(address(hook), address(timelock), address(token));
         minterWire.run();
         assertEq(token.minter(), address(timelock));
     }
@@ -186,7 +186,7 @@ contract ScriptHelperHarness is ScriptHelper {
     }
 }
 
-contract ConnectGovernanceHarness is ConnectGovernanceToAsyncSwapScript {
+contract TransferAsyncSwapOwnershipHarness is TransferAsyncSwapOwnershipScript {
     address internal asyncSwapAddr;
     address internal timelockAddr;
     address internal asyncTokenAddr;
@@ -211,7 +211,7 @@ contract ConnectGovernanceHarness is ConnectGovernanceToAsyncSwapScript {
     }
 }
 
-contract ConnectAsyncTokenMinterHarness is ConnectAsyncTokenMinterToTimelockScript {
+contract SetAsyncTokenMinterHarness is SetAsyncTokenMinterScript {
     address internal asyncSwapAddr;
     address internal timelockAddr;
     address internal asyncTokenAddr;

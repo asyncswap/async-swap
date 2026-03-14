@@ -2,15 +2,15 @@
 pragma solidity 0.8.34;
 
 import {GovernanceAddressResolver} from "./GovernanceAddressResolver.sol";
-import {AsyncToken} from "../src/governance/AsyncToken.sol";
+import {AsyncSwap} from "../src/AsyncSwap.sol";
 
-contract ConnectAsyncTokenMinterToTimelockScript is GovernanceAddressResolver {
+contract TransferAsyncSwapOwnershipScript is GovernanceAddressResolver {
     function run() public {
         address timelock = _timelockAddress();
-        address asyncToken = _asyncTokenAddress();
+        address asyncSwap = _asyncSwapAddress();
 
         vm.startBroadcast();
-        AsyncToken(asyncToken).setMinter(timelock);
+        AsyncSwap(asyncSwap).transferOwnership(timelock);
         vm.stopBroadcast();
     }
 }

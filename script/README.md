@@ -1,6 +1,8 @@
 ## Script Runbook
 
-These scripts use `vm.startBroadcast()` and are intended to be run with a Foundry account / keystore setup (`--account` + `--sender`), not a raw `PRIVATE_KEY` env var.
+This directory contains the deployment and governance-connection runbook for AsyncSwap.
+
+Scripts use `vm.startBroadcast()` and are intended to be run with a Foundry account / keystore setup (`--account` + `--sender`), not a raw `PRIVATE_KEY` env var.
 
 ## Environment Variables
 
@@ -14,6 +16,8 @@ export ACCOUNT=<foundry-account-name>
 export CHAIN=anvil
 export RUN_MODE=broadcast
 ```
+
+For `CHAIN=anvil`, `make` uses `--unlocked` automatically, so `ACCOUNT` is not required for local deployment.
 
 If `RPC_URL` is omitted, the shell script defaults to:
 
@@ -36,11 +40,16 @@ export AUTO_EXECUTE_LOCAL=true
 
 1. `00_DeployAsyncSwap.s.sol`
 2. `01_DeployGovernance.s.sol`
-3. `02_ConnectAsyncSwapOwnership.s.sol`
-4. `03_ConnectAsyncTokenMinter.s.sol`
+3. `02_TransferAsyncSwapOwnership.s.sol`
+4. `03_SetAsyncTokenMinter.s.sol`
 5. `04_ScheduleAsyncSwapOwnershipAcceptance.s.sol`
 6. `05_ExecuteAsyncSwapOwnershipAcceptance.s.sol`
 7. `06_RevokeBootstrapTimelockRoles.s.sol`
+8. `07_DeployDemoTokens.s.sol`
+9. `08_InitializeDemoPool.s.sol`
+10. `08_InitializeNativeTokenPool.s.sol`
+11. `09_CreateDemoOrder.s.sol`
+12. `10_FillDemoOrder.s.sol`
 
 ## Deploy AsyncSwap
 
@@ -81,7 +90,7 @@ Bootstrap notes:
 Transfer `AsyncSwap` ownership to the timelock:
 
 ```shell
-forge script script/02_ConnectAsyncSwapOwnership.s.sol:ConnectGovernanceToAsyncSwapScript \
+forge script script/02_TransferAsyncSwapOwnership.s.sol:TransferAsyncSwapOwnershipScript \
   --rpc-url $RPC_URL \
   --account $ACCOUNT \
   --sender $DEPLOYER_ADDRESS \
@@ -91,7 +100,7 @@ forge script script/02_ConnectAsyncSwapOwnership.s.sol:ConnectGovernanceToAsyncS
 Transfer token minting to the timelock:
 
 ```shell
-forge script script/03_ConnectAsyncTokenMinter.s.sol:ConnectAsyncTokenMinterToTimelockScript \
+forge script script/03_SetAsyncTokenMinter.s.sol:SetAsyncTokenMinterScript \
   --rpc-url $RPC_URL \
   --account $ACCOUNT \
   --sender $DEPLOYER_ADDRESS \
@@ -154,11 +163,16 @@ Useful individual targets:
 ```shell
 make deploy-asyncswap
 make deploy-governance
-make connect-asyncswap-owner
-make connect-token-minter
+make transfer-asyncswap-ownership
+make set-token-minter
 make schedule-ownership-accept
 make execute-ownership-accept
 make revoke-bootstrap-roles
+make demo-deploy-tokens
+make demo-init-pool
+make demo-init-native-pool
+make demo-create-order
+make demo-fill-order
 ```
 
 The previous shell wrapper has been removed to keep a single orchestration path.
@@ -177,3 +191,57 @@ Named helper getters resolve:
 - deployed `TimelockController`
 - deployed `AsyncGovernor`
 - chain-specific `PoolManager`
+
+## Recommended Local Flow
+
+For a local Anvil rehearsal, the intended path is:
+
+```shell
+make deploy-local
+```
+
+This will:
+1. deploy `AsyncSwap`
+2. deploy governance contracts
+3. connect ownership and token minting to the timelock
+4. schedule ownership acceptance
+5. fast-forward the local timelock delay
+6. execute ownership acceptance
+7. revoke bootstrap deployer roles
+
+## Demo Swap Flow (Local)
+
+ERC20/ERC20 demo flow:
+
+```shell
+make demo-deploy-tokens
+make demo-init-pool
+make demo-create-order
+make demo-fill-order
+```
+
+Native/token pool initialization:
+
+```shell
+make demo-init-native-pool
+```
+
+Useful env vars for the demo flow:
+
+```shell
+export USER_ADDRESS=0x...
+export FILLER_ADDRESS=0x...
+export DEMO_MINT_AMOUNT=1000000000000000000000000
+export ORDER_AMOUNT_IN=1000000000000000000
+export ORDER_TICK=0
+export MIN_AMOUNT_OUT=0
+export ZERO_FOR_ONE=true
+export FILL_AMOUNT=0   # if omitted, fill script uses full remaining output
+```
+
+Notes:
+- `07_DeployDemoTokens` mints both demo ERC20s to both the user and the filler
+- `08_InitializeDemoPool` initializes an ERC20/ERC20 pool using the deployed demo tokens
+- `08_InitializeNativeTokenPool` initializes a native/token pool using `TOKEN1_ADDRESS` or the second deployed demo token
+- `09_CreateDemoOrder` approves the hook router and submits the order from `USER_ADDRESS`
+- `10_FillDemoOrder` approves the hook and fills from `FILLER_ADDRESS`
