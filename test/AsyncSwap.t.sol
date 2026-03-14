@@ -83,7 +83,7 @@ contract AsyncSwapTest is Test, Deployers {
     // ========================================
 
     function _swap(bool zeroForOne, uint256 amountIn, int24 tick, uint256 minAmountOut) internal {
-        hook.swap(poolKey, zeroForOne, amountIn, tick, minAmountOut);
+        hook.swap(poolKey, zeroForOne, amountIn, tick, minAmountOut, 0);
     }
 
     function _netInput(uint256 amount) internal pure returns (uint256) {
@@ -801,7 +801,7 @@ contract AsyncSwapTest is Test, Deployers {
 
     function test_zeroAmount_reverts() public {
         vm.expectRevert("ZERO_AMOUNT");
-        hook.swap(poolKey, true, 0, ORDER_TICK, 0);
+        hook.swap(poolKey, true, 0, ORDER_TICK, 0, 0);
     }
 
     // ----------------------------------------

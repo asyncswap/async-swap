@@ -195,7 +195,7 @@ contract AsyncSwapUnsupportedTest is Test, Deployers {
         AsyncSwap.Order memory order = AsyncSwap.Order({poolId: customPoolId, swapper: address(this), tick: 0});
 
         vm.expectRevert(AsyncRouter.UNSUPPORTED_INPUT_TOKEN.selector);
-        hook.swap(customKey, zeroForOne, 10e18, 0, 0);
+        hook.swap(customKey, zeroForOne, 10e18, 0, 0, 0);
 
         assertEq(hook.getBalanceIn(order, zeroForOne), 0, "input should not be recorded");
         assertEq(hook.getBalanceOut(order, zeroForOne), 0, "output should not be recorded");
@@ -227,7 +227,7 @@ contract AsyncSwapUnsupportedTest is Test, Deployers {
         AsyncSwap.Order memory order = AsyncSwap.Order({poolId: customPoolId, swapper: address(this), tick: 0});
 
         vm.expectRevert(AsyncRouter.INPUT_TRANSFER_FAILED.selector);
-        hook.swap(customKey, zeroForOne, 10e18, 0, 0);
+        hook.swap(customKey, zeroForOne, 10e18, 0, 0, 0);
 
         assertEq(hook.getBalanceIn(order, zeroForOne), 0, "input should not be recorded");
         assertEq(hook.getBalanceOut(order, zeroForOne), 0, "output should not be recorded");

@@ -75,7 +75,7 @@ contract AsyncSwapGovernanceTest is Test, Deployers {
 
     function _swapAs(address user, bool zeroForOne, uint256 amountIn) internal {
         vm.prank(user);
-        hook.swap(poolKey, zeroForOne, amountIn, ORDER_TICK, 0);
+        hook.swap(poolKey, zeroForOne, amountIn, ORDER_TICK, 0, 0);
     }
 
     function test_transferOwnership_setsPendingOwner() public {

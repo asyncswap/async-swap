@@ -159,7 +159,7 @@ contract AsyncRouterTest is Test, Deployers {
         uint256 swapAmount = 5e18;
 
         uint256 balBefore = currency0.balanceOf(address(this));
-        hook.swap(poolKey, true, swapAmount, ORDER_TICK, 0);
+        hook.swap(poolKey, true, swapAmount, ORDER_TICK, 0, 0);
         uint256 balAfter = currency0.balanceOf(address(this));
 
         assertEq(balBefore - balAfter, swapAmount, "user did not pay input");

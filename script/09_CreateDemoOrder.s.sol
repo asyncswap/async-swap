@@ -31,6 +31,8 @@ contract CreateDemoOrderScript is ScriptHelper {
         MockERC20(tokenA).approve(router, type(uint256).max);
         MockERC20(tokenB).approve(router, type(uint256).max);
 
+        uint256 deadline = vm.envOr("ORDER_DEADLINE", uint256(0));
+
         AsyncSwap(asyncSwap).swap(
             PoolKey({
                 currency0: currency0,
@@ -42,7 +44,8 @@ contract CreateDemoOrderScript is ScriptHelper {
             zeroForOne,
             amountIn,
             tick,
-            minAmountOut
+            minAmountOut,
+            deadline
         );
         vm.stopBroadcast();
     }

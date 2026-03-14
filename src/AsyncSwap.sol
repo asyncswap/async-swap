@@ -20,6 +20,7 @@ import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
 import {AsyncRouter} from "./AsyncRouter.sol";
 import {CurrencySettler} from "./libraries/CurrencySettler.sol";
 import {IntentAuth} from "./IntentAuth.sol";
+import {AsyncToken} from "./governance/AsyncToken.sol";
 
 contract AsyncSwap layout at 1000 is IntentAuth, IHooks, IUnlockCallback {
     using PoolIdLibrary for PoolKey;
@@ -27,6 +28,19 @@ contract AsyncSwap layout at 1000 is IntentAuth, IHooks, IUnlockCallback {
 
     /// @notice The Router — deployed by constructor, immutable
     AsyncRouter public immutable router;
+
+    /// @notice The governance token used for participant rewards
+    AsyncToken public rewardToken;
+
+    /// @notice One-time reward amount for each role (1 token = 1e18)
+    uint256 public constant PARTICIPANT_REWARD = 1e18;
+
+    /// @notice Tracks whether an address has already claimed their swapper reward
+    mapping(address => bool) public hasSwapReward;
+    /// @notice Tracks whether an address has already claimed their filler reward
+    mapping(address => bool) public hasFillerReward;
+    /// @notice Tracks whether an address has already claimed their keeper reward
+    mapping(address => bool) public hasKeeperReward;
 
     /// Stores pools registered on this hook
     mapping(PoolId poolId => PoolKey key) public pools;
@@ -38,6 +52,8 @@ contract AsyncSwap layout at 1000 is IntentAuth, IHooks, IUnlockCallback {
     mapping(bytes32 orderId => mapping(bool zeroForOne => uint256 amountTaken)) public balancesOut;
     /// Remaining fee quota for on-fill mode, per order and direction
     mapping(bytes32 orderId => mapping(bool zeroForOne => uint256 amount)) public feeRemaining;
+    /// Order deadline per orderId and direction (0 = no expiry)
+    mapping(bytes32 orderId => mapping(bool zeroForOne => uint256 deadline)) public orderDeadline;
 
     /// @param poolId The pool this order belongs to
     /// @param swapper The creator of the order
@@ -99,9 +115,26 @@ contract AsyncSwap layout at 1000 is IntentAuth, IHooks, IUnlockCallback {
     /// @notice Only PoolManager can call unlockCallback
     error CALLER_NOT_POOL_MANAGER_CALLBACK();
 
+    /// @notice Order has expired and can no longer be filled
+    error ORDER_EXPIRED();
+
     /// @notice Initialize PoolManager storage variable and deploy the router
     constructor(IPoolManager _pm, address _initialOwner) IntentAuth(_pm, _initialOwner) {
         router = new AsyncRouter(_pm, address(this));
+    }
+
+    /// @notice Set the governance token used for participant rewards. Only callable by protocolOwner.
+    function setRewardToken(AsyncToken _token) external {
+        require(msg.sender == protocolOwner, "NOT OWNER");
+        rewardToken = _token;
+    }
+
+    /// @notice Mint a one-time reward to a participant if they haven't already received one.
+    function _tryMintReward(address recipient, mapping(address => bool) storage claimed) internal {
+        if (address(rewardToken) == address(0)) return;
+        if (claimed[recipient]) return;
+        claimed[recipient] = true;
+        try rewardToken.mint(recipient, PARTICIPANT_REWARD) {} catch {}
     }
 
     /// @notice Only PoolManager contract allowed as msg.sender
@@ -169,10 +202,15 @@ contract AsyncSwap layout at 1000 is IntentAuth, IHooks, IUnlockCallback {
     /// @param amountIn Exact input amount
     /// @param tick The order's price tick
     /// @param minAmountOut Minimum output (slippage protection)
-    function swap(PoolKey calldata key, bool zeroForOne, uint256 amountIn, int24 tick, uint256 minAmountOut)
-        external
-        payable
-    {
+    /// @param deadline Order expiry timestamp (0 = no expiry)
+    function swap(
+        PoolKey calldata key,
+        bool zeroForOne,
+        uint256 amountIn,
+        int24 tick,
+        uint256 minAmountOut,
+        uint256 deadline
+    ) external payable {
         if (paused) revert PAUSED();
         require(amountIn > 0, "ZERO_AMOUNT");
 
@@ -187,6 +225,20 @@ contract AsyncSwap layout at 1000 is IntentAuth, IHooks, IUnlockCallback {
                 value: msg.value
             })
         );
+
+        // Store deadline for this order (after router call so orderId exists)
+        Order memory order = Order({poolId: key.toId(), swapper: msg.sender, tick: tick});
+        bytes32 orderId = keccak256(abi.encode(order));
+        if (deadline > 0) {
+            // Only update if no existing deadline or new deadline is earlier
+            uint256 existing = orderDeadline[orderId][zeroForOne];
+            if (existing == 0 || deadline < existing) {
+                orderDeadline[orderId][zeroForOne] = deadline;
+            }
+        }
+
+        // One-time swapper reward
+        _tryMintReward(msg.sender, hasSwapReward);
     }
 
     //////////////////////////
@@ -352,6 +404,10 @@ contract AsyncSwap layout at 1000 is IntentAuth, IHooks, IUnlockCallback {
         if (paused) revert PAUSED();
         bytes32 orderId = keccak256(abi.encode(order));
 
+        // Check expiry
+        uint256 deadline = orderDeadline[orderId][zeroForOne];
+        if (deadline != 0 && block.timestamp > deadline) revert ORDER_EXPIRED();
+
         PoolKey memory key = pools[order.poolId];
         if (address(key.hooks) != address(this)) revert UNKNOWN_POOL();
 
@@ -394,6 +450,9 @@ contract AsyncSwap layout at 1000 is IntentAuth, IHooks, IUnlockCallback {
         POOL_MANAGER.transfer(msg.sender, inputCurrency.toId(), claimShare);
 
         emit Fill(orderId, msg.sender, fillAmount, claimShare);
+
+        // One-time filler reward
+        _tryMintReward(msg.sender, hasFillerReward);
     }
 
     //////////////////////////
@@ -401,17 +460,21 @@ contract AsyncSwap layout at 1000 is IntentAuth, IHooks, IUnlockCallback {
     //////////////////////////
 
     /// @notice Cancel an order and reclaim all remaining input tokens.
-    ///         Only the order's swapper can cancel. Clears both balancesIn and balancesOut
-    ///         for this orderId/direction, freeing storage.
+    ///         Before expiry: only the swapper can cancel.
+    ///         After expiry: anyone can cancel (keeper), and the keeper gets a one-time reward.
+    ///         Tokens always go back to the swapper.
     /// @param order The order to cancel
     /// @param zeroForOne The swap direction of the original order
     function cancelOrder(Order memory order, bool zeroForOne) external {
-        if (msg.sender != order.swapper) revert NOT_ORDER_OWNER();
+        bytes32 orderId = keccak256(abi.encode(order));
+        uint256 deadline = orderDeadline[orderId][zeroForOne];
+        bool expired = deadline != 0 && block.timestamp > deadline;
+
+        // Before expiry: only swapper can cancel. After expiry: anyone can cancel.
+        if (!expired && msg.sender != order.swapper) revert NOT_ORDER_OWNER();
 
         PoolKey memory key = pools[order.poolId];
         if (address(key.hooks) != address(this)) revert UNKNOWN_POOL();
-
-        bytes32 orderId = keccak256(abi.encode(order));
 
         uint256 remainingIn = balancesIn[orderId][zeroForOne];
         if (remainingIn == 0) revert NOTHING_TO_CANCEL();
@@ -421,6 +484,7 @@ contract AsyncSwap layout at 1000 is IntentAuth, IHooks, IUnlockCallback {
         delete balancesIn[orderId][zeroForOne];
         delete balancesOut[orderId][zeroForOne];
         delete feeRemaining[orderId][zeroForOne];
+        delete orderDeadline[orderId][zeroForOne];
 
         // Unlock PoolManager to burn claim tokens and send real ERC-20 to swapper
         Currency inputCurrency = zeroForOne ? key.currency0 : key.currency1;
@@ -430,6 +494,11 @@ contract AsyncSwap layout at 1000 is IntentAuth, IHooks, IUnlockCallback {
         );
 
         emit Cancel(orderId, order.swapper, remainingIn);
+
+        // One-time keeper reward for cleaning up expired orders
+        if (expired && msg.sender != order.swapper) {
+            _tryMintReward(msg.sender, hasKeeperReward);
+        }
     }
 
     /// @inheritdoc IUnlockCallback

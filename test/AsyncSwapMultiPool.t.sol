@@ -104,8 +104,8 @@ contract AsyncSwapMultiPoolTest is Test, Deployers {
         uint256 swapAmount1 = 5e18;
         uint256 swapAmount2 = 3e18;
 
-        hook.swap(poolKey1, true, swapAmount1, ORDER_TICK, 0);
-        hook.swap(poolKey2, true, swapAmount2, ORDER_TICK, 0);
+        hook.swap(poolKey1, true, swapAmount1, ORDER_TICK, 0, 0);
+        hook.swap(poolKey2, true, swapAmount2, ORDER_TICK, 0, 0);
 
         AsyncSwap.Order memory order1 = AsyncSwap.Order({poolId: poolId1, swapper: address(this), tick: ORDER_TICK});
         AsyncSwap.Order memory order2 = AsyncSwap.Order({poolId: poolId2, swapper: address(this), tick: ORDER_TICK});
@@ -122,8 +122,8 @@ contract AsyncSwapMultiPoolTest is Test, Deployers {
         uint256 swapAmount1 = 5e18;
         uint256 swapAmount2 = 3e18;
 
-        hook.swap(poolKey1, true, swapAmount1, ORDER_TICK, 0);
-        hook.swap(poolKey2, true, swapAmount2, ORDER_TICK, 0);
+        hook.swap(poolKey1, true, swapAmount1, ORDER_TICK, 0, 0);
+        hook.swap(poolKey2, true, swapAmount2, ORDER_TICK, 0, 0);
 
         AsyncSwap.Order memory order1 = AsyncSwap.Order({poolId: poolId1, swapper: address(this), tick: ORDER_TICK});
         AsyncSwap.Order memory order2 = AsyncSwap.Order({poolId: poolId2, swapper: address(this), tick: ORDER_TICK});
@@ -143,8 +143,8 @@ contract AsyncSwapMultiPoolTest is Test, Deployers {
         uint256 swapAmount1 = 5e18;
         uint256 swapAmount2 = 3e18;
 
-        hook.swap(poolKey1, true, swapAmount1, ORDER_TICK, 0);
-        hook.swap(poolKey2, true, swapAmount2, ORDER_TICK, 0);
+        hook.swap(poolKey1, true, swapAmount1, ORDER_TICK, 0, 0);
+        hook.swap(poolKey2, true, swapAmount2, ORDER_TICK, 0, 0);
 
         AsyncSwap.Order memory order1 = AsyncSwap.Order({poolId: poolId1, swapper: address(this), tick: ORDER_TICK});
         AsyncSwap.Order memory order2 = AsyncSwap.Order({poolId: poolId2, swapper: address(this), tick: ORDER_TICK});
@@ -174,8 +174,8 @@ contract AsyncSwapMultiPoolTest is Test, Deployers {
     // ========================================
 
     function test_sameUserSameTickDifferentPools_differentOrderIds() public {
-        hook.swap(poolKey1, true, 5e18, ORDER_TICK, 0);
-        hook.swap(poolKey2, true, 5e18, ORDER_TICK, 0);
+        hook.swap(poolKey1, true, 5e18, ORDER_TICK, 0, 0);
+        hook.swap(poolKey2, true, 5e18, ORDER_TICK, 0, 0);
 
         AsyncSwap.Order memory order1 = AsyncSwap.Order({poolId: poolId1, swapper: address(this), tick: ORDER_TICK});
         AsyncSwap.Order memory order2 = AsyncSwap.Order({poolId: poolId2, swapper: address(this), tick: ORDER_TICK});
@@ -192,9 +192,9 @@ contract AsyncSwapMultiPoolTest is Test, Deployers {
 
     function test_accumulationWithinPool_independenceAcross() public {
         // Two swaps on pool 1, one swap on pool 2
-        hook.swap(poolKey1, true, 3e18, ORDER_TICK, 0);
-        hook.swap(poolKey1, true, 2e18, ORDER_TICK, 0);
-        hook.swap(poolKey2, true, 7e18, ORDER_TICK, 0);
+        hook.swap(poolKey1, true, 3e18, ORDER_TICK, 0, 0);
+        hook.swap(poolKey1, true, 2e18, ORDER_TICK, 0, 0);
+        hook.swap(poolKey2, true, 7e18, ORDER_TICK, 0, 0);
 
         AsyncSwap.Order memory order1 = AsyncSwap.Order({poolId: poolId1, swapper: address(this), tick: ORDER_TICK});
         AsyncSwap.Order memory order2 = AsyncSwap.Order({poolId: poolId2, swapper: address(this), tick: ORDER_TICK});

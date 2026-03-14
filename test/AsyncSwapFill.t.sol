@@ -63,7 +63,7 @@ contract AsyncSwapFillTest is Test, Deployers {
     }
 
     function _swap(bool zeroForOne, uint256 amountIn, int24 tick, uint256 minAmountOut) internal {
-        hook.swap(poolKey, zeroForOne, amountIn, tick, minAmountOut);
+        hook.swap(poolKey, zeroForOne, amountIn, tick, minAmountOut, 0);
     }
 
     function _netInput(uint256 amount) internal pure returns (uint256) {
@@ -730,7 +730,7 @@ contract AsyncSwapFillTest is Test, Deployers {
         (PoolKey memory customKey, PoolId customPoolId, bool zeroForOne) =
             _initCustomPool(address(inputToken), address(outputToken));
 
-        hook.swap(customKey, zeroForOne, 10e18, ORDER_TICK, 0);
+        hook.swap(customKey, zeroForOne, 10e18, ORDER_TICK, 0, 0);
 
         AsyncSwap.Order memory order = AsyncSwap.Order({poolId: customPoolId, swapper: address(this), tick: ORDER_TICK});
         uint256 expectedOut = hook.getBalanceOut(order, zeroForOne);
@@ -767,7 +767,7 @@ contract AsyncSwapFillTest is Test, Deployers {
         (PoolKey memory customKey, PoolId customPoolId, bool zeroForOne) =
             _initCustomPool(address(inputToken), address(outputToken));
 
-        hook.swap(customKey, zeroForOne, 10e18, ORDER_TICK, 0);
+        hook.swap(customKey, zeroForOne, 10e18, ORDER_TICK, 0, 0);
 
         AsyncSwap.Order memory order = AsyncSwap.Order({poolId: customPoolId, swapper: address(this), tick: ORDER_TICK});
         uint256 expectedOut = hook.getBalanceOut(order, zeroForOne);

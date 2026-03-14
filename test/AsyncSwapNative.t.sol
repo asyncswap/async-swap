@@ -82,7 +82,7 @@ contract AsyncSwapNativeTest is Test, Deployers {
         uint256 amountIn = 1 ether;
 
         vm.prank(alice);
-        hook.swap{value: amountIn}(poolKey, true, amountIn, ORDER_TICK, 0);
+        hook.swap{value: amountIn}(poolKey, true, amountIn, ORDER_TICK, 0, 0);
 
         AsyncSwap.Order memory order = _order(alice, ORDER_TICK);
 
@@ -95,7 +95,7 @@ contract AsyncSwapNativeTest is Test, Deployers {
         uint256 amountIn = 1 ether;
 
         vm.prank(alice);
-        hook.swap{value: amountIn}(poolKey, true, amountIn, ORDER_TICK, 0);
+        hook.swap{value: amountIn}(poolKey, true, amountIn, ORDER_TICK, 0, 0);
 
         AsyncSwap.Order memory order = _order(alice, ORDER_TICK);
         uint256 expectedOut = hook.getBalanceOut(order, true);
@@ -116,7 +116,7 @@ contract AsyncSwapNativeTest is Test, Deployers {
         uint256 amountIn = 1e18;
 
         vm.prank(alice);
-        hook.swap(poolKey, false, amountIn, ORDER_TICK, 0);
+        hook.swap(poolKey, false, amountIn, ORDER_TICK, 0, 0);
 
         AsyncSwap.Order memory order = _order(alice, ORDER_TICK);
         uint256 expectedOut = hook.getBalanceOut(order, false);
@@ -137,7 +137,7 @@ contract AsyncSwapNativeTest is Test, Deployers {
         uint256 amountIn = 1e18;
 
         vm.prank(alice);
-        hook.swap(poolKey, false, amountIn, ORDER_TICK, 0);
+        hook.swap(poolKey, false, amountIn, ORDER_TICK, 0, 0);
 
         AsyncSwap.Order memory order = _order(alice, ORDER_TICK);
         uint256 remainingOutBefore = hook.getBalanceOut(order, false);
@@ -167,7 +167,7 @@ contract AsyncSwapNativeTest is Test, Deployers {
         uint256 amountIn = 1e18;
 
         vm.prank(alice);
-        hook.swap(poolKey, false, amountIn, ORDER_TICK, 0);
+        hook.swap(poolKey, false, amountIn, ORDER_TICK, 0, 0);
 
         AsyncSwap.Order memory order = _order(alice, ORDER_TICK);
         uint256 remainingOut = hook.getBalanceOut(order, false);
@@ -184,7 +184,7 @@ contract AsyncSwapNativeTest is Test, Deployers {
         uint256 amountIn = 1e18;
 
         vm.prank(alice);
-        hook.swap(poolKey, false, amountIn, ORDER_TICK, 0);
+        hook.swap(poolKey, false, amountIn, ORDER_TICK, 0, 0);
 
         AsyncSwap.Order memory order = _order(alice, ORDER_TICK);
         uint256 remainingOutBefore = hook.getBalanceOut(order, false);
@@ -209,7 +209,7 @@ contract AsyncSwapNativeTest is Test, Deployers {
         uint256 amountIn = 1 ether;
 
         vm.prank(alice);
-        hook.swap{value: amountIn}(poolKey, true, amountIn, ORDER_TICK, 0);
+        hook.swap{value: amountIn}(poolKey, true, amountIn, ORDER_TICK, 0, 0);
 
         AsyncSwap.Order memory order = _order(alice, ORDER_TICK);
         uint256 balanceBefore = alice.balance;
@@ -227,7 +227,7 @@ contract AsyncSwapNativeTest is Test, Deployers {
 
         vm.prank(alice);
         vm.expectRevert(AsyncRouter.INVALID_NATIVE_VALUE.selector);
-        hook.swap{value: amountIn - 1}(poolKey, true, amountIn, ORDER_TICK, 0);
+        hook.swap{value: amountIn - 1}(poolKey, true, amountIn, ORDER_TICK, 0, 0);
     }
 
     function test_erc20Input_withMsgValue_reverts() public {
@@ -235,14 +235,14 @@ contract AsyncSwapNativeTest is Test, Deployers {
 
         vm.prank(alice);
         vm.expectRevert(AsyncRouter.INVALID_NATIVE_VALUE.selector);
-        hook.swap{value: 1}(poolKey, false, amountIn, ORDER_TICK, 0);
+        hook.swap{value: 1}(poolKey, false, amountIn, ORDER_TICK, 0, 0);
     }
 
     function test_nativeOutput_wrongMsgValue_reverts() public {
         uint256 amountIn = 1e18;
 
         vm.prank(alice);
-        hook.swap(poolKey, false, amountIn, ORDER_TICK, 0);
+        hook.swap(poolKey, false, amountIn, ORDER_TICK, 0, 0);
 
         AsyncSwap.Order memory order = _order(alice, ORDER_TICK);
         uint256 expectedOut = hook.getBalanceOut(order, false);
@@ -256,7 +256,7 @@ contract AsyncSwapNativeTest is Test, Deployers {
         uint256 amountIn = 1 ether;
 
         vm.prank(alice);
-        hook.swap{value: amountIn}(poolKey, true, amountIn, ORDER_TICK, 0);
+        hook.swap{value: amountIn}(poolKey, true, amountIn, ORDER_TICK, 0, 0);
 
         AsyncSwap.Order memory order = _order(alice, ORDER_TICK);
         uint256 expectedOut = hook.getBalanceOut(order, true);
@@ -273,12 +273,12 @@ contract AsyncSwapNativeTest is Test, Deployers {
 
         vm.prank(alice);
         vm.expectRevert(IntentAuth.PAUSED.selector);
-        hook.swap{value: amountIn}(poolKey, true, amountIn, ORDER_TICK, 0);
+        hook.swap{value: amountIn}(poolKey, true, amountIn, ORDER_TICK, 0, 0);
 
         hook.unpause();
 
         vm.prank(alice);
-        hook.swap{value: amountIn}(poolKey, true, amountIn, ORDER_TICK, 0);
+        hook.swap{value: amountIn}(poolKey, true, amountIn, ORDER_TICK, 0, 0);
 
         AsyncSwap.Order memory order = _order(alice, ORDER_TICK);
         uint256 balBefore = alice.balance;
