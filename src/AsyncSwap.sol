@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.34;
+pragma solidity 0.8.26;
 
 import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 import {BeforeSwapDelta, toBeforeSwapDelta} from "v4-core/src/types/BeforeSwapDelta.sol";
@@ -22,7 +22,7 @@ import {CurrencySettler} from "./libraries/CurrencySettler.sol";
 import {IntentAuth} from "./IntentAuth.sol";
 import {AsyncToken} from "./governance/AsyncToken.sol";
 
-contract AsyncSwap layout at 1000 is IntentAuth, IHooks, IUnlockCallback {
+contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
     using PoolIdLibrary for PoolKey;
     using CurrencySettler for Currency;
 

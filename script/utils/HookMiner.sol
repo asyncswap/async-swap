@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.26;
 
 import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.34;
+pragma solidity 0.8.26;
 
 import {ScriptHelper} from "./ScriptHelper.sol";
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
