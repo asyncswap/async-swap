@@ -15,8 +15,11 @@ import {CurrencySettler} from "v4-core/test/utils/CurrencySettler.sol";
 import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 import {FullMath} from "v4-core/src/libraries/FullMath.sol";
 import {FixedPoint96} from "v4-core/src/libraries/FixedPoint96.sol";
+import {IERC20Minimal} from "v4-core/src/interfaces/external/IERC20Minimal.sol";
+import {IUnlockCallback} from "v4-core/src/interfaces/callback/IUnlockCallback.sol";
+import {AsyncRouter} from "./AsyncRouter.sol";
 
-contract AsyncSwap layout at 1000 is IHooks {
+contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
     using PoolIdLibrary for PoolKey;
     using CurrencySettler for Currency;
 
@@ -49,8 +52,24 @@ contract AsyncSwap layout at 1000 is IHooks {
         int24 tick;
     }
 
+    /// @notice Callback data for cancel settlement via PoolManager.unlock()
+    /// @param currency The currency to return
+    /// @param to The address to receive the tokens
+    /// @param amount The amount to return
+    struct CancelCallback {
+        Currency currency;
+        address to;
+        uint256 amount;
+    }
+
     /// @notice Emitted when an async swap order is created
     event Swap(bytes32 orderId, Order order);
+
+    /// @notice Emitted when a filler partially or fully fills an order
+    event Fill(bytes32 orderId, address filler, uint256 fillAmount, uint256 inputShare);
+
+    /// @notice Emitted when a swapper cancels an unfilled order and reclaims input tokens
+    event Cancel(bytes32 orderId, address swapper, uint256 amountReturned);
 
     /// @notice Error if caller is not poolmanager address
     error CALLER_NOT_POOL_MANAGER();
@@ -60,6 +79,27 @@ contract AsyncSwap layout at 1000 is IHooks {
 
     /// @notice Just become a filler instead
     error PROVIDE_LIQUIDITY_BY_SOLVING();
+
+    /// @notice Fill amount is below the minimum (50% of remaining)
+    error FILL_AMOUNT_TOO_SMALL();
+
+    /// @notice No remaining output to fill
+    error ORDER_ALREADY_FILLED();
+
+    /// @notice Fill amount exceeds remaining output
+    error FILL_EXCEEDS_REMAINING();
+
+    /// @notice ERC-20 transfer from filler to swapper failed
+    error OUTPUT_TRANSFER_FAILED();
+
+    /// @notice Only the order's swapper can cancel
+    error NOT_ORDER_OWNER();
+
+    /// @notice No remaining input to cancel
+    error NOTHING_TO_CANCEL();
+
+    /// @notice Only PoolManager can call unlockCallback
+    error CALLER_NOT_POOL_MANAGER_CALLBACK();
 
     /// @notice Initialize PoolManager storage variable
     constructor(IPoolManager _pm) {
@@ -132,6 +172,29 @@ contract AsyncSwap layout at 1000 is IHooks {
         amountRemaining = balancesOut[orderId][zeroForOne];
     }
 
+    /// @notice Swap entry point — users call this directly.
+    ///         Delegates to the router which calls PM.swap() so beforeSwap fires.
+    /// @param key The pool to swap on
+    /// @param zeroForOne Swap direction
+    /// @param amountIn Exact input amount
+    /// @param tick The order's price tick
+    /// @param minAmountOut Minimum output (slippage protection)
+    function swap(PoolKey calldata key, bool zeroForOne, uint256 amountIn, int24 tick, uint256 minAmountOut) external {
+        require(amountIn > 0, "ZERO_AMOUNT");
+
+        AsyncRouter(router)
+            .executeSwap(
+                AsyncRouter.SwapData({
+                    user: msg.sender,
+                    key: key,
+                    tick: tick,
+                    amountIn: amountIn,
+                    zeroForOne: zeroForOne,
+                    minAmountOut: minAmountOut
+                })
+            );
+    }
+
     //////////////////////////
     ///// HOOK ACTIVATED /////
     //////////////////////////
@@ -200,8 +263,7 @@ contract AsyncSwap layout at 1000 is IHooks {
     /// @inheritdoc IHooks
     /// @notice Only exact-input swaps (amountSpecified < 0) are supported.
     ///         For "exact output" intents, the router should pre-compute the required
-    ///         input amount and submit as exact-input. The order.amountOut field serves
-    ///         as slippage protection for the user's minimum acceptable output.
+    ///         input amount and submit as exact-input.
     function beforeSwap(address sender, PoolKey calldata key, SwapParams calldata params, bytes calldata hookData)
         external
         onlyPoolManager
@@ -246,6 +308,97 @@ contract AsyncSwap layout at 1000 is IHooks {
         balancesOut[orderId][zeroForOne] += amountOut;
 
         emit Swap(orderId, order);
+    }
+
+    //////////////////////////
+    //////// Filler //////////
+    //////////////////////////
+
+    /// @notice Fill an order by providing output tokens to the swapper in exchange for input claim tokens.
+    ///         Permissionless — anyone can fill. Each fill must cover at least 50% of the remaining
+    ///         output, ensuring the order converges in O(log n) fills.
+    /// @param order The order to fill (must match an existing orderId with remaining balance)
+    /// @param zeroForOne The swap direction of the original order
+    /// @param fillAmount The amount of output tokens the filler is providing
+    function fill(Order memory order, bool zeroForOne, uint256 fillAmount) external {
+        bytes32 orderId = keccak256(abi.encode(order));
+
+        uint256 remainingOut = balancesOut[orderId][zeroForOne];
+        if (remainingOut == 0) revert ORDER_ALREADY_FILLED();
+        if (fillAmount > remainingOut) revert FILL_EXCEEDS_REMAINING();
+
+        // Minimum fill: at least 50% of remaining (rounds up so the last fill can close it out)
+        uint256 minFill = (remainingOut + 1) / 2;
+        if (fillAmount < minFill) revert FILL_AMOUNT_TOO_SMALL();
+
+        // Compute proportional input share: fillAmount * balancesIn / balancesOut (round down — filler gets less)
+        uint256 remainingIn = balancesIn[orderId][zeroForOne];
+        uint256 inputShare = FullMath.mulDiv(fillAmount, remainingIn, remainingOut);
+
+        // Update state before external calls
+        balancesOut[orderId][zeroForOne] = remainingOut - fillAmount;
+        balancesIn[orderId][zeroForOne] = remainingIn - inputShare;
+
+        // Determine currencies from the stored pool key
+        PoolKey memory key = pools[order.poolId];
+        Currency inputCurrency = zeroForOne ? key.currency0 : key.currency1;
+        Currency outputCurrency = zeroForOne ? key.currency1 : key.currency0;
+
+        // Transfer output tokens from filler directly to swapper (ERC-20)
+        bool success =
+            IERC20Minimal(Currency.unwrap(outputCurrency)).transferFrom(msg.sender, order.swapper, fillAmount);
+        if (!success) revert OUTPUT_TRANSFER_FAILED();
+
+        // Transfer proportional input claim tokens (ERC-6909) from hook to filler
+        POOL_MANAGER.transfer(msg.sender, inputCurrency.toId(), inputShare);
+
+        emit Fill(orderId, msg.sender, fillAmount, inputShare);
+    }
+
+    //////////////////////////
+    /////// Cancel ////////////
+    //////////////////////////
+
+    /// @notice Cancel an order and reclaim all remaining input tokens.
+    ///         Only the order's swapper can cancel. Clears both balancesIn and balancesOut
+    ///         for this orderId/direction, freeing storage.
+    /// @param order The order to cancel
+    /// @param zeroForOne The swap direction of the original order
+    function cancelOrder(Order memory order, bool zeroForOne) external {
+        if (msg.sender != order.swapper) revert NOT_ORDER_OWNER();
+
+        bytes32 orderId = keccak256(abi.encode(order));
+
+        uint256 remainingIn = balancesIn[orderId][zeroForOne];
+        if (remainingIn == 0) revert NOTHING_TO_CANCEL();
+
+        // Clear storage (gas refund)
+        delete balancesIn[orderId][zeroForOne];
+        delete balancesOut[orderId][zeroForOne];
+
+        // Unlock PoolManager to burn claim tokens and send real ERC-20 to swapper
+        PoolKey memory key = pools[order.poolId];
+        Currency inputCurrency = zeroForOne ? key.currency0 : key.currency1;
+
+        POOL_MANAGER.unlock(
+            abi.encode(CancelCallback({currency: inputCurrency, to: order.swapper, amount: remainingIn}))
+        );
+
+        emit Cancel(orderId, order.swapper, remainingIn);
+    }
+
+    /// @inheritdoc IUnlockCallback
+    function unlockCallback(bytes calldata data) external returns (bytes memory) {
+        require(msg.sender == address(POOL_MANAGER), CALLER_NOT_POOL_MANAGER_CALLBACK());
+
+        CancelCallback memory cb = abi.decode(data, (CancelCallback));
+
+        // Burn the hook's claim tokens (creates +delta)
+        POOL_MANAGER.burn(address(this), cb.currency.toId(), cb.amount);
+        // Take real ERC-20 from PoolManager to swapper (creates -delta, netting to zero)
+        POOL_MANAGER.take(cb.currency, cb.to, cb.amount);
+
+        return "";
     }
 
     ///////////////////////////
