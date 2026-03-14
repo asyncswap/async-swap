@@ -4,17 +4,34 @@ pragma solidity 0.8.34;
 import {Script} from "forge-std/Script.sol";
 import {AsyncSwap} from "../src/AsyncSwap.sol";
 import {PoolManager} from "v4-core/src/PoolManager.sol";
+import {Hooks} from "v4-core/src/libraries/Hooks.sol";
+import {HookMiner} from "./utils/HookMiner.sol";
 
-contract CounterScript is Script {
-    AsyncSwap public counter;
+contract DeployAsyncSwapScript is Script {
+    PoolManager public manager;
+    AsyncSwap public hook;
 
-    function setUp() public {}
+    function _hookFlags() internal pure returns (uint160) {
+        return uint160(
+            Hooks.BEFORE_INITIALIZE_FLAG | Hooks.AFTER_INITIALIZE_FLAG | Hooks.AFTER_ADD_LIQUIDITY_FLAG
+                | Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+        );
+    }
 
     function run() public {
-        vm.startBroadcast();
+        uint256 deployerPk = vm.envUint("PRIVATE_KEY");
+        address deployer = vm.addr(deployerPk);
 
-        PoolManager pm = new PoolManager(msg.sender);
-        counter = new AsyncSwap(pm);
+        vm.startBroadcast(deployerPk);
+
+        manager = new PoolManager(deployer);
+
+        uint160 flags = _hookFlags();
+        (address minedHookAddress, bytes32 salt) =
+            HookMiner.find(CREATE2_FACTORY, flags, type(AsyncSwap).creationCode, abi.encode(address(manager)));
+
+        hook = AsyncSwap(vm.deployCode("AsyncSwap.sol:AsyncSwap", abi.encode(address(manager)), salt));
+        require(address(hook) == minedHookAddress, "HOOK_ADDRESS_MISMATCH");
 
         vm.stopBroadcast();
     }
