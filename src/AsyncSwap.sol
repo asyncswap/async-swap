@@ -401,6 +401,27 @@ contract AsyncSwap layout at 1000 is IntentAuth, IHooks, IUnlockCallback {
     /// @param zeroForOne The swap direction of the original order
     /// @param fillAmount The amount of output tokens the filler is providing
     function fill(Order memory order, bool zeroForOne, uint256 fillAmount) external payable {
+        _fill(order, zeroForOne, fillAmount, msg.sender, msg.value);
+    }
+
+    /// @notice Batch fill multiple orders in a single transaction.
+    ///         Enables coincidence-of-wants settlement where a solver matches
+    ///         opposite-direction orders and settles them together.
+    ///         Native output fills are not supported in batch mode.
+    /// @param orders Array of orders to fill
+    /// @param zeroForOnes Array of swap directions for each order
+    /// @param fillAmounts Array of output amounts the filler is providing for each order
+    function batchFill(Order[] calldata orders, bool[] calldata zeroForOnes, uint256[] calldata fillAmounts) external {
+        uint256 length = orders.length;
+        require(length == zeroForOnes.length && length == fillAmounts.length, "LENGTH_MISMATCH");
+
+        for (uint256 i; i < length; ++i) {
+            _fill(orders[i], zeroForOnes[i], fillAmounts[i], msg.sender, 0);
+        }
+    }
+
+    /// @notice Internal fill logic shared by fill() and batchFill()
+    function _fill(Order memory order, bool zeroForOne, uint256 fillAmount, address filler, uint256 value) internal {
         if (paused) revert PAUSED();
         bytes32 orderId = keccak256(abi.encode(order));
 
@@ -443,16 +464,16 @@ contract AsyncSwap layout at 1000 is IntentAuth, IHooks, IUnlockCallback {
             claimShare = inputShare - feeShare;
         }
 
-        // Transfer output tokens from filler directly to swapper (ERC-20)
-        _deliverOutput(msg.sender, outputCurrency, order.swapper, fillAmount, msg.value);
+        // Transfer output tokens from filler directly to swapper
+        _deliverOutput(filler, outputCurrency, order.swapper, fillAmount, value);
 
         // Transfer proportional input claim tokens (ERC-6909) from hook to filler
-        POOL_MANAGER.transfer(msg.sender, inputCurrency.toId(), claimShare);
+        POOL_MANAGER.transfer(filler, inputCurrency.toId(), claimShare);
 
-        emit Fill(orderId, msg.sender, fillAmount, claimShare);
+        emit Fill(orderId, filler, fillAmount, claimShare);
 
         // One-time filler reward
-        _tryMintReward(msg.sender, hasFillerReward);
+        _tryMintReward(filler, hasFillerReward);
     }
 
     //////////////////////////

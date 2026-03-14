@@ -14,7 +14,7 @@ Instead of executing trades against AMM liquidity immediately, AsyncSwap records
 
 ### Not a CLOB
 
-AsyncSwap is not an order book. There is no matching engine, no price-time priority, and orders do not cross against each other. Instead, external fillers choose which orders to fill and when. This makes AsyncSwap closer to an intent/RFQ system (like UniswapX or CoW Protocol) than a central limit order book.
+AsyncSwap is not an order book. There is no matching engine, no price-time priority, and orders do not cross against each other automatically. Instead, external fillers choose which orders to fill and when. This makes AsyncSwap an intent-based system, closer to UniswapX or CoW Protocol than a central limit order book.
 
 | | CLOB | AsyncSwap |
 |---|---|---|
@@ -24,6 +24,25 @@ AsyncSwap is not an order book. There is no matching engine, no price-time prior
 | Price-time priority | yes | no |
 | Orders cross each other | yes | no |
 | Async settlement | no | yes |
+
+### vs CoW Protocol
+
+Both AsyncSwap and CoW Protocol are intent-based systems with external solvers, but they differ in architecture and tradeoffs.
+
+| | CoW Protocol | AsyncSwap |
+|---|---|---|
+| Architecture | Off-chain auction + on-chain settlement | On-chain V4 hook |
+| Order submission | Off-chain (signed intent) | On-chain (escrowed in hook) |
+| Solver selection | Competitive batch auction | Permissionless, first-come |
+| Coincidence of wants | Yes (batch matching) | Yes (via `batchFill`) |
+| MEV protection | Yes (batch auction hides order flow) | No (orders visible on-chain) |
+| Capital escrow | No (tokens stay in wallet until settlement) | Yes (input escrowed at order creation) |
+| Partial fills | No (all-or-nothing per batch) | Yes (50%+ minimum per fill) |
+| Cancellation | Free (stop signing) | On-chain tx (reclaims escrowed input) |
+| Gas to place order | Zero (off-chain signature) | Non-zero (on-chain escrow tx) |
+| Composability | Standalone settlement contract | Native Uniswap V4 hook |
+
+AsyncSwap solvers can match opposite-direction orders against each other using `batchFill`, settling coincidence of wants without external liquidity — similar to CoW's batch auction, but permissionless and on-chain.
 
 ### Features
 
