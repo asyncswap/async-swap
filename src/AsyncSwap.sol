@@ -26,19 +26,21 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
 
     /// @notice The PoolManager contract address
     IPoolManager public immutable POOL_MANAGER;
-
-    /// @notice The minimum fee charged by the protocol in ppm (12000 = 1.2%)
-    uint24 public minimumFee = 1_2000;
-
-    /// @notice The protocol owner
-    address public protocolOwner;
-    /// @notice The pending owner (for two-step transfer)
-    address public pendingOwner;
     /// @notice The Router — deployed by constructor, immutable
     AsyncRouter public immutable router;
 
+    /// @notice The minimum fee charged by the protocol in ppm (12000 = 1.2%)
+    uint24 public minimumFee = 1_2000;
+    /// @notice Emergency pause flag. When true, new swaps and fills are disabled.
+    bool public paused;
+    /// @notice The protocol owner
+    address public protocolOwner;
     /// @notice The treasury address that receives protocol fees
     address public treasury;
+    /// @notice When enabled, unfilled input remains refundable and fees accrue only on fill.
+    bool public feeRefundToggle;
+    /// @notice The pending owner (for two-step transfer)
+    address public pendingOwner;
 
     /// Stores pools registered on this hook
     mapping(PoolId poolId => PoolKey key) public pools;
@@ -52,6 +54,8 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
     mapping(Currency currency => uint256 amount) public accruedFees;
     /// Dynamic fee per pool — governance can update this on live pools
     mapping(PoolId poolId => uint24 fee) public poolFee;
+    /// Remaining fee quota for on-fill mode, per order and direction
+    mapping(bytes32 orderId => mapping(bool zeroForOne => uint256 amount)) public feeRemaining;
 
     /// @param poolId The pool this order belongs to
     /// @param swapper The creator of the order
@@ -132,6 +136,9 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
     /// @notice Treasury address is not set
     error TREASURY_NOT_SET();
 
+    /// @notice Protocol is paused
+    error PAUSED();
+
     /// @notice Emitted when ownership transfer is initiated
     event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
 
@@ -149,6 +156,15 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
 
     /// @notice Emitted when a pool's dynamic fee is updated
     event PoolFeeUpdated(PoolId indexed poolId, uint24 previousFee, uint24 newFee);
+
+    /// @notice Emitted when the protocol is paused
+    event Paused(address indexed by);
+
+    /// @notice Emitted when the protocol is unpaused
+    event Unpaused(address indexed by);
+
+    /// @notice Emitted when the fee refund toggle is updated
+    event FeeRefundToggleUpdated(bool previousValue, bool newValue);
 
     /// @notice Initialize PoolManager storage variable and deploy the router
     constructor(IPoolManager _pm) {
@@ -207,9 +223,7 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
         delete accruedFees[currency];
 
         // Unlock PoolManager to burn claim tokens and send real ERC-20 to treasury
-        POOL_MANAGER.unlock(
-            abi.encode(CancelCallback({currency: currency, to: treasury, amount: amount}))
-        );
+        POOL_MANAGER.unlock(abi.encode(CancelCallback({currency: currency, to: treasury, amount: amount})));
 
         emit FeesClaimed(currency, treasury, amount);
     }
@@ -223,6 +237,27 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
         require(_fee <= 1_000_000, "FEE TOO HIGH");
         emit PoolFeeUpdated(_poolId, poolFee[_poolId], _fee);
         poolFee[_poolId] = _fee;
+    }
+
+    /// @notice Toggle whether fees are charged only on filled volume, making unfilled input refundable.
+    function setFeeRefundToggle(bool _enabled) external {
+        require(msg.sender == protocolOwner, "NOT OWNER");
+        emit FeeRefundToggleUpdated(feeRefundToggle, _enabled);
+        feeRefundToggle = _enabled;
+    }
+
+    /// @notice Pause swaps and fills. Cancels remain enabled.
+    function pause() external {
+        require(msg.sender == protocolOwner, "NOT OWNER");
+        paused = true;
+        emit Paused(msg.sender);
+    }
+
+    /// @notice Unpause swaps and fills.
+    function unpause() external {
+        require(msg.sender == protocolOwner, "NOT OWNER");
+        paused = false;
+        emit Unpaused(msg.sender);
     }
 
     /// @notice Only PoolManager contract allowed as msg.sender
@@ -294,6 +329,7 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
         external
         payable
     {
+        if (paused) revert PAUSED();
         require(amountIn > 0, "ZERO_AMOUNT");
 
         router.executeSwap{value: msg.value}(
@@ -418,12 +454,17 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
         Currency inputCurrency = zeroForOne ? key.currency0 : key.currency1;
         inputCurrency.take(POOL_MANAGER, address(this), amountIn, true);
 
-        // Accrue protocol fee separately
-        accruedFees[inputCurrency] += feeAmount;
-
-        // Record order for filler to settle later (only net input, not fee)
+        // Record order for filler to settle later.
+        // Upfront mode exposes only net input to fillers.
+        // On-fill mode exposes gross input and accrues fees as fills happen.
         bytes32 orderId = keccak256(abi.encode(order));
-        balancesIn[orderId][zeroForOne] += netInput;
+        if (!feeRefundToggle) {
+            accruedFees[inputCurrency] += feeAmount;
+            balancesIn[orderId][zeroForOne] += netInput;
+        } else {
+            feeRemaining[orderId][zeroForOne] += feeAmount;
+            balancesIn[orderId][zeroForOne] += amountIn;
+        }
         balancesOut[orderId][zeroForOne] += amountOut;
 
         emit Swap(orderId, order);
@@ -460,6 +501,7 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
     /// @param zeroForOne The swap direction of the original order
     /// @param fillAmount The amount of output tokens the filler is providing
     function fill(Order memory order, bool zeroForOne, uint256 fillAmount) external payable {
+        if (paused) revert PAUSED();
         bytes32 orderId = keccak256(abi.encode(order));
 
         PoolKey memory key = pools[order.poolId];
@@ -473,7 +515,7 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
         uint256 minFill = (remainingOut + 1) / 2;
         if (fillAmount < minFill) revert FILL_AMOUNT_TOO_SMALL();
 
-        // Compute proportional input share: fillAmount * balancesIn / balancesOut (round down — filler gets less)
+        // Compute proportional input share: fillAmount * balancesIn / balancesOut (round down)
         uint256 remainingIn = balancesIn[orderId][zeroForOne];
         uint256 inputShare = FullMath.mulDiv(fillAmount, remainingIn, remainingOut);
 
@@ -485,13 +527,25 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
         Currency inputCurrency = zeroForOne ? key.currency0 : key.currency1;
         Currency outputCurrency = zeroForOne ? key.currency1 : key.currency0;
 
+        uint256 claimShare = inputShare;
+        if (feeRefundToggle) {
+            uint256 remainingFee = feeRemaining[orderId][zeroForOne];
+            uint256 feeShare = fillAmount == remainingOut
+                ? remainingFee
+                : FullMath.mulDivRoundingUp(inputShare, remainingFee, remainingIn);
+
+            feeRemaining[orderId][zeroForOne] = remainingFee - feeShare;
+            accruedFees[inputCurrency] += feeShare;
+            claimShare = inputShare - feeShare;
+        }
+
         // Transfer output tokens from filler directly to swapper (ERC-20)
         _deliverOutput(msg.sender, outputCurrency, order.swapper, fillAmount, msg.value);
 
         // Transfer proportional input claim tokens (ERC-6909) from hook to filler
-        POOL_MANAGER.transfer(msg.sender, inputCurrency.toId(), inputShare);
+        POOL_MANAGER.transfer(msg.sender, inputCurrency.toId(), claimShare);
 
-        emit Fill(orderId, msg.sender, fillAmount, inputShare);
+        emit Fill(orderId, msg.sender, fillAmount, claimShare);
     }
 
     //////////////////////////
@@ -517,6 +571,7 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
         // Clear storage (gas refund)
         delete balancesIn[orderId][zeroForOne];
         delete balancesOut[orderId][zeroForOne];
+        delete feeRemaining[orderId][zeroForOne];
 
         // Unlock PoolManager to burn claim tokens and send real ERC-20 to swapper
         Currency inputCurrency = zeroForOne ? key.currency0 : key.currency1;

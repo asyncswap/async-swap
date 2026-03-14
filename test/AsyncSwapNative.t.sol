@@ -264,4 +264,30 @@ contract AsyncSwapNativeTest is Test, Deployers {
         vm.expectRevert(AsyncSwap.INVALID_NATIVE_OUTPUT_VALUE.selector);
         hook.fill{value: 1}(order, true, expectedOut);
     }
+
+    function test_swap_paused_reverts_but_cancel_still_works() public {
+        uint256 amountIn = 1 ether;
+
+        hook.pause();
+
+        vm.prank(alice);
+        vm.expectRevert(AsyncSwap.PAUSED.selector);
+        hook.swap{value: amountIn}(poolKey, true, amountIn, ORDER_TICK, 0);
+
+        hook.unpause();
+
+        vm.prank(alice);
+        hook.swap{value: amountIn}(poolKey, true, amountIn, ORDER_TICK, 0);
+
+        AsyncSwap.Order memory order = _order(alice, ORDER_TICK);
+        uint256 balBefore = alice.balance;
+        uint256 expectedRefund = hook.getBalanceIn(order, true);
+
+        hook.pause();
+
+        vm.prank(alice);
+        hook.cancelOrder(order, true);
+
+        assertEq(alice.balance, balBefore + expectedRefund, "cancel should still work while paused");
+    }
 }

@@ -151,6 +151,17 @@ contract AsyncSwapGovernanceTest is Test, Deployers {
         hook.setPoolFee(poolId, 1_000_001);
     }
 
+    function test_setFeeRefundToggle_updatesMode() public {
+        hook.setFeeRefundToggle(true);
+        assertTrue(hook.feeRefundToggle());
+    }
+
+    function test_setFeeRefundToggle_nonOwner_reverts() public {
+        vm.prank(mallory);
+        vm.expectRevert(bytes("NOT OWNER"));
+        hook.setFeeRefundToggle(true);
+    }
+
     function test_afterInitialize_setsInitialPoolFeeToMinimum() public view {
         assertEq(hook.poolFee(poolId), hook.minimumFee());
     }
@@ -197,5 +208,26 @@ contract AsyncSwapGovernanceTest is Test, Deployers {
 
         uint256 fee2 = FullMath.mulDivRoundingUp(amountIn, 20_000, 1_000_000);
         assertEq(hook.accruedFees(currency0), fee1 + fee2);
+    }
+
+    function test_pause_and_unpause() public {
+        hook.pause();
+        assertTrue(hook.paused());
+
+        hook.unpause();
+        assertFalse(hook.paused());
+    }
+
+    function test_pause_nonOwner_reverts() public {
+        vm.prank(mallory);
+        vm.expectRevert(bytes("NOT OWNER"));
+        hook.pause();
+    }
+
+    function test_unpause_nonOwner_reverts() public {
+        hook.pause();
+        vm.prank(mallory);
+        vm.expectRevert(bytes("NOT OWNER"));
+        hook.unpause();
     }
 }

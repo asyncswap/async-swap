@@ -149,6 +149,112 @@ contract AsyncSwapFillTest is Test, Deployers {
         assertEq(hook.getBalanceIn(order, false), 0, "balanceIn not zero");
     }
 
+    function test_feeRefundToggle_swap_tracksGrossInput_and_noImmediateFees() public {
+        hook.setFeeRefundToggle(true);
+
+        uint256 swapAmount = 10e18;
+        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+
+        assertEq(hook.getBalanceIn(order, true), swapAmount, "toggle should keep gross input refundable");
+        assertGt(expectedOut, 0, "quoted output should still exist");
+        assertEq(hook.accruedFees(currency0), 0, "no fees should accrue at order creation");
+    }
+
+    function test_feeRefundToggle_fullFill_accruesFee_and_paysNetToFiller() public {
+        hook.setFeeRefundToggle(true);
+
+        uint256 swapAmount = 10e18;
+        uint256 expectedFee = swapAmount - _netInput(swapAmount);
+        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+
+        address filler = makeAddr("filler");
+        _setupFiller(filler, currency1, expectedOut);
+        uint256 claimsBefore = manager.balanceOf(filler, currency0.toId());
+
+        vm.prank(filler);
+        hook.fill(order, true, expectedOut);
+
+        assertEq(manager.balanceOf(filler, currency0.toId()) - claimsBefore, _netInput(swapAmount), "filler should receive net input only");
+        assertEq(hook.accruedFees(currency0), expectedFee, "fee should accrue on fill");
+        assertEq(hook.feeRemaining(keccak256(abi.encode(order)), true), 0, "fee remainder should clear on full fill");
+    }
+
+    function test_feeRefundToggle_cancel_returnsRemainingGrossInput() public {
+        hook.setFeeRefundToggle(true);
+
+        uint256 swapAmount = 10e18;
+        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+
+        address filler = makeAddr("filler");
+        _setupFiller(filler, currency1, expectedOut);
+
+        uint256 fillAmount = (expectedOut + 1) / 2;
+        vm.prank(filler);
+        hook.fill(order, true, fillAmount);
+
+        uint256 remainingGross = hook.getBalanceIn(order, true);
+        uint256 feeAccruedBefore = hook.accruedFees(currency0);
+        uint256 balBefore = currency0.balanceOf(address(this));
+
+        hook.cancelOrder(order, true);
+
+        assertEq(currency0.balanceOf(address(this)) - balBefore, remainingGross, "cancel should return remaining gross input when toggle is on");
+        assertEq(hook.accruedFees(currency0), feeAccruedBefore, "cancel should not accrue more fees");
+        assertEq(hook.feeRemaining(keccak256(abi.encode(order)), true), 0, "fee remainder should clear on cancel");
+    }
+
+    function test_upfrontFee_accountingInvariant_halfFill() public {
+        uint256 swapAmount = 1e18;
+        uint256 upfrontFee = swapAmount - _netInput(swapAmount);
+        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+
+        uint256 fillAmount = expectedOut / 2;
+        address filler = makeAddr("filler");
+        _setupFiller(filler, currency1, fillAmount);
+
+        uint256 fillerClaimsBefore = manager.balanceOf(filler, currency0.toId());
+        vm.prank(filler);
+        hook.fill(order, true, fillAmount);
+
+        uint256 fillerPayout = manager.balanceOf(filler, currency0.toId()) - fillerClaimsBefore;
+        uint256 refundableRemainder = hook.getBalanceIn(order, true);
+
+        // Upfront mode invariant:
+        // gross input = upfront fee + filler payout + refundable remainder
+        // 1.0 = 0.012 + 0.494 + 0.494
+        assertEq(hook.accruedFees(currency0), upfrontFee, "protocol should hold full upfront fee");
+        assertEq(fillerPayout, 494_000_000_000_000_000, "filler payout mismatch");
+        assertEq(refundableRemainder, 494_000_000_000_000_000, "refundable remainder mismatch");
+        assertEq(upfrontFee + fillerPayout + refundableRemainder, swapAmount, "gross input invariant broken");
+    }
+
+    function test_feeRefundToggle_accountingInvariant_halfFill() public {
+        hook.setFeeRefundToggle(true);
+
+        uint256 swapAmount = 1e18;
+        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+
+        uint256 fillAmount = expectedOut / 2;
+        address filler = makeAddr("filler");
+        _setupFiller(filler, currency1, fillAmount);
+
+        uint256 fillerClaimsBefore = manager.balanceOf(filler, currency0.toId());
+        vm.prank(filler);
+        hook.fill(order, true, fillAmount);
+
+        uint256 feeOnFilledShare = hook.accruedFees(currency0);
+        uint256 fillerPayout = manager.balanceOf(filler, currency0.toId()) - fillerClaimsBefore;
+        uint256 refundableRemainder = hook.getBalanceIn(order, true);
+
+        // Fee-refund-toggle invariant:
+        // gross input = accrued fee on filled volume + filler payout + refundable remainder
+        // 1.0 = 0.006 + 0.494 + 0.5
+        assertEq(feeOnFilledShare, 6_000_000_000_000_000, "protocol should only earn fee on filled slice");
+        assertEq(fillerPayout, 494_000_000_000_000_000, "filler payout mismatch");
+        assertEq(refundableRemainder, 500_000_000_000_000_000, "refundable remainder mismatch");
+        assertEq(feeOnFilledShare + fillerPayout + refundableRemainder, swapAmount, "gross input invariant broken");
+    }
+
     // ========================================
     // Partial fills — two fills to complete
     // ========================================
@@ -700,6 +806,24 @@ contract AsyncSwapFillTest is Test, Deployers {
 
         vm.expectRevert(AsyncSwap.UNKNOWN_POOL.selector);
         hook.cancelOrder(bogusOrder, true);
+    }
+
+    function test_fill_paused_reverts_but_cancel_still_works() public {
+        uint256 swapAmount = 10e18;
+        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+
+        address filler = makeAddr("filler");
+        _setupFiller(filler, currency1, expectedOut);
+
+        hook.pause();
+
+        vm.prank(filler);
+        vm.expectRevert(AsyncSwap.PAUSED.selector);
+        hook.fill(order, true, expectedOut);
+
+        uint256 balBefore = currency0.balanceOf(address(this));
+        hook.cancelOrder(order, true);
+        assertEq(currency0.balanceOf(address(this)) - balBefore, _netInput(swapAmount), "cancel should still work");
     }
 
     // ========================================
