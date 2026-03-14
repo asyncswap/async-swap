@@ -218,4 +218,29 @@ contract AsyncGovernanceExecutionTest is Test, Deployers {
 
         assertEq(hook.poolFee(poolId), 20_000);
     }
+
+    function test_governance_can_toggle_feeRefund_onAsyncSwap() public {
+        address[] memory targets = new address[](1);
+        targets[0] = address(hook);
+        uint256[] memory values = new uint256[](1);
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encodeCall(AsyncSwap.setFeeRefundToggle, (true));
+        string memory description = "enable fee refund toggle";
+
+        vm.prank(voter);
+        uint256 proposalId = governor.propose(targets, values, calldatas, description);
+
+        vm.roll(block.number + governor.votingDelay() + 1);
+        vm.prank(voter);
+        governor.castVote(proposalId, 1);
+
+        vm.roll(block.number + governor.votingPeriod() + 1);
+        bytes32 descriptionHash = keccak256(bytes(description));
+        governor.queue(targets, values, calldatas, descriptionHash);
+
+        vm.warp(block.timestamp + 1 days + 1);
+        governor.execute(targets, values, calldatas, descriptionHash);
+
+        assertTrue(hook.feeRefundToggle());
+    }
 }
