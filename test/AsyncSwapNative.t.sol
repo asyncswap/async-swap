@@ -6,6 +6,7 @@ import {Deployers} from "v4-core/test/utils/Deployers.sol";
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
 import {AsyncSwap} from "../src/AsyncSwap.sol";
 import {AsyncRouter} from "../src/AsyncRouter.sol";
+import {IntentAuth} from "../src/IntentAuth.sol";
 import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
 import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
@@ -271,7 +272,7 @@ contract AsyncSwapNativeTest is Test, Deployers {
         hook.pause();
 
         vm.prank(alice);
-        vm.expectRevert(AsyncSwap.PAUSED.selector);
+        vm.expectRevert(IntentAuth.PAUSED.selector);
         hook.swap{value: amountIn}(poolKey, true, amountIn, ORDER_TICK, 0);
 
         hook.unpause();

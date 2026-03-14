@@ -19,28 +19,14 @@ import {IUnlockCallback} from "v4-core/src/interfaces/callback/IUnlockCallback.s
 import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
 import {AsyncRouter} from "./AsyncRouter.sol";
 import {CurrencySettler} from "./libraries/CurrencySettler.sol";
+import {IntentAuth} from "./IntentAuth.sol";
 
-contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
+contract AsyncSwap layout at 1000 is IntentAuth, IHooks, IUnlockCallback {
     using PoolIdLibrary for PoolKey;
     using CurrencySettler for Currency;
 
-    /// @notice The PoolManager contract address
-    IPoolManager public immutable POOL_MANAGER;
     /// @notice The Router — deployed by constructor, immutable
     AsyncRouter public immutable router;
-
-    /// @notice The minimum fee charged by the protocol in ppm (12000 = 1.2%)
-    uint24 public minimumFee = 1_2000;
-    /// @notice Emergency pause flag. When true, new swaps and fills are disabled.
-    bool public paused;
-    /// @notice The protocol owner
-    address public protocolOwner;
-    /// @notice The treasury address that receives protocol fees
-    address public treasury;
-    /// @notice When enabled, unfilled input remains refundable and fees accrue only on fill.
-    bool public feeRefundToggle;
-    /// @notice The pending owner (for two-step transfer)
-    address public pendingOwner;
 
     /// Stores pools registered on this hook
     mapping(PoolId poolId => PoolKey key) public pools;
@@ -50,10 +36,6 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
     /// Swap orders for output token
     /// balancesOut initialized by swapper and mutated by filler
     mapping(bytes32 orderId => mapping(bool zeroForOne => uint256 amountTaken)) public balancesOut;
-    /// Accrued protocol fees per currency (claim tokens held by the hook)
-    mapping(Currency currency => uint256 amount) public accruedFees;
-    /// Dynamic fee per pool — governance can update this on live pools
-    mapping(PoolId poolId => uint24 fee) public poolFee;
     /// Remaining fee quota for on-fill mode, per order and direction
     mapping(bytes32 orderId => mapping(bool zeroForOne => uint256 amount)) public feeRemaining;
 
@@ -64,16 +46,6 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
         PoolId poolId;
         address swapper;
         int24 tick;
-    }
-
-    /// @notice Callback data for cancel settlement via PoolManager.unlock()
-    /// @param currency The currency to return
-    /// @param to The address to receive the tokens
-    /// @param amount The amount to return
-    struct CancelCallback {
-        Currency currency;
-        address to;
-        uint256 amount;
     }
 
     /// @notice Emitted when an async swap order is created
@@ -127,137 +99,9 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
     /// @notice Only PoolManager can call unlockCallback
     error CALLER_NOT_POOL_MANAGER_CALLBACK();
 
-    /// @notice Only the pending owner can accept ownership
-    error NOT_PENDING_OWNER();
-
-    /// @notice No fees accrued for this currency
-    error NO_FEES_ACCRUED();
-
-    /// @notice Treasury address is not set
-    error TREASURY_NOT_SET();
-
-    /// @notice Protocol is paused
-    error PAUSED();
-
-    /// @notice Emitted when ownership transfer is initiated
-    event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
-
-    /// @notice Emitted when ownership is transferred
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-
-    /// @notice Emitted when accrued fees are claimed by the treasury
-    event FeesClaimed(Currency indexed currency, address indexed to, uint256 amount);
-
-    /// @notice Emitted when the treasury address is updated
-    event TreasuryUpdated(address indexed previousTreasury, address indexed newTreasury);
-
-    /// @notice Emitted when the minimum fee is updated
-    event MinimumFeeUpdated(uint24 previousFee, uint24 newFee);
-
-    /// @notice Emitted when a pool's dynamic fee is updated
-    event PoolFeeUpdated(PoolId indexed poolId, uint24 previousFee, uint24 newFee);
-
-    /// @notice Emitted when the protocol is paused
-    event Paused(address indexed by);
-
-    /// @notice Emitted when the protocol is unpaused
-    event Unpaused(address indexed by);
-
-    /// @notice Emitted when the fee refund toggle is updated
-    event FeeRefundToggleUpdated(bool previousValue, bool newValue);
-
     /// @notice Initialize PoolManager storage variable and deploy the router
-    constructor(IPoolManager _pm) {
-        POOL_MANAGER = _pm;
-        protocolOwner = msg.sender;
+    constructor(IPoolManager _pm) IntentAuth(_pm) {
         router = new AsyncRouter(_pm, address(this));
-        emit OwnershipTransferred(address(0), msg.sender);
-    }
-
-    /// @notice Initiate ownership transfer to a new address. Must be accepted by the new owner.
-    /// @param newOwner The address to transfer ownership to
-    function transferOwnership(address newOwner) external {
-        require(msg.sender == protocolOwner, "NOT OWNER");
-        pendingOwner = newOwner;
-        emit OwnershipTransferStarted(protocolOwner, newOwner);
-    }
-
-    /// @notice Accept ownership transfer. Only callable by the pending owner.
-    function acceptOwnership() external {
-        if (msg.sender != pendingOwner) revert NOT_PENDING_OWNER();
-        emit OwnershipTransferred(protocolOwner, msg.sender);
-        protocolOwner = msg.sender;
-        pendingOwner = address(0);
-    }
-
-    //////////////////////////
-    ///// Governance /////////
-    //////////////////////////
-
-    /// @notice Set the treasury address that receives protocol fees. Only callable by protocolOwner.
-    /// @param _treasury The new treasury address
-    function setTreasury(address _treasury) external {
-        require(msg.sender == protocolOwner, "NOT OWNER");
-        emit TreasuryUpdated(treasury, _treasury);
-        treasury = _treasury;
-    }
-
-    /// @notice Update the minimum fee for new pool initialization. Only callable by protocolOwner.
-    /// @param _minimumFee The new minimum fee in ppm
-    function setMinimumFee(uint24 _minimumFee) external {
-        require(msg.sender == protocolOwner, "NOT OWNER");
-        emit MinimumFeeUpdated(minimumFee, _minimumFee);
-        minimumFee = _minimumFee;
-    }
-
-    /// @notice Claim accrued protocol fees for a given currency. Sends to treasury.
-    ///         Burns the hook's claim tokens and transfers real ERC-20 to treasury.
-    /// @param currency The currency to claim fees for
-    function claimFees(Currency currency) external {
-        if (treasury == address(0)) revert TREASURY_NOT_SET();
-
-        uint256 amount = accruedFees[currency];
-        if (amount == 0) revert NO_FEES_ACCRUED();
-
-        // Clear accrued fees
-        delete accruedFees[currency];
-
-        // Unlock PoolManager to burn claim tokens and send real ERC-20 to treasury
-        POOL_MANAGER.unlock(abi.encode(CancelCallback({currency: currency, to: treasury, amount: amount})));
-
-        emit FeesClaimed(currency, treasury, amount);
-    }
-
-    /// @notice Update the fee for a specific pool. Only callable by protocolOwner (governance).
-    /// @param _poolId The pool to update
-    /// @param _fee The new fee in ppm (must be >= minimumFee and <= 1_000_000)
-    function setPoolFee(PoolId _poolId, uint24 _fee) external {
-        require(msg.sender == protocolOwner, "NOT OWNER");
-        require(_fee >= minimumFee, "FEE BELOW MINIMUM");
-        require(_fee <= 1_000_000, "FEE TOO HIGH");
-        emit PoolFeeUpdated(_poolId, poolFee[_poolId], _fee);
-        poolFee[_poolId] = _fee;
-    }
-
-    /// @notice Toggle whether fees are charged only on filled volume, making unfilled input refundable.
-    function setFeeRefundToggle(bool _enabled) external {
-        require(msg.sender == protocolOwner, "NOT OWNER");
-        emit FeeRefundToggleUpdated(feeRefundToggle, _enabled);
-        feeRefundToggle = _enabled;
-    }
-
-    /// @notice Pause swaps and fills. Cancels remain enabled.
-    function pause() external {
-        require(msg.sender == protocolOwner, "NOT OWNER");
-        paused = true;
-        emit Paused(msg.sender);
-    }
-
-    /// @notice Unpause swaps and fills.
-    function unpause() external {
-        require(msg.sender == protocolOwner, "NOT OWNER");
-        paused = false;
-        emit Unpaused(msg.sender);
     }
 
     /// @notice Only PoolManager contract allowed as msg.sender

@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {Deployers} from "v4-core/test/utils/Deployers.sol";
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
 import {AsyncSwap} from "../src/AsyncSwap.sol";
+import {IntentAuth} from "../src/IntentAuth.sol";
 import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
 import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
@@ -818,7 +819,7 @@ contract AsyncSwapFillTest is Test, Deployers {
         hook.pause();
 
         vm.prank(filler);
-        vm.expectRevert(AsyncSwap.PAUSED.selector);
+        vm.expectRevert(IntentAuth.PAUSED.selector);
         hook.fill(order, true, expectedOut);
 
         uint256 balBefore = currency0.balanceOf(address(this));

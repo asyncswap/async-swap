@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {Deployers} from "v4-core/test/utils/Deployers.sol";
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
 import {AsyncSwap} from "../src/AsyncSwap.sol";
+import {IntentAuth} from "../src/IntentAuth.sol";
 import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
 import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
@@ -104,7 +105,7 @@ contract AsyncSwapGovernanceTest is Test, Deployers {
         hook.transferOwnership(bob);
 
         vm.prank(mallory);
-        vm.expectRevert(AsyncSwap.NOT_PENDING_OWNER.selector);
+        vm.expectRevert(IntentAuth.NOT_PENDING_OWNER.selector);
         hook.acceptOwnership();
     }
 
@@ -169,14 +170,14 @@ contract AsyncSwapGovernanceTest is Test, Deployers {
     function test_claimFees_treasuryNotSet_reverts() public {
         _swapAs(alice, true, 1e18);
 
-        vm.expectRevert(AsyncSwap.TREASURY_NOT_SET.selector);
+        vm.expectRevert(IntentAuth.TREASURY_NOT_SET.selector);
         hook.claimFees(currency0);
     }
 
     function test_claimFees_noFeesAccrued_reverts() public {
         hook.setTreasury(treasury);
 
-        vm.expectRevert(AsyncSwap.NO_FEES_ACCRUED.selector);
+        vm.expectRevert(IntentAuth.NO_FEES_ACCRUED.selector);
         hook.claimFees(currency0);
     }
 

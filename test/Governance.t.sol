@@ -4,6 +4,7 @@ pragma solidity 0.8.34;
 import {Test} from "forge-std/Test.sol";
 import {Deployers} from "v4-core/test/utils/Deployers.sol";
 import {AsyncSwap} from "../src/AsyncSwap.sol";
+import {IntentAuth} from "../src/IntentAuth.sol";
 import {AsyncToken} from "../src/governance/AsyncToken.sol";
 import {AsyncGovernor} from "../src/governance/AsyncGovernor.sol";
 import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
@@ -173,7 +174,7 @@ contract AsyncGovernanceExecutionTest is Test, Deployers {
         targets[0] = address(hook);
         uint256[] memory values = new uint256[](1);
         bytes[] memory calldatas = new bytes[](1);
-        calldatas[0] = abi.encodeCall(AsyncSwap.setTreasury, (treasury));
+        calldatas[0] = abi.encodeWithSelector(IntentAuth.setTreasury.selector, treasury);
         string memory description = "set treasury";
 
         vm.prank(voter);
@@ -199,7 +200,7 @@ contract AsyncGovernanceExecutionTest is Test, Deployers {
         targets[0] = address(hook);
         uint256[] memory values = new uint256[](1);
         bytes[] memory calldatas = new bytes[](1);
-        calldatas[0] = abi.encodeCall(AsyncSwap.setPoolFee, (poolId, uint24(20_000)));
+        calldatas[0] = abi.encodeWithSelector(IntentAuth.setPoolFee.selector, poolId, uint24(20_000));
         string memory description = "set pool fee";
 
         vm.prank(voter);
@@ -224,7 +225,7 @@ contract AsyncGovernanceExecutionTest is Test, Deployers {
         targets[0] = address(hook);
         uint256[] memory values = new uint256[](1);
         bytes[] memory calldatas = new bytes[](1);
-        calldatas[0] = abi.encodeCall(AsyncSwap.setFeeRefundToggle, (true));
+        calldatas[0] = abi.encodeWithSelector(IntentAuth.setFeeRefundToggle.selector, true);
         string memory description = "enable fee refund toggle";
 
         vm.prank(voter);
