@@ -34,6 +34,7 @@ contract AsyncRouter is IUnlockCallback {
     error ONLY_POOL_MANAGER();
     error SWAP_NOT_NOOPED();
     error UNSUPPORTED_INPUT_TOKEN();
+    error INPUT_TRANSFER_FAILED();
 
     constructor(IPoolManager _pm, address _hook) {
         POOL_MANAGER = _pm;
@@ -50,7 +51,8 @@ contract AsyncRouter is IUnlockCallback {
         if (inputCurrency.isAddressZero()) revert UNSUPPORTED_INPUT_TOKEN();
 
         POOL_MANAGER.sync(inputCurrency);
-        IERC20Minimal(Currency.unwrap(inputCurrency)).transferFrom(payer, address(POOL_MANAGER), amount);
+        bool success = IERC20Minimal(Currency.unwrap(inputCurrency)).transferFrom(payer, address(POOL_MANAGER), amount);
+        if (!success) revert INPUT_TRANSFER_FAILED();
         uint256 paid = POOL_MANAGER.settle();
         if (paid != amount) revert UNSUPPORTED_INPUT_TOKEN();
     }
@@ -62,11 +64,7 @@ contract AsyncRouter is IUnlockCallback {
         SwapData memory cb = abi.decode(data, (SwapData));
 
         // Build the Order struct and hookData that beforeSwap expects
-        AsyncSwap.Order memory order = AsyncSwap.Order({
-            poolId: cb.key.toId(),
-            swapper: cb.user,
-            tick: cb.tick
-        });
+        AsyncSwap.Order memory order = AsyncSwap.Order({poolId: cb.key.toId(), swapper: cb.user, tick: cb.tick});
 
         // Call PM.swap() — this triggers hook.beforeSwap() since msg.sender is this router, not the hook
         BalanceDelta delta = POOL_MANAGER.swap(
@@ -74,9 +72,7 @@ contract AsyncRouter is IUnlockCallback {
             SwapParams({
                 zeroForOne: cb.zeroForOne,
                 amountSpecified: -int256(cb.amountIn),
-                sqrtPriceLimitX96: cb.zeroForOne
-                    ? TickMath.MIN_SQRT_PRICE + 1
-                    : TickMath.MAX_SQRT_PRICE - 1
+                sqrtPriceLimitX96: cb.zeroForOne ? TickMath.MIN_SQRT_PRICE + 1 : TickMath.MAX_SQRT_PRICE - 1
             }),
             abi.encode(order, cb.minAmountOut)
         );

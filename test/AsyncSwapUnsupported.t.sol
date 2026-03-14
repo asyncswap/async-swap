@@ -201,6 +201,25 @@ contract AsyncSwapUnsupportedTest is Test, Deployers {
         assertEq(hook.getBalanceIn(order, zeroForOne), 0, "input should not be recorded");
         assertEq(hook.getBalanceOut(order, zeroForOne), 0, "output should not be recorded");
     }
+
+    function test_falseReturnInput_revertsAndCreatesNoOrder() public {
+        FalseReturnInputToken inputToken = new FalseReturnInputToken("False In", "FIN", 18);
+        MockERC20 outputToken = new MockERC20("Out", "OUT", 18);
+
+        inputToken.mint(address(this), 100e18);
+        inputToken.approve(address(hook.router()), type(uint256).max);
+
+        (PoolKey memory customKey, PoolId customPoolId, bool zeroForOne) =
+            _initCustomPool(address(inputToken), address(outputToken));
+
+        AsyncSwap.Order memory order = AsyncSwap.Order({poolId: customPoolId, swapper: address(this), tick: 0});
+
+        vm.expectRevert(AsyncRouter.INPUT_TRANSFER_FAILED.selector);
+        hook.swap(customKey, zeroForOne, 10e18, 0, 0);
+
+        assertEq(hook.getBalanceIn(order, zeroForOne), 0, "input should not be recorded");
+        assertEq(hook.getBalanceOut(order, zeroForOne), 0, "output should not be recorded");
+    }
 }
 
 contract FeeOnTransferInputToken is MockERC20 {
@@ -228,5 +247,16 @@ contract FeeOnTransferInputToken is MockERC20 {
         emit Transfer(from, to, received);
         if (fee > 0) emit Transfer(from, address(0), fee);
         return true;
+    }
+}
+
+contract FalseReturnInputToken is MockERC20 {
+    constructor(string memory name_, string memory symbol_, uint8 decimals_) MockERC20(name_, symbol_, decimals_) {}
+
+    function transferFrom(address from, address to, uint256 amount) public override returns (bool) {
+        uint256 allowed = allowance[from][msg.sender];
+        if (allowed != type(uint256).max) allowance[from][msg.sender] = allowed - amount;
+        emit Transfer(from, to, 0);
+        return false;
     }
 }

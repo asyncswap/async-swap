@@ -11,13 +11,13 @@ import {Currency} from "v4-core/src/types/Currency.sol";
 import {ModifyLiquidityParams, SwapParams} from "v4-core/src/types/PoolOperation.sol";
 import {PoolId} from "v4-core/src/types/PoolId.sol";
 import {PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
-import {CurrencySettler} from "v4-core/test/utils/CurrencySettler.sol";
 import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 import {FullMath} from "v4-core/src/libraries/FullMath.sol";
 import {FixedPoint96} from "v4-core/src/libraries/FixedPoint96.sol";
 import {IERC20Minimal} from "v4-core/src/interfaces/external/IERC20Minimal.sol";
 import {IUnlockCallback} from "v4-core/src/interfaces/callback/IUnlockCallback.sol";
 import {AsyncRouter} from "./AsyncRouter.sol";
+import {CurrencySettler} from "./libraries/CurrencySettler.sol";
 
 contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
     using PoolIdLibrary for PoolKey;
