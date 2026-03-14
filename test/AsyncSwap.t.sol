@@ -97,7 +97,7 @@ contract AsyncSwapTest is Test, Deployers {
 
     function test_setUp_hookDeployed() public view {
         assertEq(address(hook.POOL_MANAGER()), address(manager));
-        assertEq(hook.owner(), address(this));
+        assertEq(hook.protocolOwner(), address(this));
         assertTrue(address(hook.router()) != address(0), "router should be deployed");
     }
 

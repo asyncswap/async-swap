@@ -29,8 +29,10 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
     /// @notice The minimum fee charged by the protocol in ppm (12000 = 1.2%)
     uint24 public minimumFee = 1_2000;
 
-    /// @notice The Owner
-    address public owner;
+    /// @notice The protocol owner
+    address public protocolOwner;
+    /// @notice The pending owner (for two-step transfer)
+    address public pendingOwner;
     /// @notice The Router — deployed by constructor, immutable
     AsyncRouter public immutable router;
 
@@ -113,11 +115,37 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
     /// @notice Only PoolManager can call unlockCallback
     error CALLER_NOT_POOL_MANAGER_CALLBACK();
 
+    /// @notice Only the pending owner can accept ownership
+    error NOT_PENDING_OWNER();
+
+    /// @notice Emitted when ownership transfer is initiated
+    event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
+
+    /// @notice Emitted when ownership is transferred
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
     /// @notice Initialize PoolManager storage variable and deploy the router
     constructor(IPoolManager _pm) {
         POOL_MANAGER = _pm;
-        owner = msg.sender;
+        protocolOwner = msg.sender;
         router = new AsyncRouter(_pm, address(this));
+        emit OwnershipTransferred(address(0), msg.sender);
+    }
+
+    /// @notice Initiate ownership transfer to a new address. Must be accepted by the new owner.
+    /// @param newOwner The address to transfer ownership to
+    function transferOwnership(address newOwner) external {
+        require(msg.sender == protocolOwner, "NOT OWNER");
+        pendingOwner = newOwner;
+        emit OwnershipTransferStarted(protocolOwner, newOwner);
+    }
+
+    /// @notice Accept ownership transfer. Only callable by the pending owner.
+    function acceptOwnership() external {
+        if (msg.sender != pendingOwner) revert NOT_PENDING_OWNER();
+        emit OwnershipTransferred(protocolOwner, msg.sender);
+        protocolOwner = msg.sender;
+        pendingOwner = address(0);
     }
 
     /// @notice Only PoolManager contract allowed as msg.sender
@@ -219,7 +247,7 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
         // input validation is done during swap order with tick validations on amountIn and amountOut
 
         /// @dev only owner of this hook is allowed to initialize pools
-        require(sender == owner, "NOT HOOK OWNER");
+        require(sender == protocolOwner, "NOT HOOK OWNER");
         require(address(key.hooks) == address(this));
         /// @dev require a minimum fee
         require(key.fee >= minimumFee, "FEE SET TOO LOW");
@@ -237,7 +265,7 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
         // input validation of is done during swap order with tick validations on amountIn and amountOut
 
         /// @dev only owner of this contract can modify pools initialization
-        require(sender == owner);
+        require(sender == protocolOwner);
         /// @dev store poolId
         pools[key.toId()] = key;
 
