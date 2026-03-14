@@ -47,7 +47,7 @@ contract AsyncSwapTest is Test, Deployers {
 
         // Deploy hook at the flag-aligned address — constructor runs, deploys router
         address hookAddr = address(HOOK_FLAGS);
-        deployCodeTo("AsyncSwap.sol:AsyncSwap", abi.encode(address(manager)), hookAddr);
+        deployCodeTo("AsyncSwap.sol:AsyncSwap", abi.encode(address(manager), address(this)), hookAddr);
         hook = AsyncSwap(hookAddr);
 
         // Approve router for settle (CurrencySettler.transferFrom is called by router as msg.sender)

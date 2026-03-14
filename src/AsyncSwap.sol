@@ -100,7 +100,7 @@ contract AsyncSwap layout at 1000 is IntentAuth, IHooks, IUnlockCallback {
     error CALLER_NOT_POOL_MANAGER_CALLBACK();
 
     /// @notice Initialize PoolManager storage variable and deploy the router
-    constructor(IPoolManager _pm) IntentAuth(_pm) {
+    constructor(IPoolManager _pm, address _initialOwner) IntentAuth(_pm, _initialOwner) {
         router = new AsyncRouter(_pm, address(this));
     }
 

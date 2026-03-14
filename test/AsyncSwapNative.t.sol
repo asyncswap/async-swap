@@ -39,7 +39,7 @@ contract AsyncSwapNativeTest is Test, Deployers {
         deployFreshManagerAndRouters();
 
         address hookAddr = address(HOOK_FLAGS);
-        deployCodeTo("AsyncSwap.sol:AsyncSwap", abi.encode(address(manager)), hookAddr);
+        deployCodeTo("AsyncSwap.sol:AsyncSwap", abi.encode(address(manager), address(this)), hookAddr);
         hook = AsyncSwap(hookAddr);
 
         token1 = new MockERC20("Token One", "TK1", 18);

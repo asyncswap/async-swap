@@ -36,7 +36,7 @@ contract AsyncSwapUnsupportedTest is Test, Deployers {
         deployMintAndApprove2Currencies();
 
         address hookAddr = address(HOOK_FLAGS);
-        deployCodeTo("AsyncSwap.sol:AsyncSwap", abi.encode(address(manager)), hookAddr);
+        deployCodeTo("AsyncSwap.sol:AsyncSwap", abi.encode(address(manager), address(this)), hookAddr);
         hook = AsyncSwap(hookAddr);
 
         poolKey = PoolKey({

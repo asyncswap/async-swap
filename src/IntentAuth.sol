@@ -39,10 +39,10 @@ contract IntentAuth {
     event Unpaused(address indexed by);
     event FeeRefundToggleUpdated(bool previousValue, bool newValue);
 
-    constructor(IPoolManager _poolManager) {
+    constructor(IPoolManager _poolManager, address _initialOwner) {
         POOL_MANAGER = _poolManager;
-        protocolOwner = msg.sender;
-        emit OwnershipTransferred(address(0), msg.sender);
+        protocolOwner = _initialOwner;
+        emit OwnershipTransferred(address(0), _initialOwner);
     }
 
     function transferOwnership(address newOwner) external {

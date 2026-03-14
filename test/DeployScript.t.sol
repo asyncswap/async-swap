@@ -18,7 +18,7 @@ contract DeployScriptTest is Test {
     }
 
     function test_hookMiner_find_returnsFlaggedEmptyAddress() public view {
-        bytes memory constructorArgs = abi.encode(address(0xBEEF));
+        bytes memory constructorArgs = abi.encode(address(0xBEEF), address(0xCAFE));
         (address mined, bytes32 salt) =
             HookMiner.find(LOCAL_CREATE2_FACTORY, _flags(), type(AsyncSwap).creationCode, constructorArgs);
 
@@ -45,5 +45,6 @@ contract DeployScriptTest is Test {
         assertTrue(hook != address(0), "hook not deployed");
         assertEq(uint160(hook) & Hooks.ALL_HOOK_MASK, _flags(), "deployed hook flags mismatch");
         assertEq(address(AsyncSwap(hook).POOL_MANAGER()), manager, "hook manager mismatch");
+        assertEq(AsyncSwap(hook).protocolOwner(), deployer, "hook owner mismatch");
     }
 }
