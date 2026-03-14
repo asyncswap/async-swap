@@ -8,4 +8,7 @@ solc_version = "0.8.34"
 forge-std = "1.15.0"
 v4-core = { version = "4", git = "https://github.com/Uniswap/v4-core.git", rev = "d153b048868a60c2403a3ef5b2301bb247884d46" }
 
+[lint]
+lint_on_build = false
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
