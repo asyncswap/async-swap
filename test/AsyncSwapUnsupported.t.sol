@@ -17,6 +17,7 @@ import {SwapParams, ModifyLiquidityParams} from "v4-core/src/types/PoolOperation
 import {PoolModifyLiquidityTest} from "v4-core/src/test/PoolModifyLiquidityTest.sol";
 import {IERC20Minimal} from "v4-core/src/interfaces/external/IERC20Minimal.sol";
 import {TickMath} from "v4-core/src/libraries/TickMath.sol";
+import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
 
 /// @notice Tests that adding liquidity is blocked (afterAddLiquidity flag is enabled to reject LPs).
 contract AsyncSwapUnsupportedTest is Test, Deployers {
@@ -44,7 +45,7 @@ contract AsyncSwapUnsupportedTest is Test, Deployers {
         poolKey = PoolKey({
             currency0: currency0,
             currency1: currency1,
-            fee: HOOK_FEE,
+            fee: LPFeeLibrary.DYNAMIC_FEE_FLAG,
             tickSpacing: TICK_SPACING,
             hooks: IHooks(hookAddr)
         });
@@ -63,7 +64,7 @@ contract AsyncSwapUnsupportedTest is Test, Deployers {
         customKey = PoolKey({
             currency0: c0,
             currency1: c1,
-            fee: HOOK_FEE,
+            fee: LPFeeLibrary.DYNAMIC_FEE_FLAG,
             tickSpacing: TICK_SPACING,
             hooks: IHooks(address(hook))
         });

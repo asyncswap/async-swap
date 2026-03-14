@@ -12,6 +12,8 @@ import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
+import {FullMath} from "v4-core/src/libraries/FullMath.sol";
+import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
 
 contract AsyncRouterTest is Test, Deployers {
     using PoolIdLibrary for PoolKey;
@@ -45,7 +47,7 @@ contract AsyncRouterTest is Test, Deployers {
         poolKey = PoolKey({
             currency0: currency0,
             currency1: currency1,
-            fee: HOOK_FEE,
+            fee: LPFeeLibrary.DYNAMIC_FEE_FLAG,
             tickSpacing: TICK_SPACING,
             hooks: IHooks(hookAddr)
         });
@@ -149,6 +151,11 @@ contract AsyncRouterTest is Test, Deployers {
     // Swap through hook.swap() works end-to-end
     // ========================================
 
+    function _netInput(uint256 amount) internal pure returns (uint256) {
+        uint256 fee = FullMath.mulDivRoundingUp(amount, HOOK_FEE, 1_000_000);
+        return amount - fee;
+    }
+
     function test_swap_endToEnd() public {
         uint256 swapAmount = 5e18;
 
@@ -159,7 +166,7 @@ contract AsyncRouterTest is Test, Deployers {
         assertEq(balBefore - balAfter, swapAmount, "user did not pay input");
 
         AsyncSwap.Order memory order = AsyncSwap.Order({poolId: poolId, swapper: address(this), tick: ORDER_TICK});
-        assertEq(hook.getBalanceIn(order, true), swapAmount, "balanceIn mismatch");
+        assertEq(hook.getBalanceIn(order, true), _netInput(swapAmount), "balanceIn mismatch");
         assertGt(hook.getBalanceOut(order, true), 0, "balanceOut should be > 0");
     }
 }

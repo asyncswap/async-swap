@@ -16,6 +16,7 @@ import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 import {SwapParams} from "v4-core/src/types/PoolOperation.sol";
 import {PoolSwapTest} from "v4-core/src/test/PoolSwapTest.sol";
 import {FullMath} from "v4-core/src/libraries/FullMath.sol";
+import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
 
 contract AsyncSwapFillTest is Test, Deployers {
     using PoolIdLibrary for PoolKey;
@@ -48,7 +49,7 @@ contract AsyncSwapFillTest is Test, Deployers {
         poolKey = PoolKey({
             currency0: currency0,
             currency1: currency1,
-            fee: HOOK_FEE,
+            fee: LPFeeLibrary.DYNAMIC_FEE_FLAG,
             tickSpacing: TICK_SPACING,
             hooks: IHooks(hookAddr)
         });
@@ -67,6 +68,11 @@ contract AsyncSwapFillTest is Test, Deployers {
 
     function _swap(bool zeroForOne, uint256 amountIn, int24 tick, uint256 minAmountOut) internal {
         hook.swap(poolKey, zeroForOne, amountIn, tick, minAmountOut);
+    }
+
+    function _netInput(uint256 amount) internal pure returns (uint256) {
+        uint256 fee = FullMath.mulDivRoundingUp(amount, HOOK_FEE, 1_000_000);
+        return amount - fee;
     }
 
     function _createSwapOrder(uint256 swapAmount, int24 tick, bool zeroForOne)
@@ -95,7 +101,7 @@ contract AsyncSwapFillTest is Test, Deployers {
         customKey = PoolKey({
             currency0: c0,
             currency1: c1,
-            fee: HOOK_FEE,
+            fee: LPFeeLibrary.DYNAMIC_FEE_FLAG,
             tickSpacing: TICK_SPACING,
             hooks: IHooks(address(hook))
         });
@@ -125,7 +131,7 @@ contract AsyncSwapFillTest is Test, Deployers {
         assertEq(currency1.balanceOf(address(this)) - swapperOutBefore, expectedOut, "swapper did not receive output");
 
         uint256 fillerClaimsAfter = manager.balanceOf(filler, currency0.toId());
-        assertEq(fillerClaimsAfter - fillerClaimsBefore, swapAmount, "filler did not receive input claims");
+        assertEq(fillerClaimsAfter - fillerClaimsBefore, _netInput(swapAmount), "filler did not receive input claims");
 
         assertEq(hook.getBalanceOut(order, true), 0, "balanceOut not zero after full fill");
         assertEq(hook.getBalanceIn(order, true), 0, "balanceIn not zero after full fill");
@@ -243,7 +249,7 @@ contract AsyncSwapFillTest is Test, Deployers {
         bytes32 expectedOrderId = keccak256(abi.encode(order));
 
         vm.expectEmit(true, false, false, true, address(hook));
-        emit AsyncSwap.Fill(expectedOrderId, filler, expectedOut, swapAmount);
+        emit AsyncSwap.Fill(expectedOrderId, filler, expectedOut, _netInput(swapAmount));
 
         vm.prank(filler);
         hook.fill(order, true, expectedOut);
@@ -264,7 +270,8 @@ contract AsyncSwapFillTest is Test, Deployers {
         uint256 fillAmount = expectedOut * 60 / 100;
         require(fillAmount >= (expectedOut + 1) / 2, "test setup: fill too small");
 
-        uint256 expectedInputShare = FullMath.mulDiv(fillAmount, swapAmount, expectedOut);
+        uint256 netIn = _netInput(swapAmount);
+        uint256 expectedInputShare = FullMath.mulDiv(fillAmount, netIn, expectedOut);
 
         vm.prank(filler);
         hook.fill(order, true, fillAmount);
@@ -273,7 +280,7 @@ contract AsyncSwapFillTest is Test, Deployers {
         assertEq(fillerClaims, expectedInputShare, "input share mismatch");
 
         assertEq(hook.getBalanceOut(order, true), expectedOut - fillAmount, "remaining out");
-        assertEq(hook.getBalanceIn(order, true), swapAmount - expectedInputShare, "remaining in");
+        assertEq(hook.getBalanceIn(order, true), netIn - expectedInputShare, "remaining in");
     }
 
     // ========================================
@@ -411,7 +418,7 @@ contract AsyncSwapFillTest is Test, Deployers {
 
         hook.cancelOrder(order, true);
 
-        assertEq(currency0.balanceOf(address(this)) - swapperBalBefore, swapAmount, "swapper did not receive input back");
+        assertEq(currency0.balanceOf(address(this)) - swapperBalBefore, _netInput(swapAmount), "swapper did not receive input back");
         assertEq(hook.getBalanceIn(order, true), 0, "balanceIn not zero");
         assertEq(hook.getBalanceOut(order, true), 0, "balanceOut not zero");
     }
@@ -424,7 +431,7 @@ contract AsyncSwapFillTest is Test, Deployers {
 
         hook.cancelOrder(order, false);
 
-        assertEq(currency1.balanceOf(address(this)) - swapperBalBefore, swapAmount, "swapper did not receive input back");
+        assertEq(currency1.balanceOf(address(this)) - swapperBalBefore, _netInput(swapAmount), "swapper did not receive input back");
         assertEq(hook.getBalanceIn(order, false), 0, "balanceIn not zero");
         assertEq(hook.getBalanceOut(order, false), 0, "balanceOut not zero");
     }
@@ -496,7 +503,7 @@ contract AsyncSwapFillTest is Test, Deployers {
         bytes32 expectedOrderId = keccak256(abi.encode(order));
 
         vm.expectEmit(true, false, false, true, address(hook));
-        emit AsyncSwap.Cancel(expectedOrderId, address(this), swapAmount);
+        emit AsyncSwap.Cancel(expectedOrderId, address(this), _netInput(swapAmount));
 
         hook.cancelOrder(order, true);
     }
@@ -778,7 +785,7 @@ contract AsyncSwapFillTest is Test, Deployers {
 
         // Swap
         _swap(true, swapAmount, ORDER_TICK, 0);
-        assertEq(hook.getBalanceIn(order, true), swapAmount);
+        assertEq(hook.getBalanceIn(order, true), _netInput(swapAmount));
 
         // Cancel
         hook.cancelOrder(order, true);
@@ -787,7 +794,7 @@ contract AsyncSwapFillTest is Test, Deployers {
 
         // Swap again — should start fresh, not accumulate
         _swap(true, swapAmount, ORDER_TICK, 0);
-        assertEq(hook.getBalanceIn(order, true), swapAmount, "should be fresh after cancel");
+        assertEq(hook.getBalanceIn(order, true), _netInput(swapAmount), "should be fresh after cancel");
     }
 }
 

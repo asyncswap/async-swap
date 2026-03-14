@@ -12,6 +12,8 @@ import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
+import {FullMath} from "v4-core/src/libraries/FullMath.sol";
+import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
 
 contract AsyncSwapMultiPoolTest is Test, Deployers {
     using PoolIdLibrary for PoolKey;
@@ -40,6 +42,11 @@ contract AsyncSwapMultiPoolTest is Test, Deployers {
     int24 constant TICK_SPACING = 240;
     int24 constant ORDER_TICK = 0;
 
+    function _netInput(uint256 amount) internal pure returns (uint256) {
+        uint256 fee = FullMath.mulDivRoundingUp(amount, HOOK_FEE, 1_000_000);
+        return amount - fee;
+    }
+
     function setUp() public {
         deployFreshManagerAndRouters();
         deployMintAndApprove2Currencies();
@@ -58,7 +65,7 @@ contract AsyncSwapMultiPoolTest is Test, Deployers {
         poolKey1 = PoolKey({
             currency0: currency0,
             currency1: currency1,
-            fee: HOOK_FEE,
+            fee: LPFeeLibrary.DYNAMIC_FEE_FLAG,
             tickSpacing: TICK_SPACING,
             hooks: IHooks(hookAddr)
         });
@@ -82,7 +89,7 @@ contract AsyncSwapMultiPoolTest is Test, Deployers {
         poolKey2 = PoolKey({
             currency0: currencyA,
             currency1: currencyB,
-            fee: HOOK_FEE,
+            fee: LPFeeLibrary.DYNAMIC_FEE_FLAG,
             tickSpacing: TICK_SPACING,
             hooks: IHooks(hookAddr)
         });
@@ -104,8 +111,8 @@ contract AsyncSwapMultiPoolTest is Test, Deployers {
         AsyncSwap.Order memory order1 = AsyncSwap.Order({poolId: poolId1, swapper: address(this), tick: ORDER_TICK});
         AsyncSwap.Order memory order2 = AsyncSwap.Order({poolId: poolId2, swapper: address(this), tick: ORDER_TICK});
 
-        assertEq(hook.getBalanceIn(order1, true), swapAmount1, "pool1 balanceIn");
-        assertEq(hook.getBalanceIn(order2, true), swapAmount2, "pool2 balanceIn");
+        assertEq(hook.getBalanceIn(order1, true), _netInput(swapAmount1), "pool1 balanceIn");
+        assertEq(hook.getBalanceIn(order2, true), _netInput(swapAmount2), "pool2 balanceIn");
     }
 
     // ========================================
@@ -126,7 +133,7 @@ contract AsyncSwapMultiPoolTest is Test, Deployers {
         hook.cancelOrder(order1, true);
 
         assertEq(hook.getBalanceIn(order1, true), 0, "pool1 should be cancelled");
-        assertEq(hook.getBalanceIn(order2, true), swapAmount2, "pool2 should be unaffected");
+        assertEq(hook.getBalanceIn(order2, true), _netInput(swapAmount2), "pool2 should be unaffected");
     }
 
     // ========================================
@@ -159,7 +166,7 @@ contract AsyncSwapMultiPoolTest is Test, Deployers {
         assertEq(hook.getBalanceOut(order1, true), 0, "pool1 out should be zero");
 
         // Pool 2 unaffected
-        assertEq(hook.getBalanceIn(order2, true), swapAmount2, "pool2 balanceIn should be unaffected");
+        assertEq(hook.getBalanceIn(order2, true), _netInput(swapAmount2), "pool2 balanceIn should be unaffected");
         assertGt(hook.getBalanceOut(order2, true), 0, "pool2 balanceOut should be unaffected");
     }
 
@@ -194,9 +201,9 @@ contract AsyncSwapMultiPoolTest is Test, Deployers {
         AsyncSwap.Order memory order2 = AsyncSwap.Order({poolId: poolId2, swapper: address(this), tick: ORDER_TICK});
 
         // Pool 1 accumulated
-        assertEq(hook.getBalanceIn(order1, true), 5e18, "pool1 should accumulate 3+2");
+        assertEq(hook.getBalanceIn(order1, true), _netInput(3e18) + _netInput(2e18), "pool1 should accumulate 3+2");
 
         // Pool 2 independent
-        assertEq(hook.getBalanceIn(order2, true), 7e18, "pool2 should have 7");
+        assertEq(hook.getBalanceIn(order2, true), _netInput(7e18), "pool2 should have 7");
     }
 }

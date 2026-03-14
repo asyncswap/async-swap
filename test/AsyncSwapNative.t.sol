@@ -11,6 +11,8 @@ import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
+import {FullMath} from "v4-core/src/libraries/FullMath.sol";
+import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
 
 contract AsyncSwapNativeTest is Test, Deployers {
     using PoolIdLibrary for PoolKey;
@@ -44,7 +46,7 @@ contract AsyncSwapNativeTest is Test, Deployers {
         poolKey = PoolKey({
             currency0: Currency.wrap(address(0)),
             currency1: Currency.wrap(address(token1)),
-            fee: HOOK_FEE,
+            fee: LPFeeLibrary.DYNAMIC_FEE_FLAG,
             tickSpacing: TICK_SPACING,
             hooks: IHooks(hookAddr)
         });
@@ -70,6 +72,11 @@ contract AsyncSwapNativeTest is Test, Deployers {
         return AsyncSwap.Order({poolId: poolId, swapper: swapper, tick: tick});
     }
 
+    function _netInput(uint256 amount) internal pure returns (uint256) {
+        uint256 fee = FullMath.mulDivRoundingUp(amount, HOOK_FEE, 1_000_000);
+        return amount - fee;
+    }
+
     function test_nativeInput_swap_records_order_and_claims() public {
         uint256 amountIn = 1 ether;
 
@@ -78,7 +85,7 @@ contract AsyncSwapNativeTest is Test, Deployers {
 
         AsyncSwap.Order memory order = _order(alice, ORDER_TICK);
 
-        assertEq(hook.getBalanceIn(order, true), amountIn, "input not recorded");
+        assertEq(hook.getBalanceIn(order, true), _netInput(amountIn), "input not recorded");
         assertGt(hook.getBalanceOut(order, true), 0, "output not recorded");
         assertEq(manager.balanceOf(address(hook), poolKey.currency0.toId()), amountIn, "native claim not minted");
     }
@@ -99,7 +106,7 @@ contract AsyncSwapNativeTest is Test, Deployers {
         hook.fill(order, true, expectedOut);
 
         assertEq(token1.balanceOf(alice) - aliceTokenBefore, expectedOut, "alice did not receive output");
-        assertEq(manager.balanceOf(filler, poolKey.currency0.toId()) - fillerClaimsBefore, amountIn, "filler claims wrong");
+        assertEq(manager.balanceOf(filler, poolKey.currency0.toId()) - fillerClaimsBefore, _netInput(amountIn), "filler claims wrong");
         assertEq(hook.getBalanceIn(order, true), 0, "remaining input should be zero");
         assertEq(hook.getBalanceOut(order, true), 0, "remaining output should be zero");
     }
@@ -120,7 +127,7 @@ contract AsyncSwapNativeTest is Test, Deployers {
         hook.fill{value: expectedOut}(order, false, expectedOut);
 
         assertEq(alice.balance - aliceEthBefore, expectedOut, "alice did not receive native output");
-        assertEq(manager.balanceOf(filler, poolKey.currency1.toId()) - fillerClaimsBefore, amountIn, "filler claims wrong");
+        assertEq(manager.balanceOf(filler, poolKey.currency1.toId()) - fillerClaimsBefore, _netInput(amountIn), "filler claims wrong");
         assertEq(hook.getBalanceIn(order, false), 0, "remaining input should be zero");
         assertEq(hook.getBalanceOut(order, false), 0, "remaining output should be zero");
     }
@@ -209,7 +216,7 @@ contract AsyncSwapNativeTest is Test, Deployers {
         vm.prank(alice);
         hook.cancelOrder(order, true);
 
-        assertEq(alice.balance, balanceBefore + amountIn, "alice did not receive native refund");
+        assertEq(alice.balance, balanceBefore + _netInput(amountIn), "alice did not receive native refund");
         assertEq(hook.getBalanceIn(order, true), 0, "input should be cleared");
         assertEq(hook.getBalanceOut(order, true), 0, "output should be cleared");
     }

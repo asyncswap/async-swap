@@ -21,6 +21,7 @@ import {FullMath} from "v4-core/src/libraries/FullMath.sol";
 import {FixedPoint96} from "v4-core/src/libraries/FixedPoint96.sol";
 import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
 import {CustomRevert} from "v4-core/src/libraries/CustomRevert.sol";
+import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
 
 contract AsyncSwapTest is Test, Deployers {
     using PoolIdLibrary for PoolKey;
@@ -65,7 +66,7 @@ contract AsyncSwapTest is Test, Deployers {
         poolKey = PoolKey({
             currency0: currency0,
             currency1: currency1,
-            fee: HOOK_FEE,
+            fee: LPFeeLibrary.DYNAMIC_FEE_FLAG,
             tickSpacing: TICK_SPACING,
             hooks: IHooks(hookAddr)
         });
@@ -89,6 +90,11 @@ contract AsyncSwapTest is Test, Deployers {
 
     function _swap(bool zeroForOne, uint256 amountIn, int24 tick, uint256 minAmountOut) internal {
         hook.swap(poolKey, zeroForOne, amountIn, tick, minAmountOut);
+    }
+
+    function _netInput(uint256 amount) internal pure returns (uint256) {
+        uint256 fee = FullMath.mulDivRoundingUp(amount, HOOK_FEE, 1_000_000);
+        return amount - fee;
     }
 
     // ========================================
@@ -183,7 +189,7 @@ contract AsyncSwapTest is Test, Deployers {
         uint256 balanceOut = hook.getBalanceOut(order, true);
         uint256 balanceIn = hook.getBalanceIn(order, true);
 
-        assertEq(balanceIn, swapAmount, "balanceIn should equal full input");
+        assertEq(balanceIn, _netInput(swapAmount), "balanceIn should equal net input");
 
         // Expected: 1e18 - 1.2% fee = 988e15, then at price=1 output = 988e15
         uint256 expectedFee = FullMath.mulDivRoundingUp(swapAmount, HOOK_FEE, 1_000_000);
@@ -208,7 +214,7 @@ contract AsyncSwapTest is Test, Deployers {
         uint256 balanceOut = hook.getBalanceOut(order, false);
         uint256 balanceIn = hook.getBalanceIn(order, false);
 
-        assertEq(balanceIn, swapAmount, "balanceIn should equal full input");
+        assertEq(balanceIn, _netInput(swapAmount), "balanceIn should equal net input");
 
         uint256 expectedFee = FullMath.mulDivRoundingUp(swapAmount, HOOK_FEE, 1_000_000);
         uint256 expectedAmountInAfterFee = swapAmount - expectedFee;
@@ -305,7 +311,7 @@ contract AsyncSwapTest is Test, Deployers {
         uint256 balanceIn = hook.getBalanceIn(order, true);
         uint256 balanceOut = hook.getBalanceOut(order, true);
 
-        assertEq(balanceIn, swapAmount, "balanceIn not recorded");
+        assertEq(balanceIn, _netInput(swapAmount), "balanceIn not recorded");
         assertGt(balanceOut, 0, "balanceOut not recorded");
     }
 
@@ -339,8 +345,8 @@ contract AsyncSwapTest is Test, Deployers {
         uint256 balanceInOFZ = hook.getBalanceIn(order, false);
 
         // Both should be recorded independently
-        assertEq(balanceInZFO, swapAmount, "zeroForOne balanceIn");
-        assertEq(balanceInOFZ, swapAmount, "oneForZero balanceIn");
+        assertEq(balanceInZFO, _netInput(swapAmount), "zeroForOne balanceIn");
+        assertEq(balanceInOFZ, _netInput(swapAmount), "oneForZero balanceIn");
     }
 
     // ========================================
@@ -409,7 +415,7 @@ contract AsyncSwapTest is Test, Deployers {
         _swap(true, swapAmount, ORDER_TICK, 0);
 
         uint256 balanceIn = hook.getBalanceIn(order, true);
-        assertEq(balanceIn, swapAmount);
+        assertEq(balanceIn, _netInput(swapAmount));
     }
 
     function test_exactInput_largeAmount() public {
@@ -418,7 +424,7 @@ contract AsyncSwapTest is Test, Deployers {
         _swap(true, swapAmount, ORDER_TICK, 0);
 
         uint256 balanceIn = hook.getBalanceIn(order, true);
-        assertEq(balanceIn, swapAmount);
+        assertEq(balanceIn, _netInput(swapAmount));
 
         uint256 balanceOut = hook.getBalanceOut(order, true);
         // After 1.2% fee, output should be ~98.8% of input at price=1
@@ -595,7 +601,7 @@ contract AsyncSwapTest is Test, Deployers {
         assertEq(hookClaimsAfter - hookClaimsBefore, amountIn, "fuzz: hook claims mismatch");
 
         // Invariant 4: Order state recorded correctly
-        assertEq(hook.getBalanceIn(order, zeroForOne), amountIn, "fuzz: balanceIn mismatch");
+        assertEq(hook.getBalanceIn(order, zeroForOne), _netInput(amountIn), "fuzz: balanceIn mismatch");
         assertEq(hook.getBalanceOut(order, zeroForOne), expectedOut, "fuzz: balanceOut mismatch");
 
         // Invariant 5: Output > 0 for nonzero input
@@ -674,6 +680,9 @@ contract AsyncSwapTest is Test, Deployers {
         amount1 = bound(amount1, 1000, 2 ** 99);
         amount2 = bound(amount2, 1000, 2 ** 99);
 
+        uint256 net1 = _netInput(amount1);
+        uint256 net2 = _netInput(amount2);
+
         AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
 
         // First swap
@@ -687,34 +696,24 @@ contract AsyncSwapTest is Test, Deployers {
         uint256 balOut2 = hook.getBalanceOut(order, zeroForOne);
 
         // Compute expected output for each individually
-        uint256 fee1 = FullMath.mulDivRoundingUp(amount1, HOOK_FEE, 1_000_000);
-        uint256 fee2 = FullMath.mulDivRoundingUp(amount2, HOOK_FEE, 1_000_000);
         uint160 sqrtPrice = TickMath.getSqrtPriceAtTick(ORDER_TICK);
 
         uint256 out1;
         uint256 out2;
         if (zeroForOne) {
-            out1 = FullMath.mulDiv(
-                FullMath.mulDiv(amount1 - fee1, sqrtPrice, FixedPoint96.Q96), sqrtPrice, FixedPoint96.Q96
-            );
-            out2 = FullMath.mulDiv(
-                FullMath.mulDiv(amount2 - fee2, sqrtPrice, FixedPoint96.Q96), sqrtPrice, FixedPoint96.Q96
-            );
+            out1 = FullMath.mulDiv(FullMath.mulDiv(net1, sqrtPrice, FixedPoint96.Q96), sqrtPrice, FixedPoint96.Q96);
+            out2 = FullMath.mulDiv(FullMath.mulDiv(net2, sqrtPrice, FixedPoint96.Q96), sqrtPrice, FixedPoint96.Q96);
         } else {
-            out1 = FullMath.mulDiv(
-                FullMath.mulDiv(amount1 - fee1, FixedPoint96.Q96, sqrtPrice), FixedPoint96.Q96, sqrtPrice
-            );
-            out2 = FullMath.mulDiv(
-                FullMath.mulDiv(amount2 - fee2, FixedPoint96.Q96, sqrtPrice), FixedPoint96.Q96, sqrtPrice
-            );
+            out1 = FullMath.mulDiv(FullMath.mulDiv(net1, FixedPoint96.Q96, sqrtPrice), FixedPoint96.Q96, sqrtPrice);
+            out2 = FullMath.mulDiv(FullMath.mulDiv(net2, FixedPoint96.Q96, sqrtPrice), FixedPoint96.Q96, sqrtPrice);
         }
 
         // Balances should accumulate additively
-        assertEq(balIn2, amount1 + amount2, "fuzz: balanceIn not additive");
+        assertEq(balIn2, net1 + net2, "fuzz: balanceIn not additive");
         assertEq(balOut2, out1 + out2, "fuzz: balanceOut not additive");
 
         // First swap should have been recorded independently
-        assertEq(balIn1, amount1, "fuzz: first balanceIn wrong");
+        assertEq(balIn1, net1, "fuzz: first balanceIn wrong");
         assertEq(balOut1, out1, "fuzz: first balanceOut wrong");
     }
 
@@ -827,7 +826,7 @@ contract AsyncSwapTest is Test, Deployers {
             : (Currency.wrap(address(tokenB)), Currency.wrap(address(tokenA)));
 
         PoolKey memory freshKey = PoolKey({
-            currency0: c0, currency1: c1, fee: HOOK_FEE, tickSpacing: TICK_SPACING, hooks: IHooks(address(hook))
+            currency0: c0, currency1: c1, fee: LPFeeLibrary.DYNAMIC_FEE_FLAG, tickSpacing: TICK_SPACING, hooks: IHooks(address(hook))
         });
 
         // Non-owner caller should revert with "NOT HOOK OWNER" (wrapped by PoolManager)
@@ -843,8 +842,9 @@ contract AsyncSwapTest is Test, Deployers {
     // Fuzz: beforeInitialize — fee below minimum reverts
     // ----------------------------------------
 
-    function testFuzz_beforeInitialize_lowFeeReverts(uint24 lowFee) public {
-        lowFee = uint24(bound(uint256(lowFee), 100, 11999)); // below 12000, above 0 for valid tickSpacing
+    function testFuzz_beforeInitialize_nonDynamicFeeReverts(uint24 badFee) public {
+        // Any fee that is NOT DYNAMIC_FEE_FLAG should revert
+        vm.assume(badFee != LPFeeLibrary.DYNAMIC_FEE_FLAG);
 
         // Deploy fresh tokens so we get an uninitialized pool
         MockERC20 tokenA = new MockERC20("A", "A", 18);
@@ -853,14 +853,10 @@ contract AsyncSwapTest is Test, Deployers {
             ? (Currency.wrap(address(tokenA)), Currency.wrap(address(tokenB)))
             : (Currency.wrap(address(tokenB)), Currency.wrap(address(tokenA)));
 
-        // tickSpacing must be >= 1 and reasonable
-        int24 ts = int24(int256(uint256(lowFee) / 100 * 2));
-        if (ts < 1) ts = 1;
-
         PoolKey memory freshKey =
-            PoolKey({currency0: c0, currency1: c1, fee: lowFee, tickSpacing: ts, hooks: IHooks(address(hook))});
+            PoolKey({currency0: c0, currency1: c1, fee: badFee, tickSpacing: TICK_SPACING, hooks: IHooks(address(hook))});
 
-        // Should revert with "FEE SET TOO LOW" (wrapped by PoolManager)
+        // Should revert with "USE DYNAMIC FEE" (wrapped by PoolManager)
         vm.expectRevert();
         manager.initialize(freshKey, SQRT_PRICE_1_1);
     }
