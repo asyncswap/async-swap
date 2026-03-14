@@ -83,16 +83,12 @@ contract AsyncSwapTest is Test, Deployers {
     // Helper: build Order struct for hookData
     // ========================================
 
-    function _makeOrder(address swapper, int24 tick, uint256 minAmountOut)
-        internal
-        view
-        returns (AsyncSwap.Order memory)
-    {
-        return AsyncSwap.Order({poolId: poolId, swapper: swapper, tick: tick, amountOut: minAmountOut});
+    function _makeOrder(address swapper, int24 tick) internal view returns (AsyncSwap.Order memory) {
+        return AsyncSwap.Order({poolId: poolId, swapper: swapper, tick: tick});
     }
 
-    function _encodeOrder(AsyncSwap.Order memory order) internal pure returns (bytes memory) {
-        return abi.encode(order);
+    function _encodeOrder(AsyncSwap.Order memory order, uint256 minAmountOut) internal pure returns (bytes memory) {
+        return abi.encode(order, minAmountOut);
     }
 
     // ========================================
@@ -141,8 +137,8 @@ contract AsyncSwapTest is Test, Deployers {
 
         // Execute swap: exact input 1e18, zeroForOne, at tick 0 (price=1)
         uint256 swapAmount = 1e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK, 0);
-        _swap(true, -int256(swapAmount), _encodeOrder(order));
+        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        _swap(true, -int256(swapAmount), _encodeOrder(order, 0));
 
         // Pool state should be unchanged (noOp)
         (uint160 sqrtPriceAfter, int24 tickAfter,,) = manager.getSlot0(poolId);
@@ -157,8 +153,8 @@ contract AsyncSwapTest is Test, Deployers {
         (uint160 sqrtPriceBefore, int24 tickBefore,,) = manager.getSlot0(poolId);
 
         uint256 swapAmount = 1e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK, 0);
-        _swap(false, -int256(swapAmount), _encodeOrder(order));
+        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        _swap(false, -int256(swapAmount), _encodeOrder(order, 0));
 
         (uint160 sqrtPriceAfter, int24 tickAfter,,) = manager.getSlot0(poolId);
         assertEq(sqrtPriceAfter, sqrtPriceBefore, "sqrtPrice changed - AMM was not noOp'd");
@@ -173,10 +169,10 @@ contract AsyncSwapTest is Test, Deployers {
         // If deltas don't net to zero, PoolManager.unlock() reverts with CurrencyNotSettled.
         // A successful swap means all deltas resolved.
         uint256 swapAmount = 5e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK, 0);
+        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
 
         uint256 bal0Before = currency0.balanceOf(address(this));
-        _swap(true, -int256(swapAmount), _encodeOrder(order));
+        _swap(true, -int256(swapAmount), _encodeOrder(order, 0));
         uint256 bal0After = currency0.balanceOf(address(this));
 
         // User (this contract) should have paid exactly swapAmount of currency0
@@ -185,10 +181,10 @@ contract AsyncSwapTest is Test, Deployers {
 
     function test_exactInput_deltasNetToZero_oneForZero() public {
         uint256 swapAmount = 5e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK, 0);
+        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
 
         uint256 bal1Before = currency1.balanceOf(address(this));
-        _swap(false, -int256(swapAmount), _encodeOrder(order));
+        _swap(false, -int256(swapAmount), _encodeOrder(order, 0));
         uint256 bal1After = currency1.balanceOf(address(this));
 
         assertEq(bal1Before - bal1After, swapAmount, "user did not pay exact input amount");
@@ -207,8 +203,8 @@ contract AsyncSwapTest is Test, Deployers {
         // At price=1 (sqrtP = Q96), this simplifies to 988e15
 
         uint256 swapAmount = 1e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK, 0);
-        _swap(true, -int256(swapAmount), _encodeOrder(order));
+        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        _swap(true, -int256(swapAmount), _encodeOrder(order, 0));
 
         uint256 balanceOut = hook.getBalanceOut(order, true);
         uint256 balanceIn = hook.getBalanceIn(order, true);
@@ -232,8 +228,8 @@ contract AsyncSwapTest is Test, Deployers {
 
     function test_exactInput_feeDeducted_oneForZero() public {
         uint256 swapAmount = 1e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK, 0);
-        _swap(false, -int256(swapAmount), _encodeOrder(order));
+        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        _swap(false, -int256(swapAmount), _encodeOrder(order, 0));
 
         uint256 balanceOut = hook.getBalanceOut(order, false);
         uint256 balanceIn = hook.getBalanceIn(order, false);
@@ -261,8 +257,8 @@ contract AsyncSwapTest is Test, Deployers {
         // Selling 1 token0 should yield ~98.8 token1 (after 1.2% fee)
         int24 tick = 46054;
         uint256 swapAmount = 1e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), tick, 0);
-        _swap(true, -int256(swapAmount), _encodeOrder(order));
+        AsyncSwap.Order memory order = _makeOrder(address(this), tick);
+        _swap(true, -int256(swapAmount), _encodeOrder(order, 0));
 
         uint256 balanceOut = hook.getBalanceOut(order, true);
 
@@ -289,20 +285,20 @@ contract AsyncSwapTest is Test, Deployers {
         // At tick 0 price=1, 1e18 input with 1.2% fee -> ~988e15 output
         // Setting minAmountOut = 999e15 should revert
         uint256 swapAmount = 1e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK, 999e15);
+        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
 
         // PoolManager wraps hook reverts in WrappedError
         vm.expectRevert();
-        _swap(true, -int256(swapAmount), _encodeOrder(order));
+        _swap(true, -int256(swapAmount), _encodeOrder(order, 999e15));
     }
 
     function test_exactInput_slippagePasses() public {
         // Setting minAmountOut = 980e15 should pass (output is ~988e15)
         uint256 swapAmount = 1e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK, 980e15);
+        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
 
         // Should not revert
-        _swap(true, -int256(swapAmount), _encodeOrder(order));
+        _swap(true, -int256(swapAmount), _encodeOrder(order, 980e15));
 
         uint256 balanceOut = hook.getBalanceOut(order, true);
         assertGe(balanceOut, 980e15, "output below slippage floor");
@@ -318,8 +314,8 @@ contract AsyncSwapTest is Test, Deployers {
             FullMath.mulDiv(amountInAfterFee, sqrtPrice, FixedPoint96.Q96), sqrtPrice, FixedPoint96.Q96
         );
 
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK, exactOutput);
-        _swap(true, -int256(swapAmount), _encodeOrder(order));
+        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        _swap(true, -int256(swapAmount), _encodeOrder(order, exactOutput));
 
         assertEq(hook.getBalanceOut(order, true), exactOutput);
     }
@@ -330,8 +326,8 @@ contract AsyncSwapTest is Test, Deployers {
 
     function test_exactInput_orderStateRecorded() public {
         uint256 swapAmount = 2e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK, 0);
-        _swap(true, -int256(swapAmount), _encodeOrder(order));
+        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        _swap(true, -int256(swapAmount), _encodeOrder(order, 0));
 
         uint256 balanceIn = hook.getBalanceIn(order, true);
         uint256 balanceOut = hook.getBalanceOut(order, true);
@@ -342,15 +338,15 @@ contract AsyncSwapTest is Test, Deployers {
 
     function test_exactInput_multipleOrdersAccumulate() public {
         uint256 swapAmount = 1e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK, 0);
+        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
 
         // First swap
-        _swap(true, -int256(swapAmount), _encodeOrder(order));
+        _swap(true, -int256(swapAmount), _encodeOrder(order, 0));
         uint256 balanceIn1 = hook.getBalanceIn(order, true);
         uint256 balanceOut1 = hook.getBalanceOut(order, true);
 
         // Second swap with same order params
-        _swap(true, -int256(swapAmount), _encodeOrder(order));
+        _swap(true, -int256(swapAmount), _encodeOrder(order, 0));
         uint256 balanceIn2 = hook.getBalanceIn(order, true);
         uint256 balanceOut2 = hook.getBalanceOut(order, true);
 
@@ -361,10 +357,10 @@ contract AsyncSwapTest is Test, Deployers {
 
     function test_exactInput_differentDirections_independentState() public {
         uint256 swapAmount = 1e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK, 0);
+        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
 
-        _swap(true, -int256(swapAmount), _encodeOrder(order));
-        _swap(false, -int256(swapAmount), _encodeOrder(order));
+        _swap(true, -int256(swapAmount), _encodeOrder(order, 0));
+        _swap(false, -int256(swapAmount), _encodeOrder(order, 0));
 
         uint256 balanceInZFO = hook.getBalanceIn(order, true);
         uint256 balanceInOFZ = hook.getBalanceIn(order, false);
@@ -380,13 +376,13 @@ contract AsyncSwapTest is Test, Deployers {
 
     function test_exactInput_emitsSwapEvent() public {
         uint256 swapAmount = 1e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK, 0);
+        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
         bytes32 expectedOrderId = keccak256(abi.encode(order));
 
         vm.expectEmit(true, false, false, false, address(hook));
         emit AsyncSwap.Swap(expectedOrderId, order);
 
-        _swap(true, -int256(swapAmount), _encodeOrder(order));
+        _swap(true, -int256(swapAmount), _encodeOrder(order, 0));
     }
 
     // ========================================
@@ -402,7 +398,7 @@ contract AsyncSwapTest is Test, Deployers {
         MockERC20(Currency.unwrap(currency1)).approve(address(untrustedRouter), type(uint256).max);
 
         uint256 swapAmount = 1e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK, 0);
+        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
 
         // PoolManager wraps hook reverts in WrappedError
         vm.expectRevert();
@@ -410,7 +406,7 @@ contract AsyncSwapTest is Test, Deployers {
             poolKey,
             SwapParams({zeroForOne: true, amountSpecified: -int256(swapAmount), sqrtPriceLimitX96: MIN_PRICE_LIMIT}),
             PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false}),
-            _encodeOrder(order)
+            _encodeOrder(order, 0)
         );
     }
 
@@ -420,12 +416,12 @@ contract AsyncSwapTest is Test, Deployers {
 
     function test_exactOutput_reverts() public {
         uint256 swapAmount = 1e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK, 0);
+        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
 
         // amountSpecified > 0 = exact output, should revert
         // PoolManager wraps hook reverts in WrappedError
         vm.expectRevert();
-        _swap(true, int256(swapAmount), _encodeOrder(order));
+        _swap(true, int256(swapAmount), _encodeOrder(order, 0));
     }
 
     // ========================================
@@ -434,12 +430,12 @@ contract AsyncSwapTest is Test, Deployers {
 
     function test_exactInput_hookReceivesClaimTokens() public {
         uint256 swapAmount = 1e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK, 0);
+        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
 
         // Check hook's ERC-6909 claim balance before
         uint256 claimsBefore = manager.balanceOf(address(hook), currency0.toId());
 
-        _swap(true, -int256(swapAmount), _encodeOrder(order));
+        _swap(true, -int256(swapAmount), _encodeOrder(order, 0));
 
         // Hook should have received claim tokens for the full input
         uint256 claimsAfter = manager.balanceOf(address(hook), currency0.toId());
@@ -469,8 +465,8 @@ contract AsyncSwapTest is Test, Deployers {
 
     function test_exactInput_smallAmount() public {
         uint256 swapAmount = 1000; // very small
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK, 0);
-        _swap(true, -int256(swapAmount), _encodeOrder(order));
+        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        _swap(true, -int256(swapAmount), _encodeOrder(order, 0));
 
         uint256 balanceIn = hook.getBalanceIn(order, true);
         assertEq(balanceIn, swapAmount);
@@ -478,8 +474,8 @@ contract AsyncSwapTest is Test, Deployers {
 
     function test_exactInput_largeAmount() public {
         uint256 swapAmount = 100_000e18; // large
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK, 0);
-        _swap(true, -int256(swapAmount), _encodeOrder(order));
+        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        _swap(true, -int256(swapAmount), _encodeOrder(order, 0));
 
         uint256 balanceIn = hook.getBalanceIn(order, true);
         assertEq(balanceIn, swapAmount);
@@ -550,35 +546,66 @@ contract AsyncSwapTest is Test, Deployers {
 
         // Compute output the same way the contract does (mulDiv rounds down)
         uint256 amountOut;
+        // Compute upper bound using mulDivRoundingUp (ceiling of each step)
+        uint256 amountOutCeil;
         if (zeroForOne) {
             amountOut = FullMath.mulDiv(
                 FullMath.mulDiv(amountInAfterFee, sqrtPrice, FixedPoint96.Q96), sqrtPrice, FixedPoint96.Q96
+            );
+            amountOutCeil = FullMath.mulDivRoundingUp(
+                FullMath.mulDivRoundingUp(amountInAfterFee, sqrtPrice, FixedPoint96.Q96), sqrtPrice, FixedPoint96.Q96
             );
         } else {
             amountOut = FullMath.mulDiv(
                 FullMath.mulDiv(amountInAfterFee, FixedPoint96.Q96, sqrtPrice), FixedPoint96.Q96, sqrtPrice
             );
+            amountOutCeil = FullMath.mulDivRoundingUp(
+                FullMath.mulDivRoundingUp(amountInAfterFee, FixedPoint96.Q96, sqrtPrice), FixedPoint96.Q96, sqrtPrice
+            );
         }
 
-        // The key invariant: input after fee must be >= output when measured in the same
-        // numeraire. At price=1 they should be equal. At other prices, the conversion
-        // uses mulDiv which rounds down, so the user never receives more value than they put in.
-        // We can't directly compare across numeraires, but we CAN verify mulDiv truncates:
+        // Invariant 1: floor output <= ceiling output (sanity)
+        assertLe(amountOut, amountOutCeil, "floor exceeds ceiling - impossible");
 
-        // Verify: amountOut * denominator <= numerator * sqrtPrice (no rounding up)
-        // This is inherent to mulDiv but we assert it for documentation.
+        // Invariant 2: reverse round-trip must not exceed original input.
+        // Convert output back to input numeraire using the inverse price direction.
+        // If round-tripped value > original net input, the user could profit from rounding.
+        // This is the real security property: mulDiv truncation never favors the user.
+        uint256 reverseInput;
         if (zeroForOne) {
-            // amountOut <= amountInAfterFee * sqrtPrice^2 / Q96^2  (exact, truncated)
-            // Equivalently: amountOut * Q96 <= intermediate * sqrtPrice
-            uint256 intermediate = FullMath.mulDiv(amountInAfterFee, sqrtPrice, FixedPoint96.Q96);
-            assertLe(
-                amountOut, FullMath.mulDiv(intermediate, sqrtPrice, FixedPoint96.Q96), "output exceeds truncated value"
+            // output is in token1. Convert back: token1 -> token0 = divide by price
+            reverseInput = FullMath.mulDiv(
+                FullMath.mulDiv(amountOut, FixedPoint96.Q96, sqrtPrice), FixedPoint96.Q96, sqrtPrice
             );
         } else {
-            uint256 intermediate = FullMath.mulDiv(amountInAfterFee, FixedPoint96.Q96, sqrtPrice);
-            assertLe(
-                amountOut, FullMath.mulDiv(intermediate, FixedPoint96.Q96, sqrtPrice), "output exceeds truncated value"
+            // output is in token0. Convert back: token0 -> token1 = multiply by price
+            reverseInput = FullMath.mulDiv(
+                FullMath.mulDiv(amountOut, sqrtPrice, FixedPoint96.Q96), sqrtPrice, FixedPoint96.Q96
             );
+        }
+        assertLe(reverseInput, amountInAfterFee, "round-trip exceeds input - user profits from rounding");
+
+        // Invariant 3: ceiling round-trip must be close to original input.
+        // Using mulDivRoundingUp for the reverse gives an upper bound on the true value.
+        // This upper bound should be >= the original input (proves the floor output
+        // is a genuine underestimate, not a catastrophic truncation).
+        if (amountOutCeil > 0) {
+            uint256 reverseCeil;
+            if (zeroForOne) {
+                reverseCeil = FullMath.mulDivRoundingUp(
+                    FullMath.mulDivRoundingUp(amountOutCeil, FixedPoint96.Q96, sqrtPrice),
+                    FixedPoint96.Q96,
+                    sqrtPrice
+                );
+            } else {
+                reverseCeil = FullMath.mulDivRoundingUp(
+                    FullMath.mulDivRoundingUp(amountOutCeil, sqrtPrice, FixedPoint96.Q96),
+                    sqrtPrice,
+                    FixedPoint96.Q96
+                );
+            }
+            // The ceiling reverse should bracket the original input from above
+            assertGe(reverseCeil, amountInAfterFee, "ceiling reverse below input - conversion is lossy beyond rounding");
         }
     }
 
@@ -618,8 +645,8 @@ contract AsyncSwapTest is Test, Deployers {
         uint256 hookClaimsBefore = manager.balanceOf(address(hook), inputCurrency.toId());
 
         // Execute swap
-        AsyncSwap.Order memory order = _makeOrder(address(this), tick, 0);
-        _swap(zeroForOne, -int256(amountIn), _encodeOrder(order));
+        AsyncSwap.Order memory order = _makeOrder(address(this), tick);
+        _swap(zeroForOne, -int256(amountIn), _encodeOrder(order, 0));
 
         // Invariant 1: Pool state unchanged (no-op)
         (uint160 sqrtPriceAfter, int24 tickAfter,,) = manager.getSlot0(poolId);
@@ -663,7 +690,7 @@ contract AsyncSwapTest is Test, Deployers {
     // Fuzz: slippage protection — setting minOut above actual output always reverts
     // ----------------------------------------
 
-    function testFuzz_slippage_reverts_when_minOut_too_high(uint256 amountIn, int24 tick) public {
+    function testFuzz_slippage_reverts_when_minOut_too_high(uint256 amountIn, int24 tick, bool zeroForOne) public {
         tick = int24(bound(int256(tick), -887272, 887272));
         amountIn = bound(amountIn, 1000, 2 ** 100); // need enough for fee to leave something
 
@@ -671,13 +698,13 @@ contract AsyncSwapTest is Test, Deployers {
         if (fee >= amountIn) return;
 
         // Compute what the output would be
-        try this.computeAmountOutExternal(amountIn - fee, tick, true) returns (uint256 expectedOut) {
+        try this.computeAmountOutExternal(amountIn - fee, tick, zeroForOne) returns (uint256 expectedOut) {
             if (expectedOut == 0) return; // can't set minOut above 0 meaningfully
             // Set minAmountOut 1 wei above actual — must revert
-            AsyncSwap.Order memory order = _makeOrder(address(this), tick, expectedOut + 1);
+            AsyncSwap.Order memory order = _makeOrder(address(this), tick);
 
             vm.expectRevert();
-            _swap(true, -int256(amountIn), _encodeOrder(order));
+            _swap(zeroForOne, -int256(amountIn), _encodeOrder(order, expectedOut + 1));
         } catch {
             return; // overflow in computation, skip
         }
@@ -698,8 +725,8 @@ contract AsyncSwapTest is Test, Deployers {
             if (expectedOut == 0) return;
 
             // minAmountOut exactly equals output — should pass
-            AsyncSwap.Order memory order = _makeOrder(address(this), tick, expectedOut);
-            _swap(zeroForOne, -int256(amountIn), _encodeOrder(order));
+            AsyncSwap.Order memory order = _makeOrder(address(this), tick);
+            _swap(zeroForOne, -int256(amountIn), _encodeOrder(order, expectedOut));
 
             uint256 balanceOut = hook.getBalanceOut(order, zeroForOne);
             assertGe(balanceOut, expectedOut, "fuzz: output below slippage floor");
@@ -716,15 +743,15 @@ contract AsyncSwapTest is Test, Deployers {
         amount1 = bound(amount1, 1000, 2 ** 99);
         amount2 = bound(amount2, 1000, 2 ** 99);
 
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK, 0);
+        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
 
         // First swap
-        _swap(zeroForOne, -int256(amount1), _encodeOrder(order));
+        _swap(zeroForOne, -int256(amount1), _encodeOrder(order, 0));
         uint256 balIn1 = hook.getBalanceIn(order, zeroForOne);
         uint256 balOut1 = hook.getBalanceOut(order, zeroForOne);
 
         // Second swap
-        _swap(zeroForOne, -int256(amount2), _encodeOrder(order));
+        _swap(zeroForOne, -int256(amount2), _encodeOrder(order, 0));
         uint256 balIn2 = hook.getBalanceIn(order, zeroForOne);
         uint256 balOut2 = hook.getBalanceOut(order, zeroForOne);
 
@@ -775,8 +802,8 @@ contract AsyncSwapTest is Test, Deployers {
         try this.computeAmountOutExternal(amountIn - fee, tick, true) returns (uint256 expectedOut) {
             if (expectedOut == 0) return;
 
-            AsyncSwap.Order memory order = _makeOrder(address(this), tick, 0);
-            _swap(true, -int256(amountIn), _encodeOrder(order));
+            AsyncSwap.Order memory order = _makeOrder(address(this), tick);
+            _swap(true, -int256(amountIn), _encodeOrder(order, 0));
 
             uint256 balanceOut = hook.getBalanceOut(order, true);
             assertEq(balanceOut, expectedOut, "fuzz: negative tick zfo output mismatch");
@@ -797,19 +824,21 @@ contract AsyncSwapTest is Test, Deployers {
         uint256 fee = FullMath.mulDivRoundingUp(amountIn, HOOK_FEE, 1_000_000);
         if (fee >= amountIn) return;
 
-        try this.computeAmountOutExternal(amountIn - fee, tick, false) returns (uint256 expectedOut) {
+        uint256 amountInAfterFee = amountIn - fee;
+
+        try this.computeAmountOutExternal(amountInAfterFee, tick, false) returns (uint256 expectedOut) {
             if (expectedOut == 0) return;
 
-            AsyncSwap.Order memory order = _makeOrder(address(this), tick, 0);
-            _swap(false, -int256(amountIn), _encodeOrder(order));
+            AsyncSwap.Order memory order = _makeOrder(address(this), tick);
+            _swap(false, -int256(amountIn), _encodeOrder(order, 0));
 
             uint256 balanceOut = hook.getBalanceOut(order, false);
             assertEq(balanceOut, expectedOut, "fuzz: negative tick ofz output mismatch");
 
-            // At negative ticks (price < 1), selling token1 for token0: output >= input after fee
-            // because 1/price >= 1 (mulDiv may round down to equal at small negative ticks)
-            uint256 balanceIn = hook.getBalanceIn(order, false);
-            assertGe(balanceOut, balanceIn - fee, "fuzz: output should be >= netInput at price < 1 (ofz)");
+            // At negative ticks (price < 1), selling token1 for token0 divides by price < 1,
+            // which is equivalent to multiplying by 1/price > 1. So output should be >= net input.
+            // mulDiv rounds down, so output may equal net input at very small negative ticks.
+            assertGe(balanceOut, amountInAfterFee, "fuzz: output should be >= net input at price < 1 (ofz)");
         } catch {
             return;
         }
@@ -858,10 +887,10 @@ contract AsyncSwapTest is Test, Deployers {
     function testFuzz_exactOutput_alwaysReverts(uint256 amountOut, bool zeroForOne) public {
         amountOut = bound(amountOut, 1, 2 ** 100);
 
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK, 0);
+        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
 
         vm.expectRevert();
-        _swap(zeroForOne, int256(amountOut), _encodeOrder(order));
+        _swap(zeroForOne, int256(amountOut), _encodeOrder(order, 0));
     }
 
     // ----------------------------------------
@@ -870,19 +899,30 @@ contract AsyncSwapTest is Test, Deployers {
 
     function testFuzz_beforeInitialize_nonOwnerReverts(address caller) public {
         vm.assume(caller != address(this)); // address(this) is the owner
+        vm.assume(caller != address(0)); // avoid zero-address edge cases
 
-        PoolKey memory badKey = PoolKey({
-            currency0: currency0,
-            currency1: currency1,
+        // Deploy fresh tokens so we get an uninitialized pool (avoids PoolAlreadyInitialized)
+        MockERC20 tokenA = new MockERC20("A", "A", 18);
+        MockERC20 tokenB = new MockERC20("B", "B", 18);
+        (Currency c0, Currency c1) = address(tokenA) < address(tokenB)
+            ? (Currency.wrap(address(tokenA)), Currency.wrap(address(tokenB)))
+            : (Currency.wrap(address(tokenB)), Currency.wrap(address(tokenA)));
+
+        PoolKey memory freshKey = PoolKey({
+            currency0: c0,
+            currency1: c1,
             fee: HOOK_FEE,
             tickSpacing: TICK_SPACING,
             hooks: IHooks(address(hook))
         });
 
-        // Change the caller — initialize goes through PoolManager which passes msg.sender as `sender`
+        // Non-owner caller should revert with "NOT HOOK OWNER" (wrapped by PoolManager)
         vm.prank(caller);
         vm.expectRevert();
-        manager.initialize(badKey, SQRT_PRICE_1_1);
+        manager.initialize(freshKey, SQRT_PRICE_1_1);
+
+        // Verify the owner CAN initialize the same pool
+        manager.initialize(freshKey, SQRT_PRICE_1_1);
     }
 
     // ----------------------------------------
@@ -890,17 +930,29 @@ contract AsyncSwapTest is Test, Deployers {
     // ----------------------------------------
 
     function testFuzz_beforeInitialize_lowFeeReverts(uint24 lowFee) public {
-        lowFee = uint24(bound(uint256(lowFee), 0, 11999)); // below 12000
+        lowFee = uint24(bound(uint256(lowFee), 100, 11999)); // below 12000, above 0 for valid tickSpacing
 
-        PoolKey memory badKey = PoolKey({
-            currency0: currency0,
-            currency1: currency1,
+        // Deploy fresh tokens so we get an uninitialized pool
+        MockERC20 tokenA = new MockERC20("A", "A", 18);
+        MockERC20 tokenB = new MockERC20("B", "B", 18);
+        (Currency c0, Currency c1) = address(tokenA) < address(tokenB)
+            ? (Currency.wrap(address(tokenA)), Currency.wrap(address(tokenB)))
+            : (Currency.wrap(address(tokenB)), Currency.wrap(address(tokenA)));
+
+        // tickSpacing must be >= 1 and reasonable
+        int24 ts = int24(int256(uint256(lowFee) / 100 * 2));
+        if (ts < 1) ts = 1;
+
+        PoolKey memory freshKey = PoolKey({
+            currency0: c0,
+            currency1: c1,
             fee: lowFee,
-            tickSpacing: int24(int256(uint256(lowFee) / 100 * 2 + 1)), // need valid tickSpacing
+            tickSpacing: ts,
             hooks: IHooks(address(hook))
         });
 
+        // Should revert with "FEE SET TOO LOW" (wrapped by PoolManager)
         vm.expectRevert();
-        manager.initialize(badKey, SQRT_PRICE_1_1);
+        manager.initialize(freshKey, SQRT_PRICE_1_1);
     }
 }

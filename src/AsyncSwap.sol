@@ -43,12 +43,10 @@ contract AsyncSwap layout at 1000 is IHooks {
     /// @param poolId The pool this order belongs to
     /// @param swapper The creator of the order
     /// @param tick The tick (price point) at which to execute the order
-    /// @param amountOut The minimum amount of output tokens the user will accept (slippage protection)
     struct Order {
         PoolId poolId;
         address swapper;
         int24 tick;
-        uint256 amountOut;
     }
 
     /// @notice Emitted when an async swap order is created
@@ -209,7 +207,6 @@ contract AsyncSwap layout at 1000 is IHooks {
         onlyPoolManager
         returns (bytes4, BeforeSwapDelta, uint24)
     {
-        Order memory order = abi.decode(hookData, (Order));
         if (sender != router) revert("UNTRUSTED ROUTER");
 
         // Only exact-input supported. Exact-output intents should be converted
@@ -218,30 +215,37 @@ contract AsyncSwap layout at 1000 is IHooks {
 
         uint256 amountIn = uint256(-params.amountSpecified);
 
-        // Take fee from input (round up so protocol keeps more)
-        uint256 feeAmount = FullMath.mulDivRoundingUp(amountIn, key.fee, 1_000_000);
-
-        // Compute output from net input after fee (round down so user gets less)
-        uint256 amountOut = _computeAmountOut(amountIn - feeAmount, order.tick, params.zeroForOne);
-
-        // Slippage protection: user's minimum acceptable output
-        require(amountOut >= order.amountOut, "SLIPPAGE");
-
-        // Take full input (including fee) as claim tokens from PoolManager
-        (params.zeroForOne ? key.currency0 : key.currency1).take(POOL_MANAGER, address(this), amountIn, true);
-
-        // Record order for filler to settle later
-        bytes32 orderId = keccak256(abi.encode(order));
-        balancesIn[orderId][params.zeroForOne] += amountIn;
-        balancesOut[orderId][params.zeroForOne] += amountOut;
-
-        emit Swap(orderId, order);
+        _processOrder(hookData, key, params.zeroForOne, amountIn);
 
         // deltaSpecified = -amountSpecified (positive) cancels the AMM swap.
         // For exact-input, specified currency = input currency.
         // Hook's +delta from this return is offset by the -delta from take()/mint().
         // Net hook delta = 0. Router's swapDelta = -hookDelta, so router settles amountIn.
         return (this.beforeSwap.selector, toBeforeSwapDelta(int128(-params.amountSpecified), 0), key.fee);
+    }
+
+    /// @notice Decode hookData, compute output, check slippage, take claim tokens, record order
+    function _processOrder(bytes calldata hookData, PoolKey calldata key, bool zeroForOne, uint256 amountIn) internal {
+        (Order memory order, uint256 minAmountOut) = abi.decode(hookData, (Order, uint256));
+
+        // Take fee from input (round up so protocol keeps more)
+        uint256 feeAmount = FullMath.mulDivRoundingUp(amountIn, key.fee, 1_000_000);
+
+        // Compute output from net input after fee (round down so user gets less)
+        uint256 amountOut = _computeAmountOut(amountIn - feeAmount, order.tick, zeroForOne);
+
+        // Slippage protection: user's minimum acceptable output
+        require(amountOut >= minAmountOut, "SLIPPAGE");
+
+        // Take full input (including fee) as claim tokens from PoolManager
+        (zeroForOne ? key.currency0 : key.currency1).take(POOL_MANAGER, address(this), amountIn, true);
+
+        // Record order for filler to settle later
+        bytes32 orderId = keccak256(abi.encode(order));
+        balancesIn[orderId][zeroForOne] += amountIn;
+        balancesOut[orderId][zeroForOne] += amountOut;
+
+        emit Swap(orderId, order);
     }
 
     ///////////////////////////
