@@ -84,6 +84,27 @@ contract AsyncSwapFillTest is Test, Deployers {
         MockERC20(Currency.unwrap(outputCurrency)).approve(address(hook), type(uint256).max);
     }
 
+    function _initCustomPool(address inputToken, address outputToken)
+        internal
+        returns (PoolKey memory customKey, PoolId customPoolId, bool zeroForOne)
+    {
+        (Currency c0, Currency c1) = inputToken < outputToken
+            ? (Currency.wrap(inputToken), Currency.wrap(outputToken))
+            : (Currency.wrap(outputToken), Currency.wrap(inputToken));
+
+        customKey = PoolKey({
+            currency0: c0,
+            currency1: c1,
+            fee: HOOK_FEE,
+            tickSpacing: TICK_SPACING,
+            hooks: IHooks(address(hook))
+        });
+        customPoolId = customKey.toId();
+        zeroForOne = Currency.unwrap(c0) == inputToken;
+
+        manager.initialize(customKey, SQRT_PRICE_1_1);
+    }
+
     // ========================================
     // Full fill
     // ========================================
@@ -570,6 +591,90 @@ contract AsyncSwapFillTest is Test, Deployers {
         hook.fill(bogusOrder, true, 1e18);
     }
 
+    function test_fill_unknownPool_reverts() public {
+        AsyncSwap.Order memory bogusOrder = AsyncSwap.Order({
+            poolId: PoolId.wrap(bytes32(uint256(999))),
+            swapper: address(this),
+            tick: ORDER_TICK
+        });
+
+        address filler = makeAddr("filler");
+        _setupFiller(filler, currency1, 1e18);
+
+        vm.prank(filler);
+        vm.expectRevert(AsyncSwap.UNKNOWN_POOL.selector);
+        hook.fill(bogusOrder, true, 1e18);
+    }
+
+    function test_fill_lyingOutputToken_reverts() public {
+        MockERC20 inputToken = new MockERC20("Input", "IN", 18);
+        LyingTransferFromToken outputToken = new LyingTransferFromToken("Lying", "LIE", 18);
+
+        inputToken.mint(address(this), 100e18);
+        inputToken.approve(address(hook.router()), type(uint256).max);
+
+        (PoolKey memory customKey, PoolId customPoolId, bool zeroForOne) =
+            _initCustomPool(address(inputToken), address(outputToken));
+
+        hook.swap(customKey, zeroForOne, 10e18, ORDER_TICK, 0);
+
+        AsyncSwap.Order memory order = AsyncSwap.Order({poolId: customPoolId, swapper: address(this), tick: ORDER_TICK});
+        uint256 expectedOut = hook.getBalanceOut(order, zeroForOne);
+
+        address filler = makeAddr("liar");
+        outputToken.mint(filler, expectedOut);
+        vm.prank(filler);
+        outputToken.approve(address(hook), type(uint256).max);
+
+        uint256 swapperBefore = outputToken.balanceOf(address(this));
+        uint256 fillerClaimsBefore = manager.balanceOf(
+            filler,
+            (zeroForOne ? customKey.currency0 : customKey.currency1).toId()
+        );
+
+        vm.prank(filler);
+        vm.expectRevert(AsyncSwap.INSUFFICIENT_OUTPUT_RECEIVED.selector);
+        hook.fill(order, zeroForOne, expectedOut);
+
+        assertEq(outputToken.balanceOf(address(this)), swapperBefore, "swapper should receive nothing");
+        assertEq(
+            manager.balanceOf(filler, (zeroForOne ? customKey.currency0 : customKey.currency1).toId()),
+            fillerClaimsBefore,
+            "filler should not receive claims"
+        );
+        assertEq(hook.getBalanceOut(order, zeroForOne), expectedOut, "order output should remain unchanged");
+    }
+
+    function test_fill_feeOnTransferOutputToken_reverts() public {
+        MockERC20 inputToken = new MockERC20("Input", "IN", 18);
+        FeeOnTransferToken outputToken = new FeeOnTransferToken("Taxed", "TAX", 18, 1000);
+
+        inputToken.mint(address(this), 100e18);
+        inputToken.approve(address(hook.router()), type(uint256).max);
+
+        (PoolKey memory customKey, PoolId customPoolId, bool zeroForOne) =
+            _initCustomPool(address(inputToken), address(outputToken));
+
+        hook.swap(customKey, zeroForOne, 10e18, ORDER_TICK, 0);
+
+        AsyncSwap.Order memory order = AsyncSwap.Order({poolId: customPoolId, swapper: address(this), tick: ORDER_TICK});
+        uint256 expectedOut = hook.getBalanceOut(order, zeroForOne);
+
+        address filler = makeAddr("taxedFiller");
+        outputToken.mint(filler, expectedOut);
+        vm.prank(filler);
+        outputToken.approve(address(hook), type(uint256).max);
+
+        uint256 swapperBefore = outputToken.balanceOf(address(this));
+
+        vm.prank(filler);
+        vm.expectRevert(AsyncSwap.INSUFFICIENT_OUTPUT_RECEIVED.selector);
+        hook.fill(order, zeroForOne, expectedOut);
+
+        assertEq(outputToken.balanceOf(address(this)), swapperBefore, "swapper should not receive partial output");
+        assertEq(hook.getBalanceOut(order, zeroForOne), expectedOut, "order output should remain unchanged");
+    }
+
     // ========================================
     // Cancel on wrong direction — should revert
     // ========================================
@@ -582,6 +687,17 @@ contract AsyncSwapFillTest is Test, Deployers {
         // Cancel with oneForZero — that direction was never populated
         vm.expectRevert(AsyncSwap.NOTHING_TO_CANCEL.selector);
         hook.cancelOrder(order, false);
+    }
+
+    function test_cancel_unknownPool_reverts() public {
+        AsyncSwap.Order memory bogusOrder = AsyncSwap.Order({
+            poolId: PoolId.wrap(bytes32(uint256(999))),
+            swapper: address(this),
+            tick: ORDER_TICK
+        });
+
+        vm.expectRevert(AsyncSwap.UNKNOWN_POOL.selector);
+        hook.cancelOrder(bogusOrder, true);
     }
 
     // ========================================
@@ -672,5 +788,44 @@ contract AsyncSwapFillTest is Test, Deployers {
         // Swap again — should start fresh, not accumulate
         _swap(true, swapAmount, ORDER_TICK, 0);
         assertEq(hook.getBalanceIn(order, true), swapAmount, "should be fresh after cancel");
+    }
+}
+
+contract LyingTransferFromToken is MockERC20 {
+    constructor(string memory name_, string memory symbol_, uint8 decimals_) MockERC20(name_, symbol_, decimals_) {}
+
+    function transferFrom(address from, address to, uint256 amount) public override returns (bool) {
+        uint256 allowed = allowance[from][msg.sender];
+        if (allowed != type(uint256).max) allowance[from][msg.sender] = allowed - amount;
+        emit Transfer(from, to, 0);
+        return true;
+    }
+}
+
+contract FeeOnTransferToken is MockERC20 {
+    uint256 internal immutable feeBps;
+
+    constructor(string memory name_, string memory symbol_, uint8 decimals_, uint256 feeBps_)
+        MockERC20(name_, symbol_, decimals_)
+    {
+        feeBps = feeBps_;
+    }
+
+    function transferFrom(address from, address to, uint256 amount) public override returns (bool) {
+        uint256 allowed = allowance[from][msg.sender];
+        if (allowed != type(uint256).max) allowance[from][msg.sender] = allowed - amount;
+
+        uint256 fee = amount * feeBps / 10_000;
+        uint256 received = amount - fee;
+
+        balanceOf[from] -= amount;
+        unchecked {
+            balanceOf[to] += received;
+            totalSupply -= fee;
+        }
+
+        emit Transfer(from, to, received);
+        if (fee > 0) emit Transfer(from, address(0), fee);
+        return true;
     }
 }

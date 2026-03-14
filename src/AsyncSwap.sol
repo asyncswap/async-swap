@@ -92,11 +92,20 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
     /// @notice ERC-20 transfer from filler to swapper failed
     error OUTPUT_TRANSFER_FAILED();
 
+    /// @notice Output token did not deliver the exact requested amount
+    error INSUFFICIENT_OUTPUT_RECEIVED();
+
     /// @notice Only the order's swapper can cancel
     error NOT_ORDER_OWNER();
 
     /// @notice No remaining input to cancel
     error NOTHING_TO_CANCEL();
+
+    /// @notice Order poolId does not match the active pool key
+    error POOL_MISMATCH();
+
+    /// @notice Pool id is not registered on this hook
+    error UNKNOWN_POOL();
 
     /// @notice Only PoolManager can call unlockCallback
     error CALLER_NOT_POOL_MANAGER_CALLBACK();
@@ -283,6 +292,8 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
     function _processOrder(bytes calldata hookData, PoolKey calldata key, bool zeroForOne, uint256 amountIn) internal {
         (Order memory order, uint256 minAmountOut) = abi.decode(hookData, (Order, uint256));
 
+        if (PoolId.unwrap(order.poolId) != PoolId.unwrap(key.toId())) revert POOL_MISMATCH();
+
         // Take fee from input (round up so protocol keeps more)
         uint256 feeAmount = FullMath.mulDivRoundingUp(amountIn, key.fee, 1_000_000);
 
@@ -303,6 +314,16 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
         emit Swap(orderId, order);
     }
 
+    /// @notice Deliver output tokens from filler to swapper and require exact delivery.
+    function _deliverOutput(address filler, Currency outputCurrency, address recipient, uint256 amount) internal {
+        IERC20Minimal token = IERC20Minimal(Currency.unwrap(outputCurrency));
+        uint256 beforeBal = token.balanceOf(recipient);
+        bool success = token.transferFrom(filler, recipient, amount);
+        if (!success) revert OUTPUT_TRANSFER_FAILED();
+        uint256 received = token.balanceOf(recipient) - beforeBal;
+        if (received != amount) revert INSUFFICIENT_OUTPUT_RECEIVED();
+    }
+
     //////////////////////////
     //////// Filler //////////
     //////////////////////////
@@ -315,6 +336,9 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
     /// @param fillAmount The amount of output tokens the filler is providing
     function fill(Order memory order, bool zeroForOne, uint256 fillAmount) external {
         bytes32 orderId = keccak256(abi.encode(order));
+
+        PoolKey memory key = pools[order.poolId];
+        if (address(key.hooks) != address(this)) revert UNKNOWN_POOL();
 
         uint256 remainingOut = balancesOut[orderId][zeroForOne];
         if (remainingOut == 0) revert ORDER_ALREADY_FILLED();
@@ -333,14 +357,11 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
         balancesIn[orderId][zeroForOne] = remainingIn - inputShare;
 
         // Determine currencies from the stored pool key
-        PoolKey memory key = pools[order.poolId];
         Currency inputCurrency = zeroForOne ? key.currency0 : key.currency1;
         Currency outputCurrency = zeroForOne ? key.currency1 : key.currency0;
 
         // Transfer output tokens from filler directly to swapper (ERC-20)
-        bool success =
-            IERC20Minimal(Currency.unwrap(outputCurrency)).transferFrom(msg.sender, order.swapper, fillAmount);
-        if (!success) revert OUTPUT_TRANSFER_FAILED();
+        _deliverOutput(msg.sender, outputCurrency, order.swapper, fillAmount);
 
         // Transfer proportional input claim tokens (ERC-6909) from hook to filler
         POOL_MANAGER.transfer(msg.sender, inputCurrency.toId(), inputShare);
@@ -360,6 +381,9 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
     function cancelOrder(Order memory order, bool zeroForOne) external {
         if (msg.sender != order.swapper) revert NOT_ORDER_OWNER();
 
+        PoolKey memory key = pools[order.poolId];
+        if (address(key.hooks) != address(this)) revert UNKNOWN_POOL();
+
         bytes32 orderId = keccak256(abi.encode(order));
 
         uint256 remainingIn = balancesIn[orderId][zeroForOne];
@@ -370,7 +394,6 @@ contract AsyncSwap layout at 1000 is IHooks, IUnlockCallback {
         delete balancesOut[orderId][zeroForOne];
 
         // Unlock PoolManager to burn claim tokens and send real ERC-20 to swapper
-        PoolKey memory key = pools[order.poolId];
         Currency inputCurrency = zeroForOne ? key.currency0 : key.currency1;
 
         POOL_MANAGER.unlock(
