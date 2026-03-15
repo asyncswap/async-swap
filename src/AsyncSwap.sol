@@ -22,6 +22,7 @@ import {CurrencySettler} from "./libraries/CurrencySettler.sol";
 import {IntentAuth} from "./IntentAuth.sol";
 import {AsyncToken} from "./governance/AsyncToken.sol";
 import {IAsyncSwapOracle} from "./interfaces/IAsyncSwapOracle.sol";
+import {ITokenPriceOracle} from "./interfaces/ITokenPriceOracle.sol";
 
 /// @title AsyncSwap
 /// @notice An intent-based async swap hook built on Uniswap V4.
@@ -473,6 +474,116 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
         }
     }
 
+    /// @notice Preview USD-value surplus capture using per-token USD price feeds.
+    /// @dev V1.1: uses ITokenPriceOracle to value both sides of a fill in USD,
+    ///      then detects surplus and computes the split. Falls back to the v1.0
+    ///      sqrtPriceX96 path if tokenPriceOracle is not configured.
+    function previewUsdSurplusCapture(Order memory order, bool zeroForOne, uint256 fillAmount)
+        public
+        view
+        returns (SurplusPreview memory preview)
+    {
+        if (address(tokenPriceOracle) == address(0)) {
+            return previewSurplusCapture(order, zeroForOne, fillAmount);
+        }
+
+        PoolKey memory key = pools[order.poolId];
+        if (address(key.hooks) != address(this)) return preview;
+
+        bytes32 orderId = keccak256(abi.encode(order));
+        uint256 remainingOut = balancesOut[orderId][zeroForOne];
+        uint256 remainingIn = balancesIn[orderId][zeroForOne];
+        if (remainingOut == 0 || fillAmount == 0 || fillAmount > remainingOut) return preview;
+
+        OracleConfig memory cfg = oracleConfig[order.poolId];
+
+        address inputToken = Currency.unwrap(zeroForOne ? key.currency0 : key.currency1);
+        address outputToken = Currency.unwrap(zeroForOne ? key.currency1 : key.currency0);
+
+        uint256 inputPriceX18;
+        uint256 outputPriceX18;
+        uint256 inputUpdatedAt;
+        uint256 outputUpdatedAt;
+
+        try tokenPriceOracle.getPrice(inputToken) returns (uint256 p, uint256 u) {
+            inputPriceX18 = p;
+            inputUpdatedAt = u;
+        } catch {
+            return previewSurplusCapture(order, zeroForOne, fillAmount);
+        }
+
+        try tokenPriceOracle.getPrice(outputToken) returns (uint256 p, uint256 u) {
+            outputPriceX18 = p;
+            outputUpdatedAt = u;
+        } catch {
+            return previewSurplusCapture(order, zeroForOne, fillAmount);
+        }
+
+        if (inputPriceX18 == 0 || outputPriceX18 == 0) {
+            return previewSurplusCapture(order, zeroForOne, fillAmount);
+        }
+
+        uint256 minUpdatedAt = inputUpdatedAt < outputUpdatedAt ? inputUpdatedAt : outputUpdatedAt;
+        if (cfg.maxAge > 0 && block.timestamp > minUpdatedAt + cfg.maxAge) {
+            return preview;
+        }
+
+        uint256 inputShare = FullMath.mulDiv(fillAmount, remainingIn, remainingOut);
+        uint256 claimShare = inputShare;
+
+        // Compute fairClaimShare: how much input is worth the output at oracle prices
+        // fairClaimShare = fillAmount * outputPriceX18 / inputPriceX18
+        uint256 fairClaimShare =
+            outputPriceX18 == 0 ? claimShare : FullMath.mulDiv(fillAmount, outputPriceX18, inputPriceX18);
+
+        if (claimShare == fairClaimShare) {
+            preview.claimShare = claimShare;
+            preview.fairShare = fairClaimShare;
+            preview.disadvantaged = Disadvantaged.None;
+            return preview;
+        }
+
+        if (claimShare > fairClaimShare) {
+            // User disadvantaged
+            uint256 surplus = claimShare - fairClaimShare;
+            uint256 deviationBps =
+                fairClaimShare == 0 ? type(uint256).max : FullMath.mulDiv(surplus, 10_000, fairClaimShare);
+
+            if (cfg.maxDeviationBps > 0 && deviationBps <= cfg.maxDeviationBps) {
+                preview.claimShare = claimShare;
+                preview.fairShare = fairClaimShare;
+                preview.surplus = surplus;
+                preview.deviationBps = deviationBps;
+                preview.disadvantaged = Disadvantaged.User;
+                return preview;
+            }
+
+            uint256 userShare = FullMath.mulDiv(surplus, cfg.userSurplusBps, 10_000);
+            uint256 fillerBonus = FullMath.mulDiv(surplus, cfg.fillerSurplusBps, 10_000);
+
+            preview.active = true;
+            preview.disadvantaged = Disadvantaged.User;
+            preview.claimShare = claimShare;
+            preview.fairShare = fairClaimShare;
+            preview.surplus = surplus;
+            preview.userShare = userShare;
+            preview.fillerShare = fairClaimShare + fillerBonus;
+            preview.protocolShare = surplus - userShare - fillerBonus;
+            preview.deviationBps = deviationBps;
+        } else {
+            // Filler disadvantaged
+            uint256 surplus = fairClaimShare - claimShare;
+
+            preview.active = false;
+            preview.disadvantaged = Disadvantaged.Filler;
+            preview.claimShare = claimShare;
+            preview.fairShare = fairClaimShare;
+            preview.surplus = surplus;
+            preview.fillerShare = claimShare;
+            preview.deviationBps = claimShare == 0 ? type(uint256).max : FullMath.mulDiv(surplus, 10_000, claimShare);
+        }
+    }
+
     /// @inheritdoc IHooks
     /// @notice Only exact-input swaps (amountSpecified < 0) are supported.
     ///         For "exact output" intents, the router should pre-compute the required
@@ -616,7 +727,8 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
         uint256 inputShare = FullMath.mulDiv(fillAmount, remainingIn, remainingOut);
 
         // Preview oracle-based surplus capture before mutating state.
-        SurplusPreview memory preview = previewSurplusCapture(order, zeroForOne, fillAmount);
+        // Prefer USD-value path (v1.1) if tokenPriceOracle is configured; fall back to sqrtPriceX96 (v1.0).
+        SurplusPreview memory preview = previewUsdSurplusCapture(order, zeroForOne, fillAmount);
 
         // Update state before external calls
         balancesOut[orderId][zeroForOne] = remainingOut - fillAmount;

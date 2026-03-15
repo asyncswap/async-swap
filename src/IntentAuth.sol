@@ -5,6 +5,7 @@ import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {PoolId} from "v4-core/src/types/PoolId.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
 import {IAsyncSwapOracle} from "./interfaces/IAsyncSwapOracle.sol";
+import {ITokenPriceOracle} from "./interfaces/ITokenPriceOracle.sol";
 
 contract IntentAuth {
     /// @notice The PoolManager contract address
@@ -30,6 +31,9 @@ contract IntentAuth {
     }
 
     mapping(PoolId poolId => OracleConfig config) public oracleConfig;
+
+    /// @notice Per-pool token price oracle for USD-value fairness (v1.1)
+    ITokenPriceOracle public tokenPriceOracle;
 
     struct CancelCallback {
         Currency currency;
@@ -131,6 +135,12 @@ contract IntentAuth {
         require(msg.sender == protocolOwner, "NOT OWNER");
         emit FeeRefundToggleUpdated(feeRefundToggle, _enabled);
         feeRefundToggle = _enabled;
+    }
+
+    /// @notice Set the global token price oracle for USD-value fairness (v1.1).
+    function setTokenPriceOracle(ITokenPriceOracle _oracle) external {
+        require(msg.sender == protocolOwner, "NOT OWNER");
+        tokenPriceOracle = _oracle;
     }
 
     function setOracleConfig(
