@@ -42,8 +42,9 @@ methods {
     // View / pure — envfree
     function getBalanceIn(AsyncSwap.Order, bool) external returns (uint256) envfree;
     function getBalanceOut(AsyncSwap.Order, bool) external returns (uint256) envfree;
-    function previewUsdSurplusCapture(AsyncSwap.Order, bool, uint256) external returns (AsyncSwap.SurplusPreview memory) envfree;
-    function previewSurplusCapture(AsyncSwap.Order, bool, uint256) external returns (AsyncSwap.SurplusPreview memory) envfree;
+    // preview functions use block.timestamp for oracle age checks — NOT envfree
+    function previewUsdSurplusCapture(AsyncSwap.Order, bool, uint256) external returns (AsyncSwap.SurplusPreview memory);
+    function previewSurplusCapture(AsyncSwap.Order, bool, uint256) external returns (AsyncSwap.SurplusPreview memory);
     function protocolOwner() external returns (address) envfree;
     function pendingOwner() external returns (address) envfree;
     function treasury() external returns (address) envfree;
@@ -132,8 +133,8 @@ hook Sload uint256 val balancesOut[KEY bytes32 orderId][KEY bool zeroForOne] {
  * When surplus capture is active and user is disadvantaged,
  * userShare + (fillerShare - fairShare) + protocolShare == surplus
  */
-rule surplusSplitConservation(AsyncSwap.Order order, bool zeroForOne, uint256 fillAmount) {
-    AsyncSwap.SurplusPreview preview = asyncSwap.previewUsdSurplusCapture(order, zeroForOne, fillAmount);
+rule surplusSplitConservation(env e, AsyncSwap.Order order, bool zeroForOne, uint256 fillAmount) {
+    AsyncSwap.SurplusPreview preview = asyncSwap.previewUsdSurplusCapture(e, order, zeroForOne, fillAmount);
 
     require preview.active;
     require preview.disadvantaged == AsyncSwap.Disadvantaged.User;
@@ -150,8 +151,8 @@ rule surplusSplitConservation(AsyncSwap.Order order, bool zeroForOne, uint256 fi
 /**
  * Rule: User share bounded by surplus
  */
-rule userShareBounded(AsyncSwap.Order order, bool zeroForOne, uint256 fillAmount) {
-    AsyncSwap.SurplusPreview preview = asyncSwap.previewUsdSurplusCapture(order, zeroForOne, fillAmount);
+rule userShareBounded(env e, AsyncSwap.Order order, bool zeroForOne, uint256 fillAmount) {
+    AsyncSwap.SurplusPreview preview = asyncSwap.previewUsdSurplusCapture(e, order, zeroForOne, fillAmount);
 
     require preview.active;
 
@@ -162,8 +163,8 @@ rule userShareBounded(AsyncSwap.Order order, bool zeroForOne, uint256 fillAmount
 /**
  * Rule: Filler total bounded by original claim
  */
-rule fillerShareBounded(AsyncSwap.Order order, bool zeroForOne, uint256 fillAmount) {
-    AsyncSwap.SurplusPreview preview = asyncSwap.previewUsdSurplusCapture(order, zeroForOne, fillAmount);
+rule fillerShareBounded(env e, AsyncSwap.Order order, bool zeroForOne, uint256 fillAmount) {
+    AsyncSwap.SurplusPreview preview = asyncSwap.previewUsdSurplusCapture(e, order, zeroForOne, fillAmount);
 
     require preview.active;
 
@@ -174,8 +175,8 @@ rule fillerShareBounded(AsyncSwap.Order order, bool zeroForOne, uint256 fillAmou
 /**
  * Rule: Protocol share non-negative (no underflow in split math)
  */
-rule protocolShareNonNegative(AsyncSwap.Order order, bool zeroForOne, uint256 fillAmount) {
-    AsyncSwap.SurplusPreview preview = asyncSwap.previewUsdSurplusCapture(order, zeroForOne, fillAmount);
+rule protocolShareNonNegative(env e, AsyncSwap.Order order, bool zeroForOne, uint256 fillAmount) {
+    AsyncSwap.SurplusPreview preview = asyncSwap.previewUsdSurplusCapture(e, order, zeroForOne, fillAmount);
 
     require preview.active;
 
@@ -190,8 +191,8 @@ rule protocolShareNonNegative(AsyncSwap.Order order, bool zeroForOne, uint256 fi
 /**
  * Rule: No capture on fair execution
  */
-rule noCaptureOnFairExecution(AsyncSwap.Order order, bool zeroForOne, uint256 fillAmount) {
-    AsyncSwap.SurplusPreview preview = asyncSwap.previewUsdSurplusCapture(order, zeroForOne, fillAmount);
+rule noCaptureOnFairExecution(env e, AsyncSwap.Order order, bool zeroForOne, uint256 fillAmount) {
+    AsyncSwap.SurplusPreview preview = asyncSwap.previewUsdSurplusCapture(e, order, zeroForOne, fillAmount);
 
     require preview.claimShare == preview.fairShare;
     require preview.fairShare > 0;
@@ -203,8 +204,8 @@ rule noCaptureOnFairExecution(AsyncSwap.Order order, bool zeroForOne, uint256 fi
 /**
  * Rule: Disadvantaged field is consistent with claim vs fair comparison
  */
-rule disadvantagedConsistency(AsyncSwap.Order order, bool zeroForOne, uint256 fillAmount) {
-    AsyncSwap.SurplusPreview preview = asyncSwap.previewUsdSurplusCapture(order, zeroForOne, fillAmount);
+rule disadvantagedConsistency(env e, AsyncSwap.Order order, bool zeroForOne, uint256 fillAmount) {
+    AsyncSwap.SurplusPreview preview = asyncSwap.previewUsdSurplusCapture(e, order, zeroForOne, fillAmount);
 
     // User disadvantaged <=> claimShare > fairShare (when active)
     assert (preview.active && preview.disadvantaged == AsyncSwap.Disadvantaged.User)
@@ -218,13 +219,19 @@ rule disadvantagedConsistency(AsyncSwap.Order order, bool zeroForOne, uint256 fi
 }
 
 /**
- * Rule: Preview never reverts (graceful degradation)
+ * Rule: Preview never reverts for valid tick ranges (graceful degradation)
+ * Note: TickMath requires tick in [-887272, 887272]. The fallback sqrtPriceX96 path
+ * uses TickMath internally, so out-of-range ticks can cause reverts.
+ * The USD path (tokenPriceOracle) does not depend on ticks at all.
  */
-rule previewNeverReverts(AsyncSwap.Order order, bool zeroForOne, uint256 fillAmount) {
-    asyncSwap.previewUsdSurplusCapture@withrevert(order, zeroForOne, fillAmount);
+rule previewNeverReverts(env e, AsyncSwap.Order order, bool zeroForOne, uint256 fillAmount) {
+    // Constrain tick to valid TickMath range
+    require order.tick >= -887272 && order.tick <= 887272;
+
+    asyncSwap.previewUsdSurplusCapture@withrevert(e, order, zeroForOne, fillAmount);
 
     assert !lastReverted,
-        "previewUsdSurplusCapture must never revert";
+        "previewUsdSurplusCapture must never revert for valid tick range";
 }
 
 // =============================================
