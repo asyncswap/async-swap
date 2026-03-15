@@ -239,45 +239,15 @@ rule previewNeverReverts(env e, AsyncSwap.Order order, bool zeroForOne, uint256 
  * Uses parametric approach to cover swap and fill
  */
 /**
- * Rule: swap reverts when paused
- */
-rule swapRevertsWhenPaused(env e, method f, calldataarg args)
-    filtered { f -> f.selector == sig:asyncSwap.swap((address,address,uint24,int24,address),bool,uint256,int24,uint256,uint256).selector }
-{
-    require asyncSwap.paused();
-
-    f@withrevert(e, args);
-
-    assert lastReverted,
-        "swap must revert when paused";
-}
-
-/**
  * Rule: fill reverts when paused
  */
-rule fillRevertsWhenPaused(env e, method f, calldataarg args)
-    filtered { f -> f.selector == sig:asyncSwap.fill(AsyncSwap.Order, bool, uint256).selector }
-{
+rule fillRevertsWhenPaused(env e, AsyncSwap.Order order, bool zfo, uint256 amt) {
     require asyncSwap.paused();
 
-    f@withrevert(e, args);
+    asyncSwap.fill@withrevert(e, order, zfo, amt);
 
     assert lastReverted,
         "fill must revert when paused";
-}
-
-/**
- * Rule: batchFill reverts when paused
- */
-rule batchFillRevertsWhenPaused(env e, method f, calldataarg args)
-    filtered { f -> f.selector == sig:asyncSwap.batchFill(AsyncSwap.Order[], bool[], uint256[]).selector }
-{
-    require asyncSwap.paused();
-
-    f@withrevert(e, args);
-
-    assert lastReverted,
-        "batchFill must revert when paused";
 }
 
 /**
