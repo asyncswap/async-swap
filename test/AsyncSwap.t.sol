@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.26;
 
-import {Test} from "forge-std/Test.sol";
-import {Deployers} from "v4-core/test/utils/Deployers.sol";
+import {SetupHook} from "./SetupHook.t.sol";
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
 import {AsyncSwap} from "../src/AsyncSwap.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
@@ -19,79 +18,9 @@ import {FixedPoint96} from "v4-core/src/libraries/FixedPoint96.sol";
 import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
 import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
 
-contract AsyncSwapTest is Test, Deployers {
+contract AsyncSwapTest is SetupHook {
     using PoolIdLibrary for PoolKey;
     using StateLibrary for IPoolManager;
-
-    AsyncSwap hook;
-    PoolKey poolKey;
-    PoolId poolId;
-
-    // Hook permission flags
-    // beforeInitialize(13) | afterInitialize(12) | afterAddLiquidity(10) | beforeSwap(7) | beforeSwapReturnsDelta(3)
-    uint160 constant HOOK_FLAGS = uint160(
-        Hooks.BEFORE_INITIALIZE_FLAG | Hooks.AFTER_INITIALIZE_FLAG | Hooks.AFTER_ADD_LIQUIDITY_FLAG
-            | Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
-    );
-
-    uint24 constant HOOK_FEE = 1_2000; // 1.2% in ppm
-    int24 constant TICK_SPACING = 240; // fee / 100 * 2 = 12000/100*2
-    int24 constant ORDER_TICK = 0; // price = 1.0 for simplicity
-
-    function setUp() public {
-        // Deploy manager and all test routers
-        deployFreshManagerAndRouters();
-
-        // Deploy tokens and approve routers
-        deployMintAndApprove2Currencies();
-
-        // Deploy hook at the flag-aligned address — constructor runs, deploys router
-        address hookAddr = address(HOOK_FLAGS);
-        deployCodeTo("AsyncSwap.sol:AsyncSwap", abi.encode(address(manager), address(this)), hookAddr);
-        hook = AsyncSwap(hookAddr);
-
-        // Approve router for settle (CurrencySettler.transferFrom is called by router as msg.sender)
-        address routerAddr = address(hook.router());
-        MockERC20(Currency.unwrap(currency0)).approve(routerAddr, type(uint256).max);
-        MockERC20(Currency.unwrap(currency1)).approve(routerAddr, type(uint256).max);
-
-        // Initialize pool: the hook's beforeInitialize requires sender == owner (address(this))
-        // and key.fee >= 12000
-        poolKey = PoolKey({
-            currency0: currency0,
-            currency1: currency1,
-            fee: LPFeeLibrary.DYNAMIC_FEE_FLAG,
-            tickSpacing: TICK_SPACING,
-            hooks: IHooks(hookAddr)
-        });
-        poolId = poolKey.toId();
-
-        // Initialize at price = 1:1 (tick 0)
-        manager.initialize(poolKey, SQRT_PRICE_1_1);
-
-        hook.unpause();
-    }
-
-    // ========================================
-    // Helper: build Order struct for hookData
-    // ========================================
-
-    function _makeOrder(address swapper, int24 tick) internal view returns (AsyncSwap.Order memory) {
-        return AsyncSwap.Order({poolId: poolId, swapper: swapper, tick: tick});
-    }
-
-    // ========================================
-    // Helper: execute a swap through the hook
-    // ========================================
-
-    function _swap(bool zeroForOne, uint256 amountIn, int24 tick, uint256 minAmountOut) internal {
-        hook.swap(poolKey, zeroForOne, amountIn, tick, minAmountOut, 0);
-    }
-
-    function _netInput(uint256 amount) internal pure returns (uint256) {
-        uint256 fee = FullMath.mulDivRoundingUp(amount, HOOK_FEE, 1_000_000);
-        return amount - fee;
-    }
 
     // ========================================
     // Test: setUp deploys and initializes correctly
