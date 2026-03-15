@@ -20,7 +20,7 @@
  * - @withrevert for revert condition verification
  */
 
-using AsyncSwap as hook;
+using AsyncSwap as asyncSwap;
 
 // =============================================
 // Definitions
@@ -30,9 +30,9 @@ definition nonpayable(env e) returns bool = e.msg.value == 0;
 
 definition nonzerosender(env e) returns bool = e.msg.sender != 0;
 
-definition isOwner(env e) returns bool = e.msg.sender == hook.protocolOwner();
+definition isOwner(env e) returns bool = e.msg.sender == asyncSwap.protocolOwner();
 
-definition isNotPaused() returns bool = !hook.paused();
+definition isNotPaused() returns bool = !asyncSwap.paused();
 
 // =============================================
 // Methods Block
@@ -55,9 +55,7 @@ methods {
     function hasKeeperReward(address) external returns (bool) envfree;
 
     // State-changing — need env
-    function swap(PoolKey, bool, uint256, int24, uint256, uint256) external;
     function fill(AsyncSwap.Order, bool, uint256) external;
-    function batchFill(AsyncSwap.Order[], bool[], uint256[]) external;
     function cancelOrder(AsyncSwap.Order, bool) external;
     function pause() external;
     function unpause() external;
@@ -66,11 +64,9 @@ methods {
     function setFeeRefundToggle(bool) external;
     function transferOwnership(address) external;
     function acceptOwnership() external;
-    function claimFees(Currency) external;
-    function claimSurplus(Currency) external;
 
     // External oracle calls — summarize as NONDET
-    function _.getQuoteSqrtPriceX96(PoolId) external => NONDET;
+    function _.getQuoteSqrtPriceX96(bytes32) external => NONDET;
     function _.getPrice(address) external => NONDET;
 }
 
@@ -137,7 +133,7 @@ hook Sload uint256 val balancesOut[KEY bytes32 orderId][KEY bool zeroForOne] {
  * userShare + (fillerShare - fairShare) + protocolShare == surplus
  */
 rule surplusSplitConservation(AsyncSwap.Order order, bool zeroForOne, uint256 fillAmount) {
-    AsyncSwap.SurplusPreview preview = hook.previewUsdSurplusCapture(order, zeroForOne, fillAmount);
+    AsyncSwap.SurplusPreview preview = asyncSwap.previewUsdSurplusCapture(order, zeroForOne, fillAmount);
 
     require preview.active;
     require preview.disadvantaged == AsyncSwap.Disadvantaged.User;
@@ -155,7 +151,7 @@ rule surplusSplitConservation(AsyncSwap.Order order, bool zeroForOne, uint256 fi
  * Rule: User share bounded by surplus
  */
 rule userShareBounded(AsyncSwap.Order order, bool zeroForOne, uint256 fillAmount) {
-    AsyncSwap.SurplusPreview preview = hook.previewUsdSurplusCapture(order, zeroForOne, fillAmount);
+    AsyncSwap.SurplusPreview preview = asyncSwap.previewUsdSurplusCapture(order, zeroForOne, fillAmount);
 
     require preview.active;
 
@@ -167,7 +163,7 @@ rule userShareBounded(AsyncSwap.Order order, bool zeroForOne, uint256 fillAmount
  * Rule: Filler total bounded by original claim
  */
 rule fillerShareBounded(AsyncSwap.Order order, bool zeroForOne, uint256 fillAmount) {
-    AsyncSwap.SurplusPreview preview = hook.previewUsdSurplusCapture(order, zeroForOne, fillAmount);
+    AsyncSwap.SurplusPreview preview = asyncSwap.previewUsdSurplusCapture(order, zeroForOne, fillAmount);
 
     require preview.active;
 
@@ -179,7 +175,7 @@ rule fillerShareBounded(AsyncSwap.Order order, bool zeroForOne, uint256 fillAmou
  * Rule: Protocol share non-negative (no underflow in split math)
  */
 rule protocolShareNonNegative(AsyncSwap.Order order, bool zeroForOne, uint256 fillAmount) {
-    AsyncSwap.SurplusPreview preview = hook.previewUsdSurplusCapture(order, zeroForOne, fillAmount);
+    AsyncSwap.SurplusPreview preview = asyncSwap.previewUsdSurplusCapture(order, zeroForOne, fillAmount);
 
     require preview.active;
 
@@ -195,7 +191,7 @@ rule protocolShareNonNegative(AsyncSwap.Order order, bool zeroForOne, uint256 fi
  * Rule: No capture on fair execution
  */
 rule noCaptureOnFairExecution(AsyncSwap.Order order, bool zeroForOne, uint256 fillAmount) {
-    AsyncSwap.SurplusPreview preview = hook.previewUsdSurplusCapture(order, zeroForOne, fillAmount);
+    AsyncSwap.SurplusPreview preview = asyncSwap.previewUsdSurplusCapture(order, zeroForOne, fillAmount);
 
     require preview.claimShare == preview.fairShare;
     require preview.fairShare > 0;
@@ -208,7 +204,7 @@ rule noCaptureOnFairExecution(AsyncSwap.Order order, bool zeroForOne, uint256 fi
  * Rule: Disadvantaged field is consistent with claim vs fair comparison
  */
 rule disadvantagedConsistency(AsyncSwap.Order order, bool zeroForOne, uint256 fillAmount) {
-    AsyncSwap.SurplusPreview preview = hook.previewUsdSurplusCapture(order, zeroForOne, fillAmount);
+    AsyncSwap.SurplusPreview preview = asyncSwap.previewUsdSurplusCapture(order, zeroForOne, fillAmount);
 
     // User disadvantaged <=> claimShare > fairShare (when active)
     assert (preview.active && preview.disadvantaged == AsyncSwap.Disadvantaged.User)
@@ -225,7 +221,7 @@ rule disadvantagedConsistency(AsyncSwap.Order order, bool zeroForOne, uint256 fi
  * Rule: Preview never reverts (graceful degradation)
  */
 rule previewNeverReverts(AsyncSwap.Order order, bool zeroForOne, uint256 fillAmount) {
-    hook.previewUsdSurplusCapture@withrevert(order, zeroForOne, fillAmount);
+    asyncSwap.previewUsdSurplusCapture@withrevert(order, zeroForOne, fillAmount);
 
     assert !lastReverted,
         "previewUsdSurplusCapture must never revert";
@@ -236,42 +232,37 @@ rule previewNeverReverts(AsyncSwap.Order order, bool zeroForOne, uint256 fillAmo
 // =============================================
 
 /**
- * Rule: Swap reverts when paused
+ * Rule: Any state-changing call reverts when paused (except cancel)
+ * Uses parametric approach to cover swap and fill
  */
-rule swapRevertsWhenPaused(env e, PoolKey key, bool zfo, uint256 amt, int24 tick, uint256 minOut, uint256 dl) {
-    require hook.paused();
+rule stateChangingRevertsWhenPaused(env e, method f, calldataarg args)
+    filtered { f -> !f.isView && f.selector != sig:asyncSwap.cancelOrder(AsyncSwap.Order, bool).selector
+        && f.selector != sig:asyncSwap.pause().selector
+        && f.selector != sig:asyncSwap.unpause().selector
+        && f.selector != sig:asyncSwap.setTreasury(address).selector
+        && f.selector != sig:asyncSwap.setMinimumFee(uint24).selector
+        && f.selector != sig:asyncSwap.setFeeRefundToggle(bool).selector
+        && f.selector != sig:asyncSwap.transferOwnership(address).selector
+        && f.selector != sig:asyncSwap.acceptOwnership().selector
+    }
+{
+    require asyncSwap.paused();
 
-    hook.swap@withrevert(e, key, zfo, amt, tick, minOut, dl);
+    f@withrevert(e, args);
 
     assert lastReverted,
-        "swap must revert when paused";
+        "state-changing calls (swap/fill) must revert when paused";
 }
 
 /**
- * Rule: Fill reverts when paused
- */
-rule fillRevertsWhenPaused(env e, AsyncSwap.Order order, bool zfo, uint256 amt) {
-    require hook.paused();
-
-    hook.fill@withrevert(e, order, zfo, amt);
-
-    assert lastReverted,
-        "fill must revert when paused";
-}
-
-/**
- * Rule: Cancel succeeds when paused (if conditions are otherwise met)
- * Cancel should NOT be blocked by pause
+ * Rule: Cancel is not blocked by pause
+ * Cancel can still revert for other reasons but not because of pause alone
  */
 rule cancelNotBlockedByPause(env e, AsyncSwap.Order order, bool zfo) {
-    require hook.paused();
+    require asyncSwap.paused();
 
-    // If cancel reverts, it should NOT be because of pause
-    // It can still revert for other reasons (not owner, nothing to cancel, etc.)
-    // We verify pause alone does not cause revert
-    hook.cancelOrder@withrevert(e, order, zfo);
+    asyncSwap.cancelOrder@withrevert(e, order, zfo);
 
-    // We use satisfy to show there exists at least one path where cancel succeeds while paused
     satisfy !lastReverted,
         "cancel must be possible while paused";
 }
@@ -286,7 +277,7 @@ rule cancelNotBlockedByPause(env e, AsyncSwap.Order order, bool zfo) {
 rule onlyOwnerCanPause(env e) {
     require !isOwner(e);
 
-    hook.pause@withrevert(e);
+    asyncSwap.pause@withrevert(e);
 
     assert lastReverted,
         "non-owner must not be able to pause";
@@ -298,7 +289,7 @@ rule onlyOwnerCanPause(env e) {
 rule onlyOwnerCanUnpause(env e) {
     require !isOwner(e);
 
-    hook.unpause@withrevert(e);
+    asyncSwap.unpause@withrevert(e);
 
     assert lastReverted,
         "non-owner must not be able to unpause";
@@ -310,7 +301,7 @@ rule onlyOwnerCanUnpause(env e) {
 rule onlyOwnerCanSetTreasury(env e, address newTreasury) {
     require !isOwner(e);
 
-    hook.setTreasury@withrevert(e, newTreasury);
+    asyncSwap.setTreasury@withrevert(e, newTreasury);
 
     assert lastReverted,
         "non-owner must not be able to set treasury";
@@ -322,7 +313,7 @@ rule onlyOwnerCanSetTreasury(env e, address newTreasury) {
 rule onlyOwnerCanSetFeeRefundToggle(env e, bool enabled) {
     require !isOwner(e);
 
-    hook.setFeeRefundToggle@withrevert(e, enabled);
+    asyncSwap.setFeeRefundToggle@withrevert(e, enabled);
 
     assert lastReverted,
         "non-owner must not be able to set fee refund toggle";
@@ -332,9 +323,9 @@ rule onlyOwnerCanSetFeeRefundToggle(env e, bool enabled) {
  * Rule: Only pending owner can accept ownership
  */
 rule onlyPendingOwnerCanAccept(env e) {
-    require e.msg.sender != hook.pendingOwner();
+    require e.msg.sender != asyncSwap.pendingOwner();
 
-    hook.acceptOwnership@withrevert(e);
+    asyncSwap.acceptOwnership@withrevert(e);
 
     assert lastReverted,
         "non-pending-owner must not be able to accept ownership";
@@ -344,14 +335,14 @@ rule onlyPendingOwnerCanAccept(env e) {
  * Parametric rule: Only authorized functions can change protocolOwner
  */
 rule ownerChangeOnlyViaAcceptOwnership(env e, method f, calldataarg args) {
-    address ownerBefore = hook.protocolOwner();
+    address ownerBefore = asyncSwap.protocolOwner();
 
     f(e, args);
 
-    address ownerAfter = hook.protocolOwner();
+    address ownerAfter = asyncSwap.protocolOwner();
 
     assert ownerAfter != ownerBefore =>
-        f.selector == sig:hook.acceptOwnership().selector,
+        f.selector == sig:asyncSwap.acceptOwnership().selector,
         "only acceptOwnership can change protocolOwner";
 }
 
@@ -359,14 +350,14 @@ rule ownerChangeOnlyViaAcceptOwnership(env e, method f, calldataarg args) {
  * Parametric rule: Only authorized functions can change paused state
  */
 rule pauseChangeOnlyViaPauseUnpause(env e, method f, calldataarg args) {
-    bool pausedBefore = hook.paused();
+    bool pausedBefore = asyncSwap.paused();
 
     f(e, args);
 
-    bool pausedAfter = hook.paused();
+    bool pausedAfter = asyncSwap.paused();
 
     assert pausedAfter != pausedBefore =>
-        (f.selector == sig:hook.pause().selector || f.selector == sig:hook.unpause().selector),
+        (f.selector == sig:asyncSwap.pause().selector || f.selector == sig:asyncSwap.unpause().selector),
         "only pause/unpause can change paused state";
 }
 
@@ -375,49 +366,29 @@ rule pauseChangeOnlyViaPauseUnpause(env e, method f, calldataarg args) {
 // =============================================
 
 /**
- * Rule: Swapper reward is one-time — once claimed, cannot be claimed again
+ * Rule: Reward flags are monotonic — once true, they stay true
+ * Uses parametric approach: any function call preserves a true reward flag
  */
-rule swapRewardIsOneTime(env e1, env e2, PoolKey key1, PoolKey key2,
-    bool zfo1, bool zfo2, uint256 amt1, uint256 amt2, int24 tick1, int24 tick2,
-    uint256 min1, uint256 min2, uint256 dl1, uint256 dl2) {
+rule swapRewardMonotonic(env e, method f, calldataarg args, address user) {
+    bool rewardBefore = asyncSwap.hasSwapReward(user);
+    require rewardBefore;
 
-    require e1.msg.sender == e2.msg.sender;
-    require !hook.paused();
+    f(e, args);
 
-    // First swap — may grant reward
-    hook.swap(e1, key1, zfo1, amt1, tick1, min1, dl1);
-    bool rewardAfterFirst = hook.hasSwapReward(e1.msg.sender);
-
-    // If reward was granted on first swap, it stays true
-    require rewardAfterFirst;
-
-    // Second swap — reward should already be claimed
-    hook.swap(e2, key2, zfo2, amt2, tick2, min2, dl2);
-    bool rewardAfterSecond = hook.hasSwapReward(e2.msg.sender);
-
-    assert rewardAfterSecond == true,
-        "swap reward once granted must remain true";
+    bool rewardAfter = asyncSwap.hasSwapReward(user);
+    assert rewardAfter == true,
+        "swap reward once granted must remain true across any function call";
 }
 
-/**
- * Rule: Filler reward is one-time
- */
-rule fillerRewardIsOneTime(env e1, env e2, AsyncSwap.Order order1, AsyncSwap.Order order2,
-    bool zfo1, bool zfo2, uint256 amt1, uint256 amt2) {
+rule fillerRewardMonotonic(env e, method f, calldataarg args, address user) {
+    bool rewardBefore = asyncSwap.hasFillerReward(user);
+    require rewardBefore;
 
-    require e1.msg.sender == e2.msg.sender;
-    require !hook.paused();
+    f(e, args);
 
-    hook.fill(e1, order1, zfo1, amt1);
-    bool rewardAfterFirst = hook.hasFillerReward(e1.msg.sender);
-
-    require rewardAfterFirst;
-
-    hook.fill(e2, order2, zfo2, amt2);
-    bool rewardAfterSecond = hook.hasFillerReward(e2.msg.sender);
-
-    assert rewardAfterSecond == true,
-        "filler reward once granted must remain true";
+    bool rewardAfter = asyncSwap.hasFillerReward(user);
+    assert rewardAfter == true,
+        "filler reward once granted must remain true across any function call";
 }
 
 // =============================================
@@ -428,17 +399,17 @@ rule fillerRewardIsOneTime(env e1, env e2, AsyncSwap.Order order1, AsyncSwap.Ord
  * Rule: Fill reduces balancesOut
  */
 rule fillReducesBalancesOut(env e, AsyncSwap.Order order, bool zeroForOne, uint256 fillAmount) {
-    uint256 outBefore = hook.getBalanceOut(order, zeroForOne);
+    uint256 outBefore = asyncSwap.getBalanceOut(order, zeroForOne);
 
     require outBefore > 0;
     require fillAmount > 0;
     require fillAmount <= outBefore;
-    require !hook.paused();
+    require !asyncSwap.paused();
 
-    hook.fill@withrevert(e, order, zeroForOne, fillAmount);
+    asyncSwap.fill@withrevert(e, order, zeroForOne, fillAmount);
 
     // If fill succeeded
-    assert !lastReverted => hook.getBalanceOut(order, zeroForOne) < outBefore,
+    assert !lastReverted => asyncSwap.getBalanceOut(order, zeroForOne) < outBefore,
         "successful fill must reduce balancesOut";
 }
 
@@ -446,17 +417,17 @@ rule fillReducesBalancesOut(env e, AsyncSwap.Order order, bool zeroForOne, uint2
  * Rule: Fill minimum threshold (50% of remaining)
  */
 rule fillMinimumThreshold(env e, AsyncSwap.Order order, bool zeroForOne, uint256 fillAmount) {
-    uint256 remaining = hook.getBalanceOut(order, zeroForOne);
+    uint256 remaining = asyncSwap.getBalanceOut(order, zeroForOne);
 
     require remaining > 0;
-    require !hook.paused();
+    require !asyncSwap.paused();
 
     // fillAmount below minimum should revert
     mathint minFill = (to_mathint(remaining) + 1) / 2;
     require to_mathint(fillAmount) < minFill;
     require fillAmount > 0;
 
-    hook.fill@withrevert(e, order, zeroForOne, fillAmount);
+    asyncSwap.fill@withrevert(e, order, zeroForOne, fillAmount);
 
     assert lastReverted,
         "fill below minimum threshold must revert";
@@ -470,13 +441,13 @@ rule fillMinimumThreshold(env e, AsyncSwap.Order order, bool zeroForOne, uint256
  * Rule: Cancel clears balancesIn and balancesOut
  */
 rule cancelClearsOrderState(env e, AsyncSwap.Order order, bool zeroForOne) {
-    require hook.getBalanceIn(order, zeroForOne) > 0;
+    require asyncSwap.getBalanceIn(order, zeroForOne) > 0;
 
-    hook.cancelOrder@withrevert(e, order, zeroForOne);
+    asyncSwap.cancelOrder@withrevert(e, order, zeroForOne);
 
     assert !lastReverted => (
-        hook.getBalanceIn(order, zeroForOne) == 0 &&
-        hook.getBalanceOut(order, zeroForOne) == 0
+        asyncSwap.getBalanceIn(order, zeroForOne) == 0 &&
+        asyncSwap.getBalanceOut(order, zeroForOne) == 0
     ),
         "successful cancel must clear both balancesIn and balancesOut";
 }
@@ -491,7 +462,7 @@ rule onlySwapperCancelsBeforeExpiry(env e, AsyncSwap.Order order, bool zeroForOn
     // This is structural — we can't directly check deadline here
     // but we verify the revert condition
 
-    hook.cancelOrder@withrevert(e, order, zeroForOne);
+    asyncSwap.cancelOrder@withrevert(e, order, zeroForOne);
 
     // If it reverted AND the order existed, it could be because of NOT_ORDER_OWNER
     // This is a necessary condition check, not sufficient
@@ -508,14 +479,14 @@ rule onlySwapperCancelsBeforeExpiry(env e, AsyncSwap.Order order, bool zeroForOn
  * (trivial but demonstrates the pattern)
  */
 invariant pausedIsBoolean()
-    hook.paused() == true || hook.paused() == false;
+    asyncSwap.paused() == true || asyncSwap.paused() == false;
 
 /**
  * Invariant: Protocol owner is never zero after initialization
  * (constructor sets it to _initialOwner which is required non-zero)
  */
 invariant ownerIsNonZero()
-    hook.protocolOwner() != 0
+    asyncSwap.protocolOwner() != 0
     {
         preserved with (env e) {
             require e.msg.sender != 0;
