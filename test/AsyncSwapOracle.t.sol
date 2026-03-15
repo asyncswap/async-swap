@@ -1,61 +1,29 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.26;
 
-import {Test} from "forge-std/Test.sol";
-import {Deployers} from "v4-core/test/utils/Deployers.sol";
+import {SetupHook} from "./SetupHook.t.sol";
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
 import {AsyncSwap} from "../src/AsyncSwap.sol";
 import {IntentAuth} from "../src/IntentAuth.sol";
 import {IAsyncSwapOracle} from "../src/interfaces/IAsyncSwapOracle.sol";
-import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
-import {Hooks} from "v4-core/src/libraries/Hooks.sol";
-import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
 import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 
-contract AsyncSwapOracleTest is Test, Deployers {
+contract AsyncSwapOracleTest is SetupHook {
     using PoolIdLibrary for PoolKey;
 
-    AsyncSwap hook;
-    PoolKey poolKey;
-    PoolId poolId;
     MockAsyncSwapOracle oracle;
     address filler = makeAddr("filler");
     address treasury = makeAddr("treasury");
 
-    uint160 constant HOOK_FLAGS = uint160(
-        Hooks.BEFORE_INITIALIZE_FLAG | Hooks.AFTER_INITIALIZE_FLAG | Hooks.AFTER_ADD_LIQUIDITY_FLAG
-            | Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
-    );
-
-    function setUp() public {
-        deployFreshManagerAndRouters();
-        deployMintAndApprove2Currencies();
-
-        address hookAddr = address(HOOK_FLAGS);
-        deployCodeTo("AsyncSwap.sol:AsyncSwap", abi.encode(address(manager), address(this)), hookAddr);
-        hook = AsyncSwap(hookAddr);
-
-        poolKey = PoolKey({
-            currency0: currency0,
-            currency1: currency1,
-            fee: LPFeeLibrary.DYNAMIC_FEE_FLAG,
-            tickSpacing: 240,
-            hooks: IHooks(hookAddr)
-        });
-        poolId = poolKey.toId();
-        manager.initialize(poolKey, SQRT_PRICE_1_1);
-
-        hook.unpause();
+    function setUp() public override {
+        super.setUp();
 
         MockERC20(Currency.unwrap(currency0)).mint(address(this), 100e18);
         MockERC20(Currency.unwrap(currency1)).mint(address(this), 100e18);
         MockERC20(Currency.unwrap(currency1)).mint(filler, 100e18);
-        address routerAddr = address(hook.router());
-        MockERC20(Currency.unwrap(currency0)).approve(routerAddr, type(uint256).max);
-        MockERC20(Currency.unwrap(currency1)).approve(routerAddr, type(uint256).max);
         vm.prank(filler);
         MockERC20(Currency.unwrap(currency1)).approve(address(hook), type(uint256).max);
 
