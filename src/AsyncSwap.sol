@@ -76,8 +76,21 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
         int24 tick;
     }
 
+    /// @notice Which participant is disadvantaged by the quoted execution.
+    /// @dev V1 uses pair-relative oracle (sqrtPriceX96) for detection.
+    ///      The target architecture is token/USD valuation in a common numeraire,
+    ///      where both user and filler loss are measurable in the same value unit.
+    ///      User-side surplus capture is enforced on-chain.
+    ///      Filler-side detection is informational in V1.
+    enum Disadvantaged {
+        None,
+        User,
+        Filler
+    }
+
     struct SurplusPreview {
         bool active;
+        Disadvantaged disadvantaged;
         uint256 claimShare;
         uint256 fairShare;
         uint256 surplus;
@@ -402,42 +415,62 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
                 : FullMath.mulDivRoundingUp(fillAmount, remainingFee, remainingOut);
             fairShare -= fairFee;
         }
-        if (claimShare <= fairShare) {
+        if (claimShare == fairShare) {
+            // Perfectly fair execution
             preview.claimShare = claimShare;
             preview.fairShare = fairShare;
+            preview.disadvantaged = Disadvantaged.None;
             preview.oracleSqrtPriceX96 = oracleSqrtPriceX96;
             preview.oracleUpdatedAt = updatedAt;
             return preview;
         }
 
-        uint256 surplus = claimShare - fairShare;
-        uint256 deviationBps = fairShare == 0 ? type(uint256).max : FullMath.mulDiv(surplus, 10_000, fairShare);
-        if (cfg.maxDeviationBps > 0 && deviationBps <= cfg.maxDeviationBps) {
+        if (claimShare > fairShare) {
+            // User is disadvantaged — overpaying relative to oracle
+            uint256 surplus = claimShare - fairShare;
+            uint256 deviationBps = fairShare == 0 ? type(uint256).max : FullMath.mulDiv(surplus, 10_000, fairShare);
+
+            if (cfg.maxDeviationBps > 0 && deviationBps <= cfg.maxDeviationBps) {
+                // Within tolerance — no capture
+                preview.claimShare = claimShare;
+                preview.fairShare = fairShare;
+                preview.surplus = surplus;
+                preview.deviationBps = deviationBps;
+                preview.disadvantaged = Disadvantaged.User;
+                preview.oracleSqrtPriceX96 = oracleSqrtPriceX96;
+                preview.oracleUpdatedAt = updatedAt;
+                return preview;
+            }
+
+            uint256 userShare = FullMath.mulDiv(surplus, cfg.userSurplusBps, 10_000);
+            uint256 fillerBonus = FullMath.mulDiv(surplus, cfg.fillerSurplusBps, 10_000);
+
+            preview.active = true;
+            preview.disadvantaged = Disadvantaged.User;
             preview.claimShare = claimShare;
             preview.fairShare = fairShare;
             preview.surplus = surplus;
+            preview.userShare = userShare;
+            preview.fillerShare = fairShare + fillerBonus;
+            preview.protocolShare = surplus - userShare - fillerBonus;
             preview.deviationBps = deviationBps;
             preview.oracleSqrtPriceX96 = oracleSqrtPriceX96;
             preview.oracleUpdatedAt = updatedAt;
-            return preview;
+        } else {
+            // Filler is disadvantaged — user quote is too favorable
+            // Detection only — filler protection is informational in V1.
+            uint256 surplus = fairShare - claimShare;
+
+            preview.active = false;
+            preview.disadvantaged = Disadvantaged.Filler;
+            preview.claimShare = claimShare;
+            preview.fairShare = fairShare;
+            preview.surplus = surplus;
+            preview.fillerShare = claimShare;
+            preview.deviationBps = claimShare == 0 ? type(uint256).max : FullMath.mulDiv(surplus, 10_000, claimShare);
+            preview.oracleSqrtPriceX96 = oracleSqrtPriceX96;
+            preview.oracleUpdatedAt = updatedAt;
         }
-
-        uint256 userShare = FullMath.mulDiv(surplus, cfg.userSurplusBps, 10_000);
-        uint256 fillerBonus = FullMath.mulDiv(surplus, cfg.fillerSurplusBps, 10_000);
-        uint256 protocolShare = surplus - userShare - fillerBonus;
-
-        preview = SurplusPreview({
-            active: true,
-            claimShare: claimShare,
-            fairShare: fairShare,
-            surplus: surplus,
-            userShare: userShare,
-            fillerShare: fairShare + fillerBonus,
-            protocolShare: protocolShare,
-            deviationBps: deviationBps,
-            oracleSqrtPriceX96: oracleSqrtPriceX96,
-            oracleUpdatedAt: updatedAt
-        });
     }
 
     /// @inheritdoc IHooks
