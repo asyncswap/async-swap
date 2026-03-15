@@ -1,9 +1,11 @@
 chains:
   anvil:
     chainId: 31337
+    rpcUrl: "http://127.0.0.1:8545"
 
   unichain-sepolia:
     chainId: 1301
+    rpcUrl: "https://sepolia.unichain.org"
     poolManager: "0x00B036B58a818B1BC34d502D3fE730Db729e62AC"
     chronicle:
       ethUsd: "0x1a16742c2f612eC46f52687BE5d1731EC12cBD89"

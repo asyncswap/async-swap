@@ -108,7 +108,7 @@ contract AsyncSwapOracleTest is Test, Deployers {
         assertFalse(preview.active);
     }
 
-    function test_oracleCapture_accruesSurplus_and_user_can_reclaim_share() public {
+    function test_oracleCapture_accruesSurplus_and_user_receives_share_on_full_fill() public {
         oracle.setQuote(0, block.timestamp);
         hook.setOracleConfig(poolId, oracle, 300, 100, 5000, 2500, 2500);
         hook.setTreasury(treasury);
@@ -117,18 +117,16 @@ contract AsyncSwapOracleTest is Test, Deployers {
         AsyncSwap.Order memory order = AsyncSwap.Order({poolId: poolId, swapper: address(this), tick: -500});
         uint256 fillAmount = hook.getBalanceOut(order, true);
 
+        uint256 userClaimsBefore = manager.balanceOf(address(this), currency0.toId());
         uint256 fillerClaimsBefore = manager.balanceOf(filler, currency0.toId());
         vm.prank(filler);
         hook.fill(order, true, fillAmount);
 
         uint256 fillerClaimsAfter = manager.balanceOf(filler, currency0.toId()) - fillerClaimsBefore;
+        uint256 userClaimsAfter = manager.balanceOf(address(this), currency0.toId()) - userClaimsBefore;
         assertGt(hook.accruedSurplus(currency0), 0, "protocol should capture surplus");
-        assertGt(hook.getBalanceIn(order, true), 0, "user should retain surplus share in order balance");
+        assertGt(userClaimsAfter, 0, "user should receive surplus share directly on full fill");
         assertLt(fillerClaimsAfter, 988_000_000_000_000_000, "filler should not keep all surplus");
-
-        uint256 userBalBefore = currency0.balanceOf(address(this));
-        hook.cancelOrder(order, true);
-        assertGt(currency0.balanceOf(address(this)) - userBalBefore, 0, "user should reclaim surplus share on cancel");
 
         uint256 treasuryBefore = currency0.balanceOf(treasury);
         hook.claimSurplus(currency0);
@@ -142,7 +140,7 @@ contract AsyncSwapOracleTest is Test, Deployers {
         hook.claimSurplus(currency0);
     }
 
-    function test_oracleCapture_onFillMode_accruesSurplus_and_preserves_user_share() public {
+    function test_oracleCapture_onFillMode_user_receives_share_on_full_fill() public {
         oracle.setQuote(0, block.timestamp);
         hook.setOracleConfig(poolId, oracle, 300, 100, 5000, 2500, 2500);
         hook.setFeeRefundToggle(true);
@@ -152,18 +150,16 @@ contract AsyncSwapOracleTest is Test, Deployers {
         AsyncSwap.Order memory order = AsyncSwap.Order({poolId: poolId, swapper: address(this), tick: -500});
         uint256 fillAmount = hook.getBalanceOut(order, true);
 
+        uint256 userClaimsBefore = manager.balanceOf(address(this), currency0.toId());
         uint256 fillerClaimsBefore = manager.balanceOf(filler, currency0.toId());
         vm.prank(filler);
         hook.fill(order, true, fillAmount);
 
         uint256 fillerClaimsAfter = manager.balanceOf(filler, currency0.toId()) - fillerClaimsBefore;
+        uint256 userClaimsAfter = manager.balanceOf(address(this), currency0.toId()) - userClaimsBefore;
         assertGt(hook.accruedSurplus(currency0), 0, "protocol should capture surplus in on-fill mode");
-        assertGt(hook.getBalanceIn(order, true), 0, "user should retain share in order balance");
+        assertGt(userClaimsAfter, 0, "user should receive surplus share directly on full fill");
         assertLt(fillerClaimsAfter, 988_000_000_000_000_000, "filler should not keep all upside");
-
-        uint256 userBalBefore = currency0.balanceOf(address(this));
-        hook.cancelOrder(order, true);
-        assertGt(currency0.balanceOf(address(this)) - userBalBefore, 0, "user should reclaim residual share on cancel");
 
         uint256 treasuryBefore = currency0.balanceOf(treasury);
         hook.claimSurplus(currency0);

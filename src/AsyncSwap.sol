@@ -36,6 +36,9 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
     /// @notice One-time reward amount for each role (1 token = 1e18)
     uint256 public constant PARTICIPANT_REWARD = 1e18;
 
+    /// @notice Minimum refund amount required for keeper reward eligibility
+    uint256 public constant MIN_KEEPER_REWARD_SIZE = 1e15;
+
     /// @notice Tracks whether an address has already claimed their swapper reward
     mapping(address => bool) public hasSwapReward;
     /// @notice Tracks whether an address has already claimed their filler reward
@@ -343,6 +346,10 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
     }
 
     /// @notice Preview oracle-based surplus capture for a proposed fill.
+    /// @dev V1 design decision: oracle and surplus policy is read live from governance config
+    ///      at execution time, not snapshotted per order. This means governance changes can
+    ///      affect fills on already-open orders. This is intentional — fairness is judged by
+    ///      the policy in force when value is actually exchanged, not when the order was created.
     function previewSurplusCapture(Order memory order, bool zeroForOne, uint256 fillAmount)
         public
         view
@@ -358,7 +365,15 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
         OracleConfig memory cfg = oracleConfig[order.poolId];
         if (address(cfg.oracle) == address(0)) return preview;
 
-        (uint160 oracleSqrtPriceX96, uint256 updatedAt) = cfg.oracle.getQuoteSqrtPriceX96(order.poolId);
+        uint160 oracleSqrtPriceX96;
+        uint256 updatedAt;
+        try cfg.oracle.getQuoteSqrtPriceX96(order.poolId) returns (uint160 sqrtPrice, uint256 age) {
+            oracleSqrtPriceX96 = sqrtPrice;
+            updatedAt = age;
+        } catch {
+            // Oracle read failed — degrade gracefully, skip surplus capture
+            return preview;
+        }
         if (cfg.maxAge > 0 && block.timestamp > updatedAt + cfg.maxAge) {
             preview.oracleSqrtPriceX96 = oracleSqrtPriceX96;
             preview.oracleUpdatedAt = updatedAt;
@@ -371,8 +386,11 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
 
         uint256 fairShare = _computeInputForOutputAtSqrtPrice(fillAmount, oracleSqrtPriceX96, zeroForOne);
         if (remainingFee > 0) {
-            uint24 fee = poolFee[order.poolId];
-            uint256 fairFee = FullMath.mulDivRoundingUp(fairShare, fee, 1_000_000);
+            // Use the order's own fee proportion, not the live poolFee,
+            // so oracle fairness and fee accounting use the same basis.
+            uint256 fairFee = fillAmount == remainingOut
+                ? remainingFee
+                : FullMath.mulDivRoundingUp(fillAmount, remainingFee, remainingOut);
             fairShare -= fairFee;
         }
         if (claimShare <= fairShare) {
@@ -577,12 +595,18 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
             accruedFees[inputCurrency] += feeShare;
         }
 
-        // Optional oracle-based surplus capture groundwork.
-        // Currently enabled for upfront-fee mode where balancesIn tracks net input.
+        // Oracle-based surplus capture.
+        // User share is either returned immediately on full fill or kept refundable in the order.
         if (preview.active) {
             claimShare = preview.fillerShare;
-            balancesIn[orderId][zeroForOne] += preview.userShare;
             accruedSurplus[inputCurrency] += preview.protocolShare;
+            if (fillAmount == remainingOut) {
+                // Full fill: return user share directly instead of stranding it
+                POOL_MANAGER.transfer(order.swapper, inputCurrency.toId(), preview.userShare);
+            } else {
+                // Partial fill: keep user share recoverable in remaining input
+                balancesIn[orderId][zeroForOne] += preview.userShare;
+            }
         }
 
         // Transfer output tokens from filler directly to swapper
@@ -640,8 +664,8 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
 
         emit Cancel(orderId, order.swapper, refundAmount);
 
-        // One-time keeper reward for cleaning up expired orders
-        if (expired && msg.sender != order.swapper) {
+        // One-time keeper reward for cleaning up expired orders (minimum size required)
+        if (expired && msg.sender != order.swapper && refundAmount >= MIN_KEEPER_REWARD_SIZE) {
             _tryMintReward(msg.sender, hasKeeperReward);
         }
     }

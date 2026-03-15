@@ -38,6 +38,11 @@ else
   else
     JSON_PATH="$ROOT_DIR/broadcast/00_DeployAsyncSwap.s.sol/$CHAIN_ID/run-latest.json"
   fi
+  if [[ ! -f "$JSON_PATH" ]]; then
+    echo "Missing AsyncSwap deployment artifact for CHAIN=${CHAIN:-anvil} at: $JSON_PATH" >&2
+    echo "Set ASYNCSWAP_ADDRESS explicitly or deploy AsyncSwap on this chain first." >&2
+    exit 1
+  fi
   HOOK="$(python3 - <<PY
 import json
 from pathlib import Path

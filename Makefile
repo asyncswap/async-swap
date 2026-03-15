@@ -7,7 +7,10 @@ endif
 
 CHAIN ?= anvil
 RUN_MODE ?= broadcast
-RPC_URL ?= http://127.0.0.1:8545
+CONFIG_FILE := config/deployments.yaml
+CONFIG_RPC_URL := $(shell ruby script/read-config.rb $(CONFIG_FILE) chains.$(CHAIN).rpcUrl)
+cfg = $(shell ruby script/read-config.rb $(CONFIG_FILE) $(1))
+RPC_URL ?= $(if $(CONFIG_RPC_URL),$(CONFIG_RPC_URL),http://127.0.0.1:8545)
 TIMELOCK_DELAY ?= 60
 VOTING_DELAY ?= 1
 VOTING_PERIOD ?= 10
@@ -80,13 +83,21 @@ set-pool-oracle: require-account-env require-broadcast
 
 set-unichain-sepolia-eth-usdc-oracle: require-account-env require-broadcast
 	@if [ -z "$(POOL_ID)" ]; then echo "Missing POOL_ID" && exit 1; fi
+	$(eval PRESET_CHAIN := unichain-sepolia)
+	$(eval PRESET := native-usdc)
 	CHAIN=unichain-sepolia RUN_MODE=$(RUN_MODE) \
-	CHRONICLE_ORACLE=0x1a16742c2f612eC46f52687BE5d1731EC12cBD89 \
-	TOKEN0_ADDRESS=0x0000000000000000000000000000000000000000 \
-	TOKEN1_ADDRESS=0x31d0220469e10c4E71834a79b1f276d740d3768F \
-	ORACLE_INVERSE=false \
-	ORACLE_SCALE_NUMERATOR=1000000 \
-	ORACLE_SCALE_DENOMINATOR=1000000000000000000 \
+	CHRONICLE_ORACLE=$(call cfg,chains.$(PRESET_CHAIN).chronicle.ethUsd) \
+	CHRONICLE_SELF_KISSER=$(call cfg,chains.$(PRESET_CHAIN).chronicle.selfKisser) \
+	TOKEN0_ADDRESS=$(call cfg,pool_presets.$(PRESET_CHAIN).$(PRESET).token0) \
+	TOKEN1_ADDRESS=$(call cfg,pool_presets.$(PRESET_CHAIN).$(PRESET).token1) \
+	ORACLE_INVERSE=$(call cfg,pool_presets.$(PRESET_CHAIN).$(PRESET).oracle.inverse) \
+	ORACLE_SCALE_NUMERATOR=$(call cfg,pool_presets.$(PRESET_CHAIN).$(PRESET).oracle.scaleNumerator) \
+	ORACLE_SCALE_DENOMINATOR=$(call cfg,pool_presets.$(PRESET_CHAIN).$(PRESET).oracle.scaleDenominator) \
+	ORACLE_MAX_AGE=$(or $(ORACLE_MAX_AGE),$(call cfg,pool_presets.$(PRESET_CHAIN).$(PRESET).oracle.maxAge)) \
+	ORACLE_MAX_DEVIATION_BPS=$(or $(ORACLE_MAX_DEVIATION_BPS),$(call cfg,pool_presets.$(PRESET_CHAIN).$(PRESET).oracle.maxDeviationBps)) \
+	USER_SURPLUS_BPS=$(or $(USER_SURPLUS_BPS),$(call cfg,pool_presets.$(PRESET_CHAIN).$(PRESET).oracle.userSurplusBps)) \
+	FILLER_SURPLUS_BPS=$(or $(FILLER_SURPLUS_BPS),$(call cfg,pool_presets.$(PRESET_CHAIN).$(PRESET).oracle.fillerSurplusBps)) \
+	PROTOCOL_SURPLUS_BPS=$(or $(PROTOCOL_SURPLUS_BPS),$(call cfg,pool_presets.$(PRESET_CHAIN).$(PRESET).oracle.protocolSurplusBps)) \
 	$(FORGE_SCRIPT) script/12_SetPoolOracleConfig.s.sol:SetPoolOracleConfigScript
 
 print-pool-id:

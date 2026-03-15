@@ -4,7 +4,7 @@ require 'yaml'
 file = ARGV[0]
 path = ARGV[1]
 
-abort 'usage: read-config.rb <file> <dot.path>' unless file && path
+exit 0 unless file && path
 
 begin
   data = YAML.load_file(file)

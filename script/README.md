@@ -8,6 +8,12 @@ Scripts use `vm.startBroadcast()` and are intended to be run with a Foundry acco
 
 If you already keep deployment values in a project `.env`, the `Makefile` will load it automatically.
 
+Structured chain and pool defaults live in:
+
+```text
+config/deployments.yaml
+```
+
 Minimum expected values:
 
 ```shell
@@ -24,6 +30,11 @@ If `RPC_URL` is omitted, the shell script defaults to:
 ```shell
 http://127.0.0.1:8545
 ```
+
+More generally, `make` resolves RPC URLs in this order:
+1. `RPC_URL` env var
+2. `config/deployments.yaml` chain default
+3. local fallback `http://127.0.0.1:8545`
 
 Optional governance env vars:
 
@@ -245,19 +256,17 @@ Then configure the pool oracle:
 
 ```shell
 export POOL_ID=0x...
-export ORACLE_MAX_AGE=300
-export ORACLE_MAX_DEVIATION_BPS=100
-export USER_SURPLUS_BPS=5000
-export FILLER_SURPLUS_BPS=2500
-export PROTOCOL_SURPLUS_BPS=2500
 
 make set-unichain-sepolia-eth-usdc-oracle
 ```
 
-That convenience target uses:
-- `ORACLE_INVERSE=false`
-- `ORACLE_SCALE_NUMERATOR=1000000`
-- `ORACLE_SCALE_DENOMINATOR=1000000000000000000`
+That convenience target pulls its ETH/USDC defaults from `config/deployments.yaml`, including:
+- Chronicle oracle address
+- SelfKisser address
+- token addresses
+- inversion / scaling
+- max age / deviation
+- default user / filler / protocol split
 
 This maps an 18-decimal ETH/USD Chronicle price into the native/USDC pool price domain.
 
