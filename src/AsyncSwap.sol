@@ -605,17 +605,11 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
         }
 
         // Oracle-based surplus capture.
-        // User share is either returned immediately on full fill or kept refundable in the order.
+        // User rebate is returned immediately on every fill to match the verified spec.
         if (preview.active) {
             claimShare = preview.fillerShare;
             accruedSurplus[inputCurrency] += preview.protocolShare;
-            if (fillAmount == remainingOut) {
-                // Full fill: return user share directly instead of stranding it
-                POOL_MANAGER.transfer(order.swapper, inputCurrency.toId(), preview.userShare);
-            } else {
-                // Partial fill: keep user share recoverable in remaining input
-                balancesIn[orderId][zeroForOne] += preview.userShare;
-            }
+            POOL_MANAGER.transfer(order.swapper, inputCurrency.toId(), preview.userShare);
         }
 
         // Transfer output tokens from filler directly to swapper

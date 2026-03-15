@@ -108,7 +108,7 @@ contract AsyncSwapOracleTest is Test, Deployers {
         assertFalse(preview.active);
     }
 
-    function test_oracleCapture_accruesSurplus_and_user_receives_share_on_full_fill() public {
+    function test_oracleCapture_accruesSurplus_and_user_receives_immediate_rebate() public {
         oracle.setQuote(0, block.timestamp);
         hook.setOracleConfig(poolId, oracle, 300, 100, 5000, 2500, 2500);
         hook.setTreasury(treasury);
@@ -125,7 +125,7 @@ contract AsyncSwapOracleTest is Test, Deployers {
         uint256 fillerClaimsAfter = manager.balanceOf(filler, currency0.toId()) - fillerClaimsBefore;
         uint256 userClaimsAfter = manager.balanceOf(address(this), currency0.toId()) - userClaimsBefore;
         assertGt(hook.accruedSurplus(currency0), 0, "protocol should capture surplus");
-        assertGt(userClaimsAfter, 0, "user should receive surplus share directly on full fill");
+        assertGt(userClaimsAfter, 0, "user should receive immediate rebate");
         assertLt(fillerClaimsAfter, 988_000_000_000_000_000, "filler should not keep all surplus");
 
         uint256 treasuryBefore = currency0.balanceOf(treasury);
@@ -140,7 +140,7 @@ contract AsyncSwapOracleTest is Test, Deployers {
         hook.claimSurplus(currency0);
     }
 
-    function test_oracleCapture_onFillMode_user_receives_share_on_full_fill() public {
+    function test_oracleCapture_onFillMode_user_receives_immediate_rebate() public {
         oracle.setQuote(0, block.timestamp);
         hook.setOracleConfig(poolId, oracle, 300, 100, 5000, 2500, 2500);
         hook.setFeeRefundToggle(true);
@@ -158,7 +158,7 @@ contract AsyncSwapOracleTest is Test, Deployers {
         uint256 fillerClaimsAfter = manager.balanceOf(filler, currency0.toId()) - fillerClaimsBefore;
         uint256 userClaimsAfter = manager.balanceOf(address(this), currency0.toId()) - userClaimsBefore;
         assertGt(hook.accruedSurplus(currency0), 0, "protocol should capture surplus in on-fill mode");
-        assertGt(userClaimsAfter, 0, "user should receive surplus share directly on full fill");
+        assertGt(userClaimsAfter, 0, "user should receive immediate rebate in on-fill mode");
         assertLt(fillerClaimsAfter, 988_000_000_000_000_000, "filler should not keep all upside");
 
         uint256 treasuryBefore = currency0.balanceOf(treasury);
