@@ -23,6 +23,14 @@ import {IntentAuth} from "./IntentAuth.sol";
 import {AsyncToken} from "./governance/AsyncToken.sol";
 import {IAsyncSwapOracle} from "./interfaces/IAsyncSwapOracle.sol";
 
+/// @title AsyncSwap
+/// @notice An intent-based async swap hook built on Uniswap V4.
+/// @dev V1 Principle: AsyncSwap exists to ensure users do not silently lose value on bad quotes.
+///      When trusted value references are available, the protocol can refund users, internalize MEV,
+///      and route excess value according to explicit policy.
+///
+///      Oracle and surplus policy is read live from governance config at execution time.
+///      This is intentional — fairness is judged by the policy in force when value is actually exchanged.
 contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
     using PoolIdLibrary for PoolKey;
     using CurrencySettler for Currency;
@@ -230,6 +238,7 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
     ) external payable {
         if (paused) revert PAUSED();
         require(amountIn > 0, "ZERO_AMOUNT");
+        if (deadline != 0 && deadline <= block.timestamp) revert ORDER_EXPIRED();
 
         router.executeSwap{value: msg.value}(
             AsyncRouter.SwapData({
