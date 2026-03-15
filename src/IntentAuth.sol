@@ -66,6 +66,7 @@ contract IntentAuth {
     constructor(IPoolManager _poolManager, address _initialOwner) {
         POOL_MANAGER = _poolManager;
         protocolOwner = _initialOwner;
+        paused = true;
         emit OwnershipTransferred(address(0), _initialOwner);
     }
 

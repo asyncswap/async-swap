@@ -48,6 +48,8 @@ contract AsyncSwapOracleTest is Test, Deployers {
         poolId = poolKey.toId();
         manager.initialize(poolKey, SQRT_PRICE_1_1);
 
+        hook.unpause();
+
         MockERC20(Currency.unwrap(currency0)).mint(address(this), 100e18);
         MockERC20(Currency.unwrap(currency1)).mint(address(this), 100e18);
         MockERC20(Currency.unwrap(currency1)).mint(filler, 100e18);

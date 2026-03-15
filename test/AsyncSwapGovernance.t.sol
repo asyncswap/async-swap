@@ -58,6 +58,8 @@ contract AsyncSwapGovernanceTest is Test, Deployers {
 
         manager.initialize(poolKey, SQRT_PRICE_1_1);
 
+        hook.unpause();
+
         MockERC20(Currency.unwrap(currency0)).mint(alice, 100e18);
         MockERC20(Currency.unwrap(currency1)).mint(alice, 100e18);
         MockERC20(Currency.unwrap(currency0)).mint(bob, 100e18);

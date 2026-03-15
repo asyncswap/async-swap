@@ -53,6 +53,8 @@ contract AsyncRouterTest is Test, Deployers {
         poolId = poolKey.toId();
 
         manager.initialize(poolKey, SQRT_PRICE_1_1);
+
+        hook.unpause();
     }
 
     // ========================================

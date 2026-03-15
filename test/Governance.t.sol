@@ -149,6 +149,8 @@ contract AsyncGovernanceExecutionTest is Test, Deployers {
         poolId = poolKey.toId();
         manager.initialize(poolKey, SQRT_PRICE_1_1);
 
+        hook.unpause();
+
         token = new AsyncToken(address(this));
         address[] memory proposers = new address[](1);
         proposers[0] = address(0);

@@ -55,6 +55,8 @@ contract AsyncSwapNativeTest is Test, Deployers {
 
         manager.initialize(poolKey, SQRT_PRICE_1_1);
 
+        hook.unpause();
+
         vm.deal(alice, 100 ether);
         vm.deal(filler, 100 ether);
         token1.mint(alice, 100e18);

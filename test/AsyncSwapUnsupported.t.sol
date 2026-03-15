@@ -48,6 +48,8 @@ contract AsyncSwapUnsupportedTest is Test, Deployers {
         });
 
         manager.initialize(poolKey, SQRT_PRICE_1_1);
+
+        hook.unpause();
     }
 
     function _initCustomPool(address token0Addr, address token1Addr)

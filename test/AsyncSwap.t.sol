@@ -68,6 +68,8 @@ contract AsyncSwapTest is Test, Deployers {
 
         // Initialize at price = 1:1 (tick 0)
         manager.initialize(poolKey, SQRT_PRICE_1_1);
+
+        hook.unpause();
     }
 
     // ========================================

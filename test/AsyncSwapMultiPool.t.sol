@@ -94,6 +94,8 @@ contract AsyncSwapMultiPoolTest is Test, Deployers {
         });
         poolId2 = poolKey2.toId();
         manager.initialize(poolKey2, SQRT_PRICE_1_1);
+
+        hook.unpause();
     }
 
     // ========================================
