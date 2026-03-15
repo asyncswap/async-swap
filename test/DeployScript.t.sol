@@ -38,13 +38,14 @@ contract DeployScriptTest is Test {
         DeployAsyncSwapScript script = new DeployAsyncSwapScript();
         script.run();
 
-        address manager = address(script.manager());
-        address hook = address(script.hook());
+        address managerAddr = address(script.manager());
+        address hookAddr = address(script.hook());
 
-        assertTrue(manager != address(0), "manager not deployed");
-        assertTrue(hook != address(0), "hook not deployed");
-        assertEq(uint160(hook) & Hooks.ALL_HOOK_MASK, _flags(), "deployed hook flags mismatch");
-        assertEq(address(AsyncSwap(hook).POOL_MANAGER()), manager, "hook manager mismatch");
-        assertEq(AsyncSwap(hook).protocolOwner(), deployer, "hook owner mismatch");
+        assertTrue(managerAddr != address(0), "manager not deployed");
+        assertTrue(hookAddr != address(0), "hook not deployed");
+        assertEq(uint160(hookAddr) & Hooks.ALL_HOOK_MASK, _flags(), "deployed hook flags mismatch");
+        assertEq(address(AsyncSwap(hookAddr).POOL_MANAGER()), managerAddr, "hook manager mismatch");
+        // Owner is set via constructor arg, not msg.sender, so it matches DEPLOYER_ADDRESS
+        assertEq(AsyncSwap(hookAddr).protocolOwner(), deployer, "hook owner mismatch");
     }
 }
