@@ -128,6 +128,8 @@ contract AsyncGovernanceExecutionTest is Test, Deployers {
             | Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
     );
 
+    uint24 constant HOOK_FEE = 1_2000;
+
     address voter = makeAddr("voter");
     address treasury = makeAddr("treasury");
 
@@ -136,7 +138,7 @@ contract AsyncGovernanceExecutionTest is Test, Deployers {
         deployMintAndApprove2Currencies();
 
         address hookAddr = address(HOOK_FLAGS);
-        deployCodeTo("AsyncSwap.sol:AsyncSwap", abi.encode(address(manager), address(this)), hookAddr);
+        deployCodeTo("AsyncSwap.sol:AsyncSwap", abi.encode(address(manager), address(this), HOOK_FEE), hookAddr);
         hook = AsyncSwap(hookAddr);
 
         poolKey = PoolKey({

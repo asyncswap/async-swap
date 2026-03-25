@@ -11,23 +11,23 @@ contract IntentAuth {
     /// @notice The PoolManager contract address
     IPoolManager public immutable POOL_MANAGER;
 
-    uint24 public minimumFee = 1_2000;
+    uint24 public minimumFee; // PPM{1} minimum fee ratio (denominator 1_000_000)
     bool public paused;
     address public protocolOwner;
     address public treasury;
     bool public feeRefundToggle;
     address public pendingOwner;
-    mapping(Currency currency => uint256 amount) public accruedFees;
-    mapping(Currency currency => uint256 amount) public accruedSurplus;
-    mapping(PoolId poolId => uint24 fee) public poolFee;
+    mapping(Currency currency => uint256 amount) public accruedFees; // {tok} per currency
+    mapping(Currency currency => uint256 amount) public accruedSurplus; // {tok} per currency
+    mapping(PoolId poolId => uint24 fee) public poolFee; // PPM{1} per-pool fee ratio
 
     struct OracleConfig {
         IAsyncSwapOracle oracle;
-        uint32 maxAge;
-        uint16 maxDeviationBps;
-        uint16 userSurplusBps;
-        uint16 fillerSurplusBps;
-        uint16 protocolSurplusBps;
+        uint32 maxAge; // {s} maximum staleness for oracle price
+        uint16 maxDeviationBps; // BPS{1} deviation tolerance before surplus capture
+        uint16 userSurplusBps; // BPS{1} share of surplus returned to user
+        uint16 fillerSurplusBps; // BPS{1} share of surplus awarded to filler
+        uint16 protocolSurplusBps; // BPS{1} share of surplus retained by protocol
     }
 
     mapping(PoolId poolId => OracleConfig config) public oracleConfig;
@@ -38,7 +38,7 @@ contract IntentAuth {
     struct CancelCallback {
         Currency currency;
         address to;
-        uint256 amount;
+        uint256 amount; // {tok} amount to refund
     }
 
     error NOT_PENDING_OWNER();
@@ -67,9 +67,11 @@ contract IntentAuth {
         uint16 protocolSurplusBps
     );
 
-    constructor(IPoolManager _poolManager, address _initialOwner) {
+    constructor(IPoolManager _poolManager, address _initialOwner, uint24 _minimumFee) {
+        require(_minimumFee <= 1_000_000, "FEE TOO HIGH");
         POOL_MANAGER = _poolManager;
         protocolOwner = _initialOwner;
+        minimumFee = _minimumFee;
         paused = true;
         emit OwnershipTransferred(address(0), _initialOwner);
     }
@@ -95,6 +97,7 @@ contract IntentAuth {
 
     function setMinimumFee(uint24 _minimumFee) external {
         require(msg.sender == protocolOwner, "NOT OWNER");
+        require(_minimumFee <= 1_000_000, "FEE TOO HIGH");
         emit MinimumFeeUpdated(minimumFee, _minimumFee);
         minimumFee = _minimumFee;
     }
@@ -102,7 +105,7 @@ contract IntentAuth {
     function claimFees(Currency currency) external {
         if (treasury == address(0)) revert TREASURY_NOT_SET();
 
-        uint256 amount = accruedFees[currency];
+        uint256 amount = accruedFees[currency]; // {tok}
         if (amount == 0) revert NO_FEES_ACCRUED();
 
         delete accruedFees[currency];
@@ -114,7 +117,7 @@ contract IntentAuth {
     function claimSurplus(Currency currency) external {
         if (treasury == address(0)) revert TREASURY_NOT_SET();
 
-        uint256 amount = accruedSurplus[currency];
+        uint256 amount = accruedSurplus[currency]; // {tok}
         if (amount == 0) revert NO_SURPLUS_ACCRUED();
 
         delete accruedSurplus[currency];
@@ -123,10 +126,12 @@ contract IntentAuth {
         emit SurplusClaimed(currency, treasury, amount);
     }
 
+    /// @param _poolId The pool identifier
+    /// @param _fee PPM{1} The new fee ratio (denominator 1_000_000)
     function setPoolFee(PoolId _poolId, uint24 _fee) external {
         require(msg.sender == protocolOwner, "NOT OWNER");
         require(_fee >= minimumFee, "FEE BELOW MINIMUM");
-        require(_fee <= 1_000_000, "FEE TOO HIGH");
+        require(_fee <= 1_000_000, "FEE TOO HIGH"); // 1_000_000 PPM = 100%
         emit PoolFeeUpdated(_poolId, poolFee[_poolId], _fee);
         poolFee[_poolId] = _fee;
     }
@@ -143,6 +148,13 @@ contract IntentAuth {
         tokenPriceOracle = _oracle;
     }
 
+    /// @param _poolId The pool identifier
+    /// @param _oracle The oracle contract
+    /// @param _maxAge {s} Maximum staleness for oracle price
+    /// @param _maxDeviationBps BPS{1} Deviation tolerance before surplus capture
+    /// @param _userSurplusBps BPS{1} Share of surplus returned to user
+    /// @param _fillerSurplusBps BPS{1} Share of surplus awarded to filler
+    /// @param _protocolSurplusBps BPS{1} Share of surplus retained by protocol
     function setOracleConfig(
         PoolId _poolId,
         IAsyncSwapOracle _oracle,
@@ -154,7 +166,7 @@ contract IntentAuth {
     ) external {
         require(msg.sender == protocolOwner, "NOT OWNER");
         require(
-            uint256(_userSurplusBps) + uint256(_fillerSurplusBps) + uint256(_protocolSurplusBps) == 10_000,
+            uint256(_userSurplusBps) + uint256(_fillerSurplusBps) + uint256(_protocolSurplusBps) == 10_000, // BPS{1} must sum to 10_000 (100%)
             "INVALID_SPLIT"
         );
         oracleConfig[_poolId] = OracleConfig({

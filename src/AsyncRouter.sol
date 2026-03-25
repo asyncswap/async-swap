@@ -14,7 +14,7 @@ import {AsyncSwap} from "./AsyncSwap.sol";
 
 /// @title AsyncRouter
 /// @notice Thin router that calls PM.swap() so beforeSwap fires on the hook.
-///         Only callable by the hook itself — captures msg.sender (the user) from the hook.
+/// Only callable by the hook itself — captures msg.sender (the user) from the hook.
 contract AsyncRouter is IUnlockCallback {
     using PoolIdLibrary for PoolKey;
 
@@ -25,10 +25,10 @@ contract AsyncRouter is IUnlockCallback {
         address user;
         PoolKey key;
         int24 tick;
-        uint256 amountIn;
+        uint256 amountIn; // {tok} exact input amount
         bool zeroForOne;
-        uint256 minAmountOut;
-        uint256 value;
+        uint256 minAmountOut; // {tok} minimum output (slippage protection)
+        uint256 value; // {tok} native ETH value (0 for ERC-20)
     }
 
     error ONLY_HOOK();
@@ -57,6 +57,8 @@ contract AsyncRouter is IUnlockCallback {
         POOL_MANAGER.unlock(abi.encode(data));
     }
 
+    /// @param amount {tok} Exact input amount to settle
+    /// @param value {tok} Native ETH value (0 for ERC-20)
     function _settleExactInput(Currency inputCurrency, address payer, uint256 amount, uint256 value) internal {
         if (inputCurrency.isAddressZero()) {
             if (value != amount) revert INVALID_NATIVE_VALUE();
@@ -92,7 +94,7 @@ contract AsyncRouter is IUnlockCallback {
             SwapParams({
                 zeroForOne: cb.zeroForOne,
                 amountSpecified: -int256(cb.amountIn),
-                sqrtPriceLimitX96: cb.zeroForOne ? TickMath.MIN_SQRT_PRICE + 1 : TickMath.MAX_SQRT_PRICE - 1
+                sqrtPriceLimitX96: cb.zeroForOne ? TickMath.MIN_SQRT_PRICE + 1 : TickMath.MAX_SQRT_PRICE - 1 // Q96{sqrt(tok1/tok0)}
             }),
             abi.encode(order, cb.minAmountOut)
         );

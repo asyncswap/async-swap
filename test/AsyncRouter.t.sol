@@ -36,7 +36,7 @@ contract AsyncRouterTest is Test, Deployers {
         deployMintAndApprove2Currencies();
 
         address hookAddr = address(HOOK_FLAGS);
-        deployCodeTo("AsyncSwap.sol:AsyncSwap", abi.encode(address(manager), address(this)), hookAddr);
+        deployCodeTo("AsyncSwap.sol:AsyncSwap", abi.encode(address(manager), address(this), HOOK_FEE), hookAddr);
         hook = AsyncSwap(hookAddr);
         asyncRouter = hook.router();
 

@@ -22,6 +22,7 @@ import {TimelockController} from "@openzeppelin/contracts/governance/TimelockCon
 
 contract E2EWalkthrough is Script {
     using PoolIdLibrary for PoolKey;
+    uint24 constant MINIMUM_FEE = 1_2000; // PPM{1} 1.2% default minimum fee
 
     function run() public {
         address deployer = vm.envAddress("DEPLOYER_ADDRESS");
@@ -47,9 +48,10 @@ contract E2EWalkthrough is Script {
             Hooks.BEFORE_INITIALIZE_FLAG | Hooks.AFTER_INITIALIZE_FLAG | Hooks.AFTER_ADD_LIQUIDITY_FLAG
                 | Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
         );
-        (address minedAddr, bytes32 salt) =
-            HookMiner.find(CREATE2_FACTORY, flags, type(AsyncSwap).creationCode, abi.encode(poolManagerAddr, deployer));
-        AsyncSwap hook = new AsyncSwap{salt: salt}(poolManager, deployer);
+        (address minedAddr, bytes32 salt) = HookMiner.find(
+            CREATE2_FACTORY, flags, type(AsyncSwap).creationCode, abi.encode(poolManagerAddr, deployer, MINIMUM_FEE)
+        );
+        AsyncSwap hook = new AsyncSwap{salt: salt}(poolManager, deployer, MINIMUM_FEE);
         require(address(hook) == minedAddr, "HOOK_ADDRESS_MISMATCH");
         console2.log("AsyncSwap:", address(hook));
         console2.log("Router:", address(hook.router()));

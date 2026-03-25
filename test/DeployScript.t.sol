@@ -9,6 +9,7 @@ import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 
 contract DeployScriptTest is Test {
     address internal constant LOCAL_CREATE2_FACTORY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
+    uint24 constant HOOK_FEE = 1_2000;
 
     function _flags() internal pure returns (uint160) {
         return uint160(
@@ -18,7 +19,7 @@ contract DeployScriptTest is Test {
     }
 
     function test_hookMiner_find_returnsFlaggedEmptyAddress() public view {
-        bytes memory constructorArgs = abi.encode(address(0xBEEF), address(0xCAFE));
+        bytes memory constructorArgs = abi.encode(address(0xBEEF), address(0xCAFE), HOOK_FEE);
         (address mined, bytes32 salt) =
             HookMiner.find(LOCAL_CREATE2_FACTORY, _flags(), type(AsyncSwap).creationCode, constructorArgs);
 

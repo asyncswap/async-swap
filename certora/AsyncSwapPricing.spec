@@ -1,5 +1,5 @@
 /**
- * Certora CVL Specification for AsyncSwap V1.1
+ * Certora CVL Specification for AsyncSwap
  *
  * Comprehensive formal verification of the AsyncSwap protocol covering:
  * - Order lifecycle (swap, fill, cancel)

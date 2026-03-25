@@ -9,7 +9,7 @@ pragma solidity 0.8.26;
 interface ITokenPriceOracle {
     /// @notice Get the current USD price for a token.
     /// @param token The token address (address(0) for native)
-    /// @return priceX18 The token price in USD, scaled to 18 decimals (e.g., 3000e18 for $3000)
-    /// @return updatedAt The timestamp when this price was last updated
+    /// @return priceX18 D18{UoA/tok} The token price in USD, scaled to 18 decimals (e.g., 3000e18 for $3000)
+    /// @return updatedAt {s} The timestamp when this price was last updated
     function getPrice(address token) external view returns (uint256 priceX18, uint256 updatedAt);
 }
