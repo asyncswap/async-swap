@@ -552,10 +552,21 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
         uint256 inputShare = FullMath.mulDiv(fillAmount, remainingIn, remainingOut); // {tok_in}
         uint256 claimShare = inputShare; // {tok_in}
 
-        // Compute fairClaimShare: how much input is worth the output at oracle prices
-        // {tok_in} = {tok_out} * D18{UoA/tok_out} / D18{UoA/tok_in}
-        uint256 fairClaimShare =
-            outputPriceX18 == 0 ? claimShare : FullMath.mulDiv(fillAmount, outputPriceX18, inputPriceX18); // {tok_in}
+        // Compute fairClaimShare: how much input is worth the output at oracle prices.
+        // priceX18 values are per whole token, so we must scale for decimal differences.
+        // fairClaimShare = fillAmount * outputPriceX18 / inputPriceX18 * 10^inDec / 10^outDec
+        uint256 fairClaimShare;
+        if (outputPriceX18 == 0) {
+            fairClaimShare = claimShare;
+        } else {
+            uint8 inDec = _tokenDecimals(inputToken);
+            uint8 outDec = _tokenDecimals(outputToken);
+            if (inDec >= outDec) {
+                fairClaimShare = FullMath.mulDiv(fillAmount, outputPriceX18 * (10 ** (inDec - outDec)), inputPriceX18);
+            } else {
+                fairClaimShare = FullMath.mulDiv(fillAmount, outputPriceX18, inputPriceX18 * (10 ** (outDec - inDec)));
+            }
+        }
 
         // Deduct proportional fee so fairClaimShare is net-of-fee, matching claimShare basis
         uint256 remainingFee = feeRemaining[orderId][zeroForOne]; // {tok_in}
@@ -856,6 +867,16 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
         if (expired && msg.sender != order.swapper && refundAmount >= MIN_KEEPER_REWARD_SIZE) {
             _tryMintReward(msg.sender, hasKeeperReward);
         }
+    }
+
+    /// @notice Get the decimals for a token (18 for native ETH, calls decimals() for ERC-20).
+    function _tokenDecimals(address token) internal view returns (uint8) {
+        if (token == address(0)) return 18;
+        (bool success, bytes memory data) = token.staticcall(abi.encodeWithSignature("decimals()"));
+        if (success && data.length >= 32) {
+            return uint8(abi.decode(data, (uint256)));
+        }
+        return 18;
     }
 
     /// @inheritdoc IUnlockCallback
