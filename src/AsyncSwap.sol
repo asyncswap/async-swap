@@ -152,6 +152,9 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
     /// @notice Only PoolManager can call unlockCallback
     error CALLER_NOT_POOL_MANAGER_CALLBACK();
 
+    /// @notice Token decimals lookup failed, so the token is unsupported
+    error TOKEN_NOT_SUPPORTED();
+
     /// @notice Order has expired and can no longer be filled
     error ORDER_EXPIRED();
 
@@ -876,7 +879,7 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
         if (success && data.length >= 32) {
             return uint8(abi.decode(data, (uint256)));
         }
-        return 18;
+        revert TOKEN_NOT_SUPPORTED();
     }
 
     /// @inheritdoc IUnlockCallback
