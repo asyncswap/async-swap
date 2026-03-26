@@ -222,18 +222,16 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
     //////////////////////////
 
     /// @notice The balance of remaining tokens to be filled by solver
-    /// @param order The swap order
+    /// @param orderId The swap order
     /// @return amountGiven {tok} The amount supplied by swapper (net input + feeRemaining)
-    function getBalanceIn(Order memory order, bool zeroForOne) public view returns (uint256 amountGiven) {
-        bytes32 orderId = keccak256(abi.encode(order));
+    function getBalanceIn(bytes32 orderId, bool zeroForOne) public view returns (uint256 amountGiven) {
         amountGiven = balancesIn[orderId][zeroForOne] + feeRemaining[orderId][zeroForOne];
     }
 
     /// @notice The balance of remaining tokens to be taken by swapper
-    /// @param order The order submitted by swapper
+    /// @param orderId The order submitted by swapper
     /// @return amountRemaining {tok} The remaining amount output tokens to be solved by filler
-    function getBalanceOut(Order memory order, bool zeroForOne) public view returns (uint256 amountRemaining) {
-        bytes32 orderId = keccak256(abi.encode(order));
+    function getBalanceOut(bytes32 orderId, bool zeroForOne) public view returns (uint256 amountRemaining) {
         amountRemaining = balancesOut[orderId][zeroForOne];
     }
 
