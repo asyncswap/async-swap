@@ -1,5 +1,7 @@
 ![async swap banner](./assets/banner.png)
 
+[![Foundry Tests](https://github.com/asyncswap/async-swap/actions/workflows/test.yml/badge.svg)](https://github.com/asyncswap/async-swap/actions/workflows/test.yml)
+
 ## AsyncSwap
 
 AsyncSwap is an intent-based hook built on Uniswap v4.
