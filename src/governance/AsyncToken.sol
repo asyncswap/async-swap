@@ -15,7 +15,7 @@ import {Nonces} from "@openzeppelin/contracts/utils/Nonces.sol";
 ///      and ERC20Permit for gasless approvals via EIP-2612.
 contract AsyncToken is ERC20, ERC20Permit, ERC20Votes {
     /// @notice Maximum total supply: 100 million tokens (18 decimals)
-    uint256 public constant MAX_SUPPLY = 100_000_000e18;
+    uint256 public constant MAX_SUPPLY = 100_000_000e18; // D18{ASYNC} 100M tokens
 
     /// @notice Supply cap exceeded
     error MAX_SUPPLY_EXCEEDED();
@@ -37,7 +37,7 @@ contract AsyncToken is ERC20, ERC20Permit, ERC20Votes {
 
     /// @notice Mint new tokens. Only callable by the minter. Respects MAX_SUPPLY cap.
     /// @param to The recipient of the minted tokens
-    /// @param amount The amount to mint
+    /// @param amount D18{ASYNC} The amount to mint
     function mint(address to, uint256 amount) external {
         if (msg.sender != minter) revert NOT_MINTER();
         if (totalSupply() + amount > MAX_SUPPLY) revert MAX_SUPPLY_EXCEEDED();

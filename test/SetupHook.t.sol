@@ -14,6 +14,7 @@ import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
 import {FullMath} from "v4-core/src/libraries/FullMath.sol";
 import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
+import {Order, OrderLibrary} from "src/types/Order.sol";
 
 /// @title SetupHook
 /// @notice Shared test base for AsyncSwap tests.
@@ -21,6 +22,7 @@ import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
 ///         Individual test contracts inherit from this and override setUp() if needed.
 contract SetupHook is Test, Deployers {
     using PoolIdLibrary for PoolKey;
+    using OrderLibrary for Order;
 
     AsyncSwap hook;
     AsyncRouter asyncRouter;
@@ -50,7 +52,7 @@ contract SetupHook is Test, Deployers {
 
     function deployHook() public {
         address hookAddr = address(HOOK_FLAGS);
-        deployCodeTo("AsyncSwap.sol:AsyncSwap", abi.encode(address(manager), address(this)), hookAddr);
+        deployCodeTo("AsyncSwap.sol:AsyncSwap", abi.encode(address(manager), address(this), HOOK_FEE), hookAddr);
         hook = AsyncSwap(hookAddr);
         asyncRouter = hook.router();
     }
@@ -84,8 +86,8 @@ contract SetupHook is Test, Deployers {
         return amount - fee;
     }
 
-    function _makeOrder(address swapper, int24 tick) internal view returns (AsyncSwap.Order memory) {
-        return AsyncSwap.Order({poolId: poolId, swapper: swapper, tick: tick});
+    function _makeOrder(address swapper, int24 tick) internal view returns (Order memory) {
+        return Order({poolId: poolId, swapper: swapper, tick: tick});
     }
 
     function _swap(bool zeroForOne, uint256 amountIn, int24 tick, uint256 minAmountOut) internal {

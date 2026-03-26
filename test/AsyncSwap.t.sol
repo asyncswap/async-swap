@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.26;
 
+import {Order, OrderLibrary} from "src/types/Order.sol";
 import {SetupHook} from "./SetupHook.t.sol";
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
 import {AsyncSwap} from "../src/AsyncSwap.sol";
@@ -21,6 +22,7 @@ import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
 contract AsyncSwapTest is SetupHook {
     using PoolIdLibrary for PoolKey;
     using StateLibrary for IPoolManager;
+    using OrderLibrary for Order;
 
     // ========================================
     // Test: setUp deploys and initializes correctly
@@ -108,11 +110,11 @@ contract AsyncSwapTest is SetupHook {
         // At price=1 (sqrtP = Q96), this simplifies to 988e15
 
         uint256 swapAmount = 1e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        Order memory order = _makeOrder(address(this), ORDER_TICK);
         _swap(true, swapAmount, ORDER_TICK, 0);
 
-        uint256 balanceOut = hook.getBalanceOut(order, true);
-        uint256 balanceIn = hook.getBalanceIn(order, true);
+        uint256 balanceOut = hook.getBalanceOut(order.toId(), true);
+        uint256 balanceIn = hook.getBalanceIn(order.toId(), true);
 
         assertEq(balanceIn, _netInput(swapAmount), "balanceIn should equal net input");
 
@@ -133,11 +135,11 @@ contract AsyncSwapTest is SetupHook {
 
     function test_exactInput_feeDeducted_oneForZero() public {
         uint256 swapAmount = 1e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        Order memory order = _makeOrder(address(this), ORDER_TICK);
         _swap(false, swapAmount, ORDER_TICK, 0);
 
-        uint256 balanceOut = hook.getBalanceOut(order, false);
-        uint256 balanceIn = hook.getBalanceIn(order, false);
+        uint256 balanceOut = hook.getBalanceOut(order.toId(), false);
+        uint256 balanceIn = hook.getBalanceIn(order.toId(), false);
 
         assertEq(balanceIn, _netInput(swapAmount), "balanceIn should equal net input");
 
@@ -162,10 +164,10 @@ contract AsyncSwapTest is SetupHook {
         // Selling 1 token0 should yield ~98.8 token1 (after 1.2% fee)
         int24 tick = 46054;
         uint256 swapAmount = 1e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), tick);
+        Order memory order = _makeOrder(address(this), tick);
         _swap(true, swapAmount, tick, 0);
 
-        uint256 balanceOut = hook.getBalanceOut(order, true);
+        uint256 balanceOut = hook.getBalanceOut(order.toId(), true);
 
         // Compute expected
         uint256 expectedFee = FullMath.mulDivRoundingUp(swapAmount, HOOK_FEE, 1_000_000);
@@ -199,12 +201,12 @@ contract AsyncSwapTest is SetupHook {
     function test_exactInput_slippagePasses() public {
         // Setting minAmountOut = 980e15 should pass (output is ~988e15)
         uint256 swapAmount = 1e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        Order memory order = _makeOrder(address(this), ORDER_TICK);
 
         // Should not revert
         _swap(true, swapAmount, ORDER_TICK, 980e15);
 
-        uint256 balanceOut = hook.getBalanceOut(order, true);
+        uint256 balanceOut = hook.getBalanceOut(order.toId(), true);
         assertGe(balanceOut, 980e15, "output below slippage floor");
     }
 
@@ -218,10 +220,10 @@ contract AsyncSwapTest is SetupHook {
             FullMath.mulDiv(amountInAfterFee, sqrtPrice, FixedPoint96.Q96), sqrtPrice, FixedPoint96.Q96
         );
 
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        Order memory order = _makeOrder(address(this), ORDER_TICK);
         _swap(true, swapAmount, ORDER_TICK, exactOutput);
 
-        assertEq(hook.getBalanceOut(order, true), exactOutput);
+        assertEq(hook.getBalanceOut(order.toId(), true), exactOutput);
     }
 
     // ========================================
@@ -230,11 +232,11 @@ contract AsyncSwapTest is SetupHook {
 
     function test_exactInput_orderStateRecorded() public {
         uint256 swapAmount = 2e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        Order memory order = _makeOrder(address(this), ORDER_TICK);
         _swap(true, swapAmount, ORDER_TICK, 0);
 
-        uint256 balanceIn = hook.getBalanceIn(order, true);
-        uint256 balanceOut = hook.getBalanceOut(order, true);
+        uint256 balanceIn = hook.getBalanceIn(order.toId(), true);
+        uint256 balanceOut = hook.getBalanceOut(order.toId(), true);
 
         assertEq(balanceIn, _netInput(swapAmount), "balanceIn not recorded");
         assertGt(balanceOut, 0, "balanceOut not recorded");
@@ -242,17 +244,17 @@ contract AsyncSwapTest is SetupHook {
 
     function test_exactInput_multipleOrdersAccumulate() public {
         uint256 swapAmount = 1e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        Order memory order = _makeOrder(address(this), ORDER_TICK);
 
         // First swap
         _swap(true, swapAmount, ORDER_TICK, 0);
-        uint256 balanceIn1 = hook.getBalanceIn(order, true);
-        uint256 balanceOut1 = hook.getBalanceOut(order, true);
+        uint256 balanceIn1 = hook.getBalanceIn(order.toId(), true);
+        uint256 balanceOut1 = hook.getBalanceOut(order.toId(), true);
 
         // Second swap with same order params
         _swap(true, swapAmount, ORDER_TICK, 0);
-        uint256 balanceIn2 = hook.getBalanceIn(order, true);
-        uint256 balanceOut2 = hook.getBalanceOut(order, true);
+        uint256 balanceIn2 = hook.getBalanceIn(order.toId(), true);
+        uint256 balanceOut2 = hook.getBalanceOut(order.toId(), true);
 
         // Should accumulate (+=)
         assertEq(balanceIn2, balanceIn1 * 2, "balancesIn should accumulate");
@@ -261,13 +263,13 @@ contract AsyncSwapTest is SetupHook {
 
     function test_exactInput_differentDirections_independentState() public {
         uint256 swapAmount = 1e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        Order memory order = _makeOrder(address(this), ORDER_TICK);
 
         _swap(true, swapAmount, ORDER_TICK, 0);
         _swap(false, swapAmount, ORDER_TICK, 0);
 
-        uint256 balanceInZFO = hook.getBalanceIn(order, true);
-        uint256 balanceInOFZ = hook.getBalanceIn(order, false);
+        uint256 balanceInZFO = hook.getBalanceIn(order.toId(), true);
+        uint256 balanceInOFZ = hook.getBalanceIn(order.toId(), false);
 
         // Both should be recorded independently
         assertEq(balanceInZFO, _netInput(swapAmount), "zeroForOne balanceIn");
@@ -280,7 +282,7 @@ contract AsyncSwapTest is SetupHook {
 
     function test_exactInput_emitsSwapEvent() public {
         uint256 swapAmount = 1e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        Order memory order = _makeOrder(address(this), ORDER_TICK);
         bytes32 expectedOrderId = keccak256(abi.encode(order));
 
         vm.expectEmit(true, false, false, false, address(hook));
@@ -301,7 +303,7 @@ contract AsyncSwapTest is SetupHook {
         MockERC20(Currency.unwrap(currency1)).approve(address(externalRouter), type(uint256).max);
 
         uint256 swapAmount = 1e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        Order memory order = _makeOrder(address(this), ORDER_TICK);
 
         // beforeSwap checks sender == address(this), so external callers revert
         vm.expectRevert();
@@ -336,22 +338,22 @@ contract AsyncSwapTest is SetupHook {
 
     function test_exactInput_smallAmount() public {
         uint256 swapAmount = 1000; // very small
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        Order memory order = _makeOrder(address(this), ORDER_TICK);
         _swap(true, swapAmount, ORDER_TICK, 0);
 
-        uint256 balanceIn = hook.getBalanceIn(order, true);
+        uint256 balanceIn = hook.getBalanceIn(order.toId(), true);
         assertEq(balanceIn, _netInput(swapAmount));
     }
 
     function test_exactInput_largeAmount() public {
         uint256 swapAmount = 100_000e18; // large
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        Order memory order = _makeOrder(address(this), ORDER_TICK);
         _swap(true, swapAmount, ORDER_TICK, 0);
 
-        uint256 balanceIn = hook.getBalanceIn(order, true);
+        uint256 balanceIn = hook.getBalanceIn(order.toId(), true);
         assertEq(balanceIn, _netInput(swapAmount));
 
-        uint256 balanceOut = hook.getBalanceOut(order, true);
+        uint256 balanceOut = hook.getBalanceOut(order.toId(), true);
         // After 1.2% fee, output should be ~98.8% of input at price=1
         assertApproxEqRel(balanceOut, swapAmount * 988_000 / 1_000_000, 1e14);
     }
@@ -510,7 +512,7 @@ contract AsyncSwapTest is SetupHook {
         uint256 hookClaimsBefore = manager.balanceOf(address(hook), inputCurrency.toId());
 
         // Execute swap
-        AsyncSwap.Order memory order = _makeOrder(address(this), tick);
+        Order memory order = _makeOrder(address(this), tick);
         _swap(zeroForOne, amountIn, tick, 0);
 
         // Invariant 1: Pool state unchanged (no-op)
@@ -526,11 +528,11 @@ contract AsyncSwapTest is SetupHook {
         assertEq(hookClaimsAfter - hookClaimsBefore, amountIn, "fuzz: hook claims mismatch");
 
         // Invariant 4: Order state recorded correctly
-        assertEq(hook.getBalanceIn(order, zeroForOne), _netInput(amountIn), "fuzz: balanceIn mismatch");
-        assertEq(hook.getBalanceOut(order, zeroForOne), expectedOut, "fuzz: balanceOut mismatch");
+        assertEq(hook.getBalanceIn(order.toId(), zeroForOne), _netInput(amountIn), "fuzz: balanceIn mismatch");
+        assertEq(hook.getBalanceOut(order.toId(), zeroForOne), expectedOut, "fuzz: balanceOut mismatch");
 
         // Invariant 5: Output > 0 for nonzero input
-        assertGt(hook.getBalanceOut(order, zeroForOne), 0, "fuzz: zero output for nonzero input");
+        assertGt(hook.getBalanceOut(order.toId(), zeroForOne), 0, "fuzz: zero output for nonzero input");
     }
 
     /// @dev External wrapper so we can use try/catch on a pure computation
@@ -587,10 +589,10 @@ contract AsyncSwapTest is SetupHook {
         try this.computeAmountOutExternal(amountIn - fee, tick, zeroForOne) returns (uint256 expectedOut) {
             if (expectedOut == 0) return;
 
-            AsyncSwap.Order memory order = _makeOrder(address(this), tick);
+            Order memory order = _makeOrder(address(this), tick);
             _swap(zeroForOne, amountIn, tick, expectedOut);
 
-            uint256 balanceOut = hook.getBalanceOut(order, zeroForOne);
+            uint256 balanceOut = hook.getBalanceOut(order.toId(), zeroForOne);
             assertGe(balanceOut, expectedOut, "fuzz: output below slippage floor");
         } catch {
             return;
@@ -608,17 +610,17 @@ contract AsyncSwapTest is SetupHook {
         uint256 net1 = _netInput(amount1);
         uint256 net2 = _netInput(amount2);
 
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        Order memory order = _makeOrder(address(this), ORDER_TICK);
 
         // First swap
         _swap(zeroForOne, amount1, ORDER_TICK, 0);
-        uint256 balIn1 = hook.getBalanceIn(order, zeroForOne);
-        uint256 balOut1 = hook.getBalanceOut(order, zeroForOne);
+        uint256 balIn1 = hook.getBalanceIn(order.toId(), zeroForOne);
+        uint256 balOut1 = hook.getBalanceOut(order.toId(), zeroForOne);
 
         // Second swap
         _swap(zeroForOne, amount2, ORDER_TICK, 0);
-        uint256 balIn2 = hook.getBalanceIn(order, zeroForOne);
-        uint256 balOut2 = hook.getBalanceOut(order, zeroForOne);
+        uint256 balIn2 = hook.getBalanceIn(order.toId(), zeroForOne);
+        uint256 balOut2 = hook.getBalanceOut(order.toId(), zeroForOne);
 
         // Compute expected output for each individually
         uint160 sqrtPrice = TickMath.getSqrtPriceAtTick(ORDER_TICK);
@@ -657,10 +659,10 @@ contract AsyncSwapTest is SetupHook {
         try this.computeAmountOutExternal(amountIn - fee, tick, true) returns (uint256 expectedOut) {
             if (expectedOut == 0) return;
 
-            AsyncSwap.Order memory order = _makeOrder(address(this), tick);
+            Order memory order = _makeOrder(address(this), tick);
             _swap(true, amountIn, tick, 0);
 
-            uint256 balanceOut = hook.getBalanceOut(order, true);
+            uint256 balanceOut = hook.getBalanceOut(order.toId(), true);
             assertEq(balanceOut, expectedOut, "fuzz: negative tick zfo output mismatch");
             assertGt(balanceOut, 0, "fuzz: zero output for nonzero input");
         } catch {
@@ -679,10 +681,10 @@ contract AsyncSwapTest is SetupHook {
         try this.computeAmountOutExternal(amountIn - fee, tick, false) returns (uint256 expectedOut) {
             if (expectedOut == 0) return;
 
-            AsyncSwap.Order memory order = _makeOrder(address(this), tick);
+            Order memory order = _makeOrder(address(this), tick);
             _swap(false, amountIn, tick, 0);
 
-            uint256 balanceOut = hook.getBalanceOut(order, false);
+            uint256 balanceOut = hook.getBalanceOut(order.toId(), false);
             assertEq(balanceOut, expectedOut, "fuzz: negative tick ofz output mismatch");
             assertGt(balanceOut, 0, "fuzz: zero output for nonzero input");
         } catch {

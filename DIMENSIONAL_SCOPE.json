@@ -1,0 +1,144 @@
+{
+  "project_root": "/Users/meek/developer/asyncswap/as",
+  "in_scope_files": [
+    {
+      "path": "/Users/meek/developer/asyncswap/as/src/AsyncSwap.sol",
+      "priority": "CRITICAL",
+      "score": 228,
+      "category": "core-logic",
+      "patterns_found": {
+        "high_signal": ["1e18", "FullMath.mulDiv", "FullMath.mulDivRoundingUp", "sqrtPriceX96", "FixedPoint96.Q96"],
+        "medium_signal": ["fee", "feeAmount", "feeRemaining", "10_000", "block.timestamp", "inputShare", "userShare", "deviationBps"]
+      },
+      "step2": "ANNOTATED",
+      "step3": "PROPAGATED",
+      "step4": "VALIDATED"
+    },
+    {
+      "path": "/Users/meek/developer/asyncswap/as/src/oracle/ChronicleOracleAdapter.sol",
+      "priority": "CRITICAL",
+      "score": 28,
+      "category": "oracle-integration",
+      "patterns_found": {
+        "high_signal": ["1e36", "1e18", "Math.mulDiv", "sqrtPriceX96", "scaleNumerator", "scaleDenominator"],
+        "medium_signal": []
+      },
+      "step2": "ANNOTATED",
+      "step3": "PROPAGATED",
+      "step4": "VALIDATED"
+    },
+    {
+      "path": "/Users/meek/developer/asyncswap/as/src/IntentAuth.sol",
+      "priority": "CRITICAL",
+      "score": 26,
+      "category": "core-logic",
+      "patterns_found": {
+        "high_signal": ["1_000_000"],
+        "medium_signal": ["fee", "poolFee", "minimumFee", "feeRefundToggle"]
+      },
+      "step2": "ANNOTATED",
+      "step3": "PROPAGATED",
+      "step4": "VALIDATED"
+    },
+    {
+      "path": "/Users/meek/developer/asyncswap/as/src/interfaces/IAsyncSwapOracle.sol",
+      "priority": "MEDIUM",
+      "score": 7,
+      "category": "oracle-integration",
+      "patterns_found": {
+        "high_signal": ["sqrtPriceX96"],
+        "medium_signal": []
+      },
+      "step2": "ANNOTATED",
+      "step3": "REVIEWED_NO_PROPAGATION_CHANGES",
+      "step4": "VALIDATED"
+    },
+    {
+      "path": "/Users/meek/developer/asyncswap/as/src/interfaces/ITokenPriceOracle.sol",
+      "priority": "MEDIUM",
+      "score": 7,
+      "category": "oracle-integration",
+      "patterns_found": {
+        "high_signal": ["getPrice"],
+        "medium_signal": ["priceX18", "normalized to 18 decimals"]
+      },
+      "step2": "ANNOTATED",
+      "step3": "REVIEWED_NO_PROPAGATION_CHANGES",
+      "step4": "VALIDATED"
+    },
+    {
+      "path": "/Users/meek/developer/asyncswap/as/src/governance/AsyncToken.sol",
+      "priority": "MEDIUM",
+      "score": 5,
+      "category": "peripheral",
+      "patterns_found": {
+        "high_signal": ["100_000_000e18"],
+        "medium_signal": []
+      },
+      "step2": "ANNOTATED",
+      "step3": "REVIEWED_NO_PROPAGATION_CHANGES",
+      "step4": "VALIDATED"
+    },
+    {
+      "path": "/Users/meek/developer/asyncswap/as/src/AsyncRouter.sol",
+      "priority": "LOW",
+      "score": 4,
+      "category": "peripheral",
+      "patterns_found": {
+        "high_signal": ["sqrtPriceLimitX96"],
+        "medium_signal": []
+      },
+      "step2": "ANNOTATED",
+      "step3": "PROPAGATED",
+      "step4": "VALIDATED"
+    }
+  ],
+  "discoverer_focus_files": [
+    "/Users/meek/developer/asyncswap/as/src/AsyncSwap.sol",
+    "/Users/meek/developer/asyncswap/as/src/oracle/ChronicleOracleAdapter.sol",
+    "/Users/meek/developer/asyncswap/as/src/IntentAuth.sol",
+    "/Users/meek/developer/asyncswap/as/src/interfaces/IAsyncSwapOracle.sol",
+    "/Users/meek/developer/asyncswap/as/src/interfaces/ITokenPriceOracle.sol",
+    "/Users/meek/developer/asyncswap/as/src/governance/AsyncToken.sol",
+    "/Users/meek/developer/asyncswap/as/src/AsyncRouter.sol"
+  ],
+  "recommended_discovery_order": [
+    {
+      "step": 1,
+      "rationale": "Oracle interfaces define price dimensions (sqrtPriceX96, priceX18) and decimal conventions used throughout the protocol",
+      "files": [
+        "/Users/meek/developer/asyncswap/as/src/interfaces/IAsyncSwapOracle.sol",
+        "/Users/meek/developer/asyncswap/as/src/interfaces/ITokenPriceOracle.sol"
+      ]
+    },
+    {
+      "step": 2,
+      "rationale": "Oracle adapter implements price scaling, fixed-point conversion (1e18 to sqrtPriceX96 via 2^192), and inverse price logic",
+      "files": [
+        "/Users/meek/developer/asyncswap/as/src/oracle/ChronicleOracleAdapter.sol"
+      ]
+    },
+    {
+      "step": 3,
+      "rationale": "IntentAuth defines fee parameters, fee bounds (1_000_000 denominator), and fee toggle logic consumed by core swap logic",
+      "files": [
+        "/Users/meek/developer/asyncswap/as/src/IntentAuth.sol"
+      ]
+    },
+    {
+      "step": 4,
+      "rationale": "Core swap logic uses all vocabulary from oracles and fee config: mulDiv pricing, fee deduction, surplus BPS calculations, and fair-share computations",
+      "files": [
+        "/Users/meek/developer/asyncswap/as/src/AsyncSwap.sol"
+      ]
+    },
+    {
+      "step": 5,
+      "rationale": "Peripheral files with minimal arithmetic: token supply cap and router sqrtPrice limits",
+      "files": [
+        "/Users/meek/developer/asyncswap/as/src/governance/AsyncToken.sol",
+        "/Users/meek/developer/asyncswap/as/src/AsyncRouter.sol"
+      ]
+    }
+  ]
+}

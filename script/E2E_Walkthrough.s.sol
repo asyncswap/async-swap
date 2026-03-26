@@ -19,9 +19,12 @@ import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {HookMiner} from "./utils/HookMiner.sol";
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
 import {TimelockController} from "@openzeppelin/contracts/governance/TimelockController.sol";
+import {Order, OrderLibrary} from "src/types/Order.sol";
 
 contract E2EWalkthrough is Script {
     using PoolIdLibrary for PoolKey;
+    using OrderLibrary for Order;
+    uint24 constant MINIMUM_FEE = 1_2000; // PPM{1} 1.2% default minimum fee
 
     function run() public {
         address deployer = vm.envAddress("DEPLOYER_ADDRESS");
@@ -47,9 +50,10 @@ contract E2EWalkthrough is Script {
             Hooks.BEFORE_INITIALIZE_FLAG | Hooks.AFTER_INITIALIZE_FLAG | Hooks.AFTER_ADD_LIQUIDITY_FLAG
                 | Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
         );
-        (address minedAddr, bytes32 salt) =
-            HookMiner.find(CREATE2_FACTORY, flags, type(AsyncSwap).creationCode, abi.encode(poolManagerAddr, deployer));
-        AsyncSwap hook = new AsyncSwap{salt: salt}(poolManager, deployer);
+        (address minedAddr, bytes32 salt) = HookMiner.find(
+            CREATE2_FACTORY, flags, type(AsyncSwap).creationCode, abi.encode(poolManagerAddr, deployer, MINIMUM_FEE)
+        );
+        AsyncSwap hook = new AsyncSwap{salt: salt}(poolManager, deployer, MINIMUM_FEE);
         require(address(hook) == minedAddr, "HOOK_ADDRESS_MISMATCH");
         console2.log("AsyncSwap:", address(hook));
         console2.log("Router:", address(hook.router()));
@@ -127,9 +131,9 @@ contract E2EWalkthrough is Script {
         uint256 swapAmountA = 0.001 ether;
         hook.swap{value: swapAmountA}(poolA, true, swapAmountA, 0, 0, 0);
 
-        AsyncSwap.Order memory orderA = AsyncSwap.Order({poolId: poolA.toId(), swapper: deployer, tick: 0});
-        console2.log("Order A balanceIn:", hook.getBalanceIn(orderA, true));
-        console2.log("Order A balanceOut:", hook.getBalanceOut(orderA, true));
+        Order memory orderA = Order({poolId: poolA.toId(), swapper: deployer, tick: 0});
+        console2.log("Order A balanceIn:", hook.getBalanceIn(orderA.toId(), true));
+        console2.log("Order A balanceOut:", hook.getBalanceOut(orderA.toId(), true));
         console2.log("Deployer ASYNC balance:", govToken.balanceOf(deployer));
 
         // =============================================
@@ -152,9 +156,9 @@ contract E2EWalkthrough is Script {
         uint256 deadline = block.timestamp + 300; // 5 minute deadline
         hook.swap(poolB, zfoB, 1e18, 0, 0, deadline);
 
-        AsyncSwap.Order memory orderB = AsyncSwap.Order({poolId: poolB.toId(), swapper: deployer, tick: 0});
-        console2.log("Order B balanceIn:", hook.getBalanceIn(orderB, zfoB));
-        console2.log("Order B balanceOut:", hook.getBalanceOut(orderB, zfoB));
+        Order memory orderB = Order({poolId: poolB.toId(), swapper: deployer, tick: 0});
+        console2.log("Order B balanceIn:", hook.getBalanceIn(orderB.toId(), zfoB));
+        console2.log("Order B balanceOut:", hook.getBalanceOut(orderB.toId(), zfoB));
         console2.log("Order B deadline:", deadline);
 
         // =============================================
@@ -163,14 +167,14 @@ contract E2EWalkthrough is Script {
         console2.log("=== STEP 7: Fill Pool A order ===");
         vm.stopBroadcast();
 
-        uint256 fillAmountA = hook.getBalanceOut(orderA, true);
+        uint256 fillAmountA = hook.getBalanceOut(orderA.toId(), true);
         bytes32 fillerBalSlot = keccak256(abi.encode(filler, uint256(9)));
         vm.store(usdcAddr, fillerBalSlot, bytes32(fillAmountA));
 
         vm.startBroadcast(filler);
         usdc.approve(address(hook), type(uint256).max);
         hook.fill(orderA, true, fillAmountA);
-        console2.log("Order A filled. Remaining:", hook.getBalanceOut(orderA, true));
+        console2.log("Order A filled. Remaining:", hook.getBalanceOut(orderA.toId(), true));
         console2.log("Filler ASYNC balance:", govToken.balanceOf(filler));
         vm.stopBroadcast();
 
@@ -179,7 +183,7 @@ contract E2EWalkthrough is Script {
         // =============================================
         console2.log("=== STEP 8: Partial fill Pool B ===");
 
-        uint256 remainingOutB = hook.getBalanceOut(orderB, zfoB);
+        uint256 remainingOutB = hook.getBalanceOut(orderB.toId(), zfoB);
         uint256 partialFillB = (remainingOutB + 1) / 2; // 50% minimum
 
         // Filler needs output token for pool B
@@ -191,8 +195,8 @@ contract E2EWalkthrough is Script {
         vm.startBroadcast(filler);
         MockERC20(outputTokenB).approve(address(hook), type(uint256).max);
         hook.fill(orderB, zfoB, partialFillB);
-        console2.log("Order B partially filled. Remaining out:", hook.getBalanceOut(orderB, zfoB));
-        console2.log("Order B remaining in:", hook.getBalanceIn(orderB, zfoB));
+        console2.log("Order B partially filled. Remaining out:", hook.getBalanceOut(orderB.toId(), zfoB));
+        console2.log("Order B remaining in:", hook.getBalanceIn(orderB.toId(), zfoB));
         vm.stopBroadcast();
 
         // =============================================
@@ -202,7 +206,7 @@ contract E2EWalkthrough is Script {
 
         vm.startBroadcast(deployer);
         hook.cancelOrder(orderB, zfoB);
-        console2.log("Order B cancelled. Remaining:", hook.getBalanceOut(orderB, zfoB));
+        console2.log("Order B cancelled. Remaining:", hook.getBalanceOut(orderB.toId(), zfoB));
         vm.stopBroadcast();
 
         // =============================================
@@ -220,7 +224,7 @@ contract E2EWalkthrough is Script {
         vm.warp(block.timestamp + 20);
         console2.log("Time warped past deadline");
 
-        AsyncSwap.Order memory expiredOrder = AsyncSwap.Order({poolId: poolA.toId(), swapper: deployer, tick: 0});
+        Order memory expiredOrder = Order({poolId: poolA.toId(), swapper: deployer, tick: 0});
 
         vm.startBroadcast(keeper);
         hook.cancelOrder(expiredOrder, true);
@@ -239,9 +243,9 @@ contract E2EWalkthrough is Script {
 
         // Create order under new fee mode
         hook.swap{value: 0.002 ether}(poolA, true, 0.002 ether, 0, 0, 0);
-        AsyncSwap.Order memory refundOrder = AsyncSwap.Order({poolId: poolA.toId(), swapper: deployer, tick: 0});
-        console2.log("Refund-mode order balanceIn:", hook.getBalanceIn(refundOrder, true));
-        console2.log("Refund-mode order balanceOut:", hook.getBalanceOut(refundOrder, true));
+        Order memory refundOrder = Order({poolId: poolA.toId(), swapper: deployer, tick: 0});
+        console2.log("Refund-mode order balanceIn:", hook.getBalanceIn(refundOrder.toId(), true));
+        console2.log("Refund-mode order balanceOut:", hook.getBalanceOut(refundOrder.toId(), true));
 
         // Cancel to show full refund (fee forgiven)
         hook.cancelOrder(refundOrder, true);

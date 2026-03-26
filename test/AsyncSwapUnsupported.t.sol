@@ -15,10 +15,12 @@ import {SwapParams, ModifyLiquidityParams} from "v4-core/src/types/PoolOperation
 import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
 import {IERC20Minimal} from "v4-core/src/interfaces/external/IERC20Minimal.sol";
+import {Order, OrderLibrary} from "src/types/Order.sol";
 
 /// @notice Tests that adding liquidity is blocked (afterAddLiquidity flag is enabled to reject LPs).
 contract AsyncSwapUnsupportedTest is SetupHook {
     using PoolIdLibrary for PoolKey;
+    using OrderLibrary for Order;
 
     function _initCustomPool(address token0Addr, address token1Addr)
         internal
@@ -171,17 +173,17 @@ contract AsyncSwapUnsupportedTest is SetupHook {
         (PoolKey memory customKey, PoolId customPoolId, bool zeroForOne) =
             _initCustomPool(address(inputToken), address(outputToken));
 
-        AsyncSwap.Order memory order = AsyncSwap.Order({poolId: customPoolId, swapper: address(this), tick: 0});
+        Order memory order = Order({poolId: customPoolId, swapper: address(this), tick: 0});
 
         vm.expectRevert(AsyncRouter.UNSUPPORTED_INPUT_TOKEN.selector);
         hook.swap(customKey, zeroForOne, 10e18, 0, 0, 0);
 
-        assertEq(hook.getBalanceIn(order, zeroForOne), 0, "input should not be recorded");
-        assertEq(hook.getBalanceOut(order, zeroForOne), 0, "output should not be recorded");
+        assertEq(hook.getBalanceIn(order.toId(), zeroForOne), 0, "input should not be recorded");
+        assertEq(hook.getBalanceOut(order.toId(), zeroForOne), 0, "output should not be recorded");
     }
 
     function test_beforeSwap_untrustedRouter_reverts() public {
-        AsyncSwap.Order memory order = AsyncSwap.Order({poolId: poolKey.toId(), swapper: address(this), tick: 0});
+        Order memory order = Order({poolId: poolKey.toId(), swapper: address(this), tick: 0});
 
         vm.prank(address(manager));
         vm.expectRevert(bytes("UNTRUSTED ROUTER"));
@@ -203,13 +205,13 @@ contract AsyncSwapUnsupportedTest is SetupHook {
         (PoolKey memory customKey, PoolId customPoolId, bool zeroForOne) =
             _initCustomPool(address(inputToken), address(outputToken));
 
-        AsyncSwap.Order memory order = AsyncSwap.Order({poolId: customPoolId, swapper: address(this), tick: 0});
+        Order memory order = Order({poolId: customPoolId, swapper: address(this), tick: 0});
 
         vm.expectRevert(AsyncRouter.INPUT_TRANSFER_FAILED.selector);
         hook.swap(customKey, zeroForOne, 10e18, 0, 0, 0);
 
-        assertEq(hook.getBalanceIn(order, zeroForOne), 0, "input should not be recorded");
-        assertEq(hook.getBalanceOut(order, zeroForOne), 0, "output should not be recorded");
+        assertEq(hook.getBalanceIn(order.toId(), zeroForOne), 0, "input should not be recorded");
+        assertEq(hook.getBalanceOut(order.toId(), zeroForOne), 0, "output should not be recorded");
     }
 }
 

@@ -13,9 +13,11 @@ import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
 import {FullMath} from "v4-core/src/libraries/FullMath.sol";
 import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
+import {Order, OrderLibrary} from "src/types/Order.sol";
 
 contract AsyncRouterTest is Test, Deployers {
     using PoolIdLibrary for PoolKey;
+    using OrderLibrary for Order;
 
     AsyncSwap hook;
     AsyncRouter asyncRouter;
@@ -36,7 +38,7 @@ contract AsyncRouterTest is Test, Deployers {
         deployMintAndApprove2Currencies();
 
         address hookAddr = address(HOOK_FLAGS);
-        deployCodeTo("AsyncSwap.sol:AsyncSwap", abi.encode(address(manager), address(this)), hookAddr);
+        deployCodeTo("AsyncSwap.sol:AsyncSwap", abi.encode(address(manager), address(this), HOOK_FEE), hookAddr);
         hook = AsyncSwap(hookAddr);
         asyncRouter = hook.router();
 
@@ -166,8 +168,8 @@ contract AsyncRouterTest is Test, Deployers {
 
         assertEq(balBefore - balAfter, swapAmount, "user did not pay input");
 
-        AsyncSwap.Order memory order = AsyncSwap.Order({poolId: poolId, swapper: address(this), tick: ORDER_TICK});
-        assertEq(hook.getBalanceIn(order, true), _netInput(swapAmount), "balanceIn mismatch");
-        assertGt(hook.getBalanceOut(order, true), 0, "balanceOut should be > 0");
+        Order memory order = Order({poolId: poolId, swapper: address(this), tick: ORDER_TICK});
+        assertEq(hook.getBalanceIn(order.toId(), true), _netInput(swapAmount), "balanceIn mismatch");
+        assertGt(hook.getBalanceOut(order.toId(), true), 0, "balanceOut should be > 0");
     }
 }

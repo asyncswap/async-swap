@@ -6,23 +6,24 @@ import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
 import {AsyncSwap} from "../src/AsyncSwap.sol";
 import {IntentAuth} from "../src/IntentAuth.sol";
 import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
-import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
 import {FullMath} from "v4-core/src/libraries/FullMath.sol";
 import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
+import {Order, OrderLibrary} from "src/types/Order.sol";
 
 contract AsyncSwapFillTest is SetupHook {
     using PoolIdLibrary for PoolKey;
+    using OrderLibrary for Order;
 
     function _createSwapOrder(uint256 swapAmount, int24 tick, bool zeroForOne)
         internal
-        returns (AsyncSwap.Order memory order, uint256 expectedOut)
+        returns (Order memory order, uint256 expectedOut)
     {
         order = _makeOrder(address(this), tick);
         _swap(zeroForOne, swapAmount, tick, 0);
-        expectedOut = hook.getBalanceOut(order, zeroForOne);
+        expectedOut = hook.getBalanceOut(order.toId(), zeroForOne);
     }
 
     function _setupFiller(address filler, Currency outputCurrency, uint256 amount) internal {
@@ -58,7 +59,7 @@ contract AsyncSwapFillTest is SetupHook {
 
     function test_fill_fullFill_zeroForOne() public {
         uint256 swapAmount = 10e18;
-        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
         address filler = makeAddr("filler");
         _setupFiller(filler, currency1, expectedOut);
@@ -74,13 +75,13 @@ contract AsyncSwapFillTest is SetupHook {
         uint256 fillerClaimsAfter = manager.balanceOf(filler, currency0.toId());
         assertEq(fillerClaimsAfter - fillerClaimsBefore, _netInput(swapAmount), "filler did not receive input claims");
 
-        assertEq(hook.getBalanceOut(order, true), 0, "balanceOut not zero after full fill");
-        assertEq(hook.getBalanceIn(order, true), 0, "balanceIn not zero after full fill");
+        assertEq(hook.getBalanceOut(order.toId(), true), 0, "balanceOut not zero after full fill");
+        assertEq(hook.getBalanceIn(order.toId(), true), 0, "balanceIn not zero after full fill");
     }
 
     function test_fill_fullFill_oneForZero() public {
         uint256 swapAmount = 10e18;
-        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, false);
+        (Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, false);
 
         address filler = makeAddr("filler");
         _setupFiller(filler, currency0, expectedOut);
@@ -91,17 +92,17 @@ contract AsyncSwapFillTest is SetupHook {
         hook.fill(order, false, expectedOut);
 
         assertEq(currency0.balanceOf(address(this)) - swapperOutBefore, expectedOut, "swapper did not receive output");
-        assertEq(hook.getBalanceOut(order, false), 0, "balanceOut not zero");
-        assertEq(hook.getBalanceIn(order, false), 0, "balanceIn not zero");
+        assertEq(hook.getBalanceOut(order.toId(), false), 0, "balanceOut not zero");
+        assertEq(hook.getBalanceIn(order.toId(), false), 0, "balanceIn not zero");
     }
 
     function test_feeRefundToggle_swap_tracksGrossInput_and_noImmediateFees() public {
         hook.setFeeRefundToggle(true);
 
         uint256 swapAmount = 10e18;
-        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
-        assertEq(hook.getBalanceIn(order, true), swapAmount, "toggle should keep gross input refundable");
+        assertEq(hook.getBalanceIn(order.toId(), true), swapAmount, "toggle should keep gross input refundable");
         assertGt(expectedOut, 0, "quoted output should still exist");
         assertEq(hook.accruedFees(currency0), 0, "no fees should accrue at order creation");
     }
@@ -111,7 +112,7 @@ contract AsyncSwapFillTest is SetupHook {
 
         uint256 swapAmount = 10e18;
         uint256 expectedFee = swapAmount - _netInput(swapAmount);
-        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
         address filler = makeAddr("filler");
         _setupFiller(filler, currency1, expectedOut);
@@ -133,7 +134,7 @@ contract AsyncSwapFillTest is SetupHook {
         hook.setFeeRefundToggle(true);
 
         uint256 swapAmount = 10e18;
-        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
         address filler = makeAddr("filler");
         _setupFiller(filler, currency1, expectedOut);
@@ -142,7 +143,7 @@ contract AsyncSwapFillTest is SetupHook {
         vm.prank(filler);
         hook.fill(order, true, fillAmount);
 
-        uint256 remainingGross = hook.getBalanceIn(order, true);
+        uint256 remainingGross = hook.getBalanceIn(order.toId(), true);
         uint256 feeAccruedBefore = hook.accruedFees(currency0);
         uint256 balBefore = currency0.balanceOf(address(this));
 
@@ -160,7 +161,7 @@ contract AsyncSwapFillTest is SetupHook {
     function test_upfrontFee_accountingInvariant_halfFill() public {
         uint256 swapAmount = 1e18;
         uint256 upfrontFee = swapAmount - _netInput(swapAmount);
-        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
         uint256 fillAmount = expectedOut / 2;
         address filler = makeAddr("filler");
@@ -171,7 +172,7 @@ contract AsyncSwapFillTest is SetupHook {
         hook.fill(order, true, fillAmount);
 
         uint256 fillerPayout = manager.balanceOf(filler, currency0.toId()) - fillerClaimsBefore;
-        uint256 refundableRemainder = hook.getBalanceIn(order, true);
+        uint256 refundableRemainder = hook.getBalanceIn(order.toId(), true);
 
         // Upfront mode invariant:
         // gross input = upfront fee + filler payout + refundable remainder
@@ -186,7 +187,7 @@ contract AsyncSwapFillTest is SetupHook {
         hook.setFeeRefundToggle(true);
 
         uint256 swapAmount = 1e18;
-        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
         uint256 fillAmount = expectedOut / 2;
         address filler = makeAddr("filler");
@@ -198,7 +199,7 @@ contract AsyncSwapFillTest is SetupHook {
 
         uint256 feeOnFilledShare = hook.accruedFees(currency0);
         uint256 fillerPayout = manager.balanceOf(filler, currency0.toId()) - fillerClaimsBefore;
-        uint256 refundableRemainder = hook.getBalanceIn(order, true);
+        uint256 refundableRemainder = hook.getBalanceIn(order.toId(), true);
 
         // Fee-refund-toggle invariant:
         // gross input = accrued fee on filled volume + filler payout + refundable remainder
@@ -215,7 +216,7 @@ contract AsyncSwapFillTest is SetupHook {
 
     function test_fill_twoPartialFills() public {
         uint256 swapAmount = 10e18;
-        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
         address filler1 = makeAddr("filler1");
         address filler2 = makeAddr("filler2");
@@ -227,15 +228,15 @@ contract AsyncSwapFillTest is SetupHook {
         vm.prank(filler1);
         hook.fill(order, true, fill1Amount);
 
-        uint256 remainingOut = hook.getBalanceOut(order, true);
+        uint256 remainingOut = hook.getBalanceOut(order.toId(), true);
         assertEq(remainingOut, expectedOut - fill1Amount, "remaining out after first fill");
 
         // Second fill: the rest
         vm.prank(filler2);
         hook.fill(order, true, remainingOut);
 
-        assertEq(hook.getBalanceOut(order, true), 0, "order not fully filled");
-        assertEq(hook.getBalanceIn(order, true), 0, "input not fully distributed");
+        assertEq(hook.getBalanceOut(order.toId(), true), 0, "order not fully filled");
+        assertEq(hook.getBalanceIn(order.toId(), true), 0, "input not fully distributed");
     }
 
     // ========================================
@@ -244,7 +245,7 @@ contract AsyncSwapFillTest is SetupHook {
 
     function test_fill_belowMinimum_reverts() public {
         uint256 swapAmount = 10e18;
-        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
         address filler = makeAddr("filler");
         _setupFiller(filler, currency1, expectedOut);
@@ -261,7 +262,7 @@ contract AsyncSwapFillTest is SetupHook {
 
     function test_fill_alreadyFilled_reverts() public {
         uint256 swapAmount = 10e18;
-        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
         address filler = makeAddr("filler");
         _setupFiller(filler, currency1, expectedOut);
@@ -280,7 +281,7 @@ contract AsyncSwapFillTest is SetupHook {
 
     function test_fill_exceedsRemaining_reverts() public {
         uint256 swapAmount = 10e18;
-        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
         address filler = makeAddr("filler");
         _setupFiller(filler, currency1, expectedOut + 1);
@@ -296,7 +297,7 @@ contract AsyncSwapFillTest is SetupHook {
 
     function test_fill_emitsEvent() public {
         uint256 swapAmount = 5e18;
-        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
         address filler = makeAddr("filler");
         _setupFiller(filler, currency1, expectedOut);
@@ -316,7 +317,7 @@ contract AsyncSwapFillTest is SetupHook {
 
     function test_fill_proportionalInputShare() public {
         uint256 swapAmount = 10e18;
-        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
         address filler = makeAddr("filler");
         _setupFiller(filler, currency1, expectedOut);
@@ -334,8 +335,8 @@ contract AsyncSwapFillTest is SetupHook {
         uint256 fillerClaims = manager.balanceOf(filler, currency0.toId());
         assertEq(fillerClaims, expectedInputShare, "input share mismatch");
 
-        assertEq(hook.getBalanceOut(order, true), expectedOut - fillAmount, "remaining out");
-        assertEq(hook.getBalanceIn(order, true), netIn - expectedInputShare, "remaining in");
+        assertEq(hook.getBalanceOut(order.toId(), true), expectedOut - fillAmount, "remaining out");
+        assertEq(hook.getBalanceIn(order.toId(), true), netIn - expectedInputShare, "remaining in");
     }
 
     // ========================================
@@ -344,11 +345,11 @@ contract AsyncSwapFillTest is SetupHook {
 
     function test_fill_logN_convergence() public {
         uint256 swapAmount = 100e18;
-        (AsyncSwap.Order memory order,) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order,) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
         // ceil(log2(100e18)) = 67 iterations worst case with 50% fills
         for (uint256 i = 0; i < 70; i++) {
-            uint256 remaining = hook.getBalanceOut(order, true);
+            uint256 remaining = hook.getBalanceOut(order.toId(), true);
             if (remaining == 0) break;
 
             address filler = makeAddr(string(abi.encodePacked("filler", i)));
@@ -359,8 +360,8 @@ contract AsyncSwapFillTest is SetupHook {
             hook.fill(order, true, fillAmt);
         }
 
-        assertEq(hook.getBalanceOut(order, true), 0, "order not fully filled after log-n fills");
-        assertEq(hook.getBalanceIn(order, true), 0, "input not fully distributed");
+        assertEq(hook.getBalanceOut(order.toId(), true), 0, "order not fully filled after log-n fills");
+        assertEq(hook.getBalanceIn(order.toId(), true), 0, "input not fully distributed");
     }
 
     // ========================================
@@ -369,7 +370,7 @@ contract AsyncSwapFillTest is SetupHook {
 
     function test_fill_permissionless() public {
         uint256 swapAmount = 5e18;
-        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
         address rando = makeAddr("rando");
         _setupFiller(rando, currency1, expectedOut);
@@ -377,7 +378,7 @@ contract AsyncSwapFillTest is SetupHook {
         vm.prank(rando);
         hook.fill(order, true, expectedOut);
 
-        assertEq(hook.getBalanceOut(order, true), 0, "fill should succeed from any address");
+        assertEq(hook.getBalanceOut(order.toId(), true), 0, "fill should succeed from any address");
     }
 
     // ========================================
@@ -388,11 +389,11 @@ contract AsyncSwapFillTest is SetupHook {
         swapAmount = bound(swapAmount, 1e15, 1e24);
         fillPct = bound(fillPct, 50, 100);
 
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        Order memory order = _makeOrder(address(this), ORDER_TICK);
         _swap(true, swapAmount, ORDER_TICK, 0);
 
-        uint256 totalOut = hook.getBalanceOut(order, true);
-        uint256 totalIn = hook.getBalanceIn(order, true);
+        uint256 totalOut = hook.getBalanceOut(order.toId(), true);
+        uint256 totalIn = hook.getBalanceIn(order.toId(), true);
         if (totalOut == 0) return;
 
         uint256 fillAmount = totalOut * fillPct / 100;
@@ -417,8 +418,8 @@ contract AsyncSwapFillTest is SetupHook {
         assertEq(manager.balanceOf(filler, currency0.toId()), expectedInputShare, "fuzz: filler claims mismatch");
 
         // Invariant 3: remaining balances correct
-        assertEq(hook.getBalanceOut(order, true), totalOut - fillAmount, "fuzz: remaining out");
-        assertEq(hook.getBalanceIn(order, true), totalIn - expectedInputShare, "fuzz: remaining in");
+        assertEq(hook.getBalanceOut(order.toId(), true), totalOut - fillAmount, "fuzz: remaining out");
+        assertEq(hook.getBalanceIn(order.toId(), true), totalIn - expectedInputShare, "fuzz: remaining in");
 
         // Invariant 4: input share never exceeds total
         assertLe(expectedInputShare, totalIn, "fuzz: input share exceeds total");
@@ -427,18 +428,18 @@ contract AsyncSwapFillTest is SetupHook {
     function testFuzz_fill_multipleFillers(uint256 swapAmount) public {
         swapAmount = bound(swapAmount, 1e15, 1e24);
 
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        Order memory order = _makeOrder(address(this), ORDER_TICK);
         _swap(true, swapAmount, ORDER_TICK, 0);
 
-        uint256 totalOut = hook.getBalanceOut(order, true);
-        uint256 totalIn = hook.getBalanceIn(order, true);
+        uint256 totalOut = hook.getBalanceOut(order.toId(), true);
+        uint256 totalIn = hook.getBalanceIn(order.toId(), true);
         if (totalOut == 0) return;
 
         uint256 totalClaimsDistributed;
 
         // Fill with 50% each time until done — ceil(log2(totalOut)) iterations worst case
         for (uint256 i = 0; i < 80; i++) {
-            uint256 remaining = hook.getBalanceOut(order, true);
+            uint256 remaining = hook.getBalanceOut(order.toId(), true);
             if (remaining == 0) break;
 
             address filler = makeAddr(string(abi.encodePacked("f", i)));
@@ -452,8 +453,8 @@ contract AsyncSwapFillTest is SetupHook {
         }
 
         // All output distributed, all input claims distributed
-        assertEq(hook.getBalanceOut(order, true), 0, "fuzz: order not fully filled");
-        assertEq(hook.getBalanceIn(order, true), 0, "fuzz: input not fully distributed");
+        assertEq(hook.getBalanceOut(order.toId(), true), 0, "fuzz: order not fully filled");
+        assertEq(hook.getBalanceIn(order.toId(), true), 0, "fuzz: input not fully distributed");
         assertEq(totalClaimsDistributed, totalIn, "fuzz: total claims mismatch");
     }
 
@@ -467,7 +468,7 @@ contract AsyncSwapFillTest is SetupHook {
 
     function test_cancel_zeroForOne() public {
         uint256 swapAmount = 10e18;
-        (AsyncSwap.Order memory order,) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order,) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
         uint256 swapperBalBefore = currency0.balanceOf(address(this));
 
@@ -478,13 +479,13 @@ contract AsyncSwapFillTest is SetupHook {
             _netInput(swapAmount),
             "swapper did not receive input back"
         );
-        assertEq(hook.getBalanceIn(order, true), 0, "balanceIn not zero");
-        assertEq(hook.getBalanceOut(order, true), 0, "balanceOut not zero");
+        assertEq(hook.getBalanceIn(order.toId(), true), 0, "balanceIn not zero");
+        assertEq(hook.getBalanceOut(order.toId(), true), 0, "balanceOut not zero");
     }
 
     function test_cancel_oneForZero() public {
         uint256 swapAmount = 10e18;
-        (AsyncSwap.Order memory order,) = _createSwapOrder(swapAmount, ORDER_TICK, false);
+        (Order memory order,) = _createSwapOrder(swapAmount, ORDER_TICK, false);
 
         uint256 swapperBalBefore = currency1.balanceOf(address(this));
 
@@ -495,8 +496,8 @@ contract AsyncSwapFillTest is SetupHook {
             _netInput(swapAmount),
             "swapper did not receive input back"
         );
-        assertEq(hook.getBalanceIn(order, false), 0, "balanceIn not zero");
-        assertEq(hook.getBalanceOut(order, false), 0, "balanceOut not zero");
+        assertEq(hook.getBalanceIn(order.toId(), false), 0, "balanceIn not zero");
+        assertEq(hook.getBalanceOut(order.toId(), false), 0, "balanceOut not zero");
     }
 
     // ========================================
@@ -505,7 +506,7 @@ contract AsyncSwapFillTest is SetupHook {
 
     function test_cancel_afterPartialFill() public {
         uint256 swapAmount = 10e18;
-        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
         // Filler fills 50%
         address filler = makeAddr("filler");
@@ -515,14 +516,14 @@ contract AsyncSwapFillTest is SetupHook {
         vm.prank(filler);
         hook.fill(order, true, fillAmount);
 
-        uint256 remainingIn = hook.getBalanceIn(order, true);
+        uint256 remainingIn = hook.getBalanceIn(order.toId(), true);
         uint256 swapperBalBefore = currency0.balanceOf(address(this));
 
         hook.cancelOrder(order, true);
 
         assertEq(currency0.balanceOf(address(this)) - swapperBalBefore, remainingIn, "cancel after fill: wrong refund");
-        assertEq(hook.getBalanceIn(order, true), 0, "balanceIn not zero");
-        assertEq(hook.getBalanceOut(order, true), 0, "balanceOut not zero");
+        assertEq(hook.getBalanceIn(order.toId(), true), 0, "balanceIn not zero");
+        assertEq(hook.getBalanceOut(order.toId(), true), 0, "balanceOut not zero");
     }
 
     // ========================================
@@ -531,7 +532,7 @@ contract AsyncSwapFillTest is SetupHook {
 
     function test_cancel_nonOwner_reverts() public {
         uint256 swapAmount = 5e18;
-        (AsyncSwap.Order memory order,) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order,) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
         address attacker = makeAddr("attacker");
         vm.prank(attacker);
@@ -545,7 +546,7 @@ contract AsyncSwapFillTest is SetupHook {
 
     function test_cancel_nothingRemaining_reverts() public {
         uint256 swapAmount = 5e18;
-        (AsyncSwap.Order memory order,) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order,) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
         // Cancel once
         hook.cancelOrder(order, true);
@@ -561,7 +562,7 @@ contract AsyncSwapFillTest is SetupHook {
 
     function test_cancel_emitsEvent() public {
         uint256 swapAmount = 5e18;
-        (AsyncSwap.Order memory order,) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order,) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
         bytes32 expectedOrderId = keccak256(abi.encode(order));
 
@@ -577,7 +578,7 @@ contract AsyncSwapFillTest is SetupHook {
 
     function test_cancel_alreadyFilled_reverts() public {
         uint256 swapAmount = 5e18;
-        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
         address filler = makeAddr("filler");
         _setupFiller(filler, currency1, expectedOut);
@@ -595,10 +596,10 @@ contract AsyncSwapFillTest is SetupHook {
     function testFuzz_cancel_returnsAllInput(uint256 swapAmount) public {
         swapAmount = bound(swapAmount, 1e15, 1e24);
 
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        Order memory order = _makeOrder(address(this), ORDER_TICK);
         _swap(true, swapAmount, ORDER_TICK, 0);
 
-        uint256 totalIn = hook.getBalanceIn(order, true);
+        uint256 totalIn = hook.getBalanceIn(order.toId(), true);
         if (totalIn == 0) return;
 
         uint256 swapperBefore = currency0.balanceOf(address(this));
@@ -609,17 +610,17 @@ contract AsyncSwapFillTest is SetupHook {
         assertEq(currency0.balanceOf(address(this)) - swapperBefore, totalIn, "fuzz: cancel refund wrong");
 
         // Storage cleared
-        assertEq(hook.getBalanceIn(order, true), 0, "fuzz: balanceIn not zero");
-        assertEq(hook.getBalanceOut(order, true), 0, "fuzz: balanceOut not zero");
+        assertEq(hook.getBalanceIn(order.toId(), true), 0, "fuzz: balanceIn not zero");
+        assertEq(hook.getBalanceOut(order.toId(), true), 0, "fuzz: balanceOut not zero");
     }
 
     function testFuzz_fillThenCancel(uint256 swapAmount) public {
         swapAmount = bound(swapAmount, 1e15, 1e24);
 
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        Order memory order = _makeOrder(address(this), ORDER_TICK);
         _swap(true, swapAmount, ORDER_TICK, 0);
 
-        uint256 totalOut = hook.getBalanceOut(order, true);
+        uint256 totalOut = hook.getBalanceOut(order.toId(), true);
         if (totalOut == 0) return;
 
         // Fill 50%
@@ -631,14 +632,14 @@ contract AsyncSwapFillTest is SetupHook {
         hook.fill(order, true, fillAmount);
 
         // Cancel the rest
-        uint256 remainingIn = hook.getBalanceIn(order, true);
+        uint256 remainingIn = hook.getBalanceIn(order.toId(), true);
         uint256 swapperBefore = currency0.balanceOf(address(this));
 
         hook.cancelOrder(order, true);
 
         assertEq(currency0.balanceOf(address(this)) - swapperBefore, remainingIn, "fuzz: cancel after fill wrong");
-        assertEq(hook.getBalanceIn(order, true), 0, "fuzz: in not zero");
-        assertEq(hook.getBalanceOut(order, true), 0, "fuzz: out not zero");
+        assertEq(hook.getBalanceIn(order.toId(), true), 0, "fuzz: in not zero");
+        assertEq(hook.getBalanceOut(order.toId(), true), 0, "fuzz: out not zero");
     }
 
     // ================================================================
@@ -651,7 +652,7 @@ contract AsyncSwapFillTest is SetupHook {
 
     function test_fill_nonExistentOrder_reverts() public {
         // Order that was never created
-        AsyncSwap.Order memory bogusOrder = _makeOrder(makeAddr("nobody"), 12345);
+        Order memory bogusOrder = _makeOrder(makeAddr("nobody"), 12345);
 
         address filler = makeAddr("filler");
         _setupFiller(filler, currency1, 1e18);
@@ -662,8 +663,8 @@ contract AsyncSwapFillTest is SetupHook {
     }
 
     function test_fill_unknownPool_reverts() public {
-        AsyncSwap.Order memory bogusOrder =
-            AsyncSwap.Order({poolId: PoolId.wrap(bytes32(uint256(999))), swapper: address(this), tick: ORDER_TICK});
+        Order memory bogusOrder =
+            Order({poolId: PoolId.wrap(bytes32(uint256(999))), swapper: address(this), tick: ORDER_TICK});
 
         address filler = makeAddr("filler");
         _setupFiller(filler, currency1, 1e18);
@@ -685,8 +686,8 @@ contract AsyncSwapFillTest is SetupHook {
 
         hook.swap(customKey, zeroForOne, 10e18, ORDER_TICK, 0, 0);
 
-        AsyncSwap.Order memory order = AsyncSwap.Order({poolId: customPoolId, swapper: address(this), tick: ORDER_TICK});
-        uint256 expectedOut = hook.getBalanceOut(order, zeroForOne);
+        Order memory order = Order({poolId: customPoolId, swapper: address(this), tick: ORDER_TICK});
+        uint256 expectedOut = hook.getBalanceOut(order.toId(), zeroForOne);
 
         address filler = makeAddr("liar");
         outputToken.mint(filler, expectedOut);
@@ -707,7 +708,7 @@ contract AsyncSwapFillTest is SetupHook {
             fillerClaimsBefore,
             "filler should not receive claims"
         );
-        assertEq(hook.getBalanceOut(order, zeroForOne), expectedOut, "order output should remain unchanged");
+        assertEq(hook.getBalanceOut(order.toId(), zeroForOne), expectedOut, "order output should remain unchanged");
     }
 
     function test_fill_feeOnTransferOutputToken_reverts() public {
@@ -722,8 +723,8 @@ contract AsyncSwapFillTest is SetupHook {
 
         hook.swap(customKey, zeroForOne, 10e18, ORDER_TICK, 0, 0);
 
-        AsyncSwap.Order memory order = AsyncSwap.Order({poolId: customPoolId, swapper: address(this), tick: ORDER_TICK});
-        uint256 expectedOut = hook.getBalanceOut(order, zeroForOne);
+        Order memory order = Order({poolId: customPoolId, swapper: address(this), tick: ORDER_TICK});
+        uint256 expectedOut = hook.getBalanceOut(order.toId(), zeroForOne);
 
         address filler = makeAddr("taxedFiller");
         outputToken.mint(filler, expectedOut);
@@ -737,7 +738,7 @@ contract AsyncSwapFillTest is SetupHook {
         hook.fill(order, zeroForOne, expectedOut);
 
         assertEq(outputToken.balanceOf(address(this)), swapperBefore, "swapper should not receive partial output");
-        assertEq(hook.getBalanceOut(order, zeroForOne), expectedOut, "order output should remain unchanged");
+        assertEq(hook.getBalanceOut(order.toId(), zeroForOne), expectedOut, "order output should remain unchanged");
     }
 
     // ========================================
@@ -747,7 +748,7 @@ contract AsyncSwapFillTest is SetupHook {
     function test_cancel_wrongDirection_reverts() public {
         uint256 swapAmount = 5e18;
         // Swap zeroForOne
-        (AsyncSwap.Order memory order,) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order,) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
         // Cancel with oneForZero — that direction was never populated
         vm.expectRevert(AsyncSwap.NOTHING_TO_CANCEL.selector);
@@ -755,8 +756,8 @@ contract AsyncSwapFillTest is SetupHook {
     }
 
     function test_cancel_unknownPool_reverts() public {
-        AsyncSwap.Order memory bogusOrder =
-            AsyncSwap.Order({poolId: PoolId.wrap(bytes32(uint256(999))), swapper: address(this), tick: ORDER_TICK});
+        Order memory bogusOrder =
+            Order({poolId: PoolId.wrap(bytes32(uint256(999))), swapper: address(this), tick: ORDER_TICK});
 
         vm.expectRevert(AsyncSwap.UNKNOWN_POOL.selector);
         hook.cancelOrder(bogusOrder, true);
@@ -764,7 +765,7 @@ contract AsyncSwapFillTest is SetupHook {
 
     function test_fill_paused_reverts_but_cancel_still_works() public {
         uint256 swapAmount = 10e18;
-        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
         address filler = makeAddr("filler");
         _setupFiller(filler, currency1, expectedOut);
@@ -787,7 +788,7 @@ contract AsyncSwapFillTest is SetupHook {
     function test_fill_wrongDirection_reverts() public {
         uint256 swapAmount = 5e18;
         // Swap zeroForOne
-        (AsyncSwap.Order memory order,) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order,) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
         address filler = makeAddr("filler");
         _setupFiller(filler, currency0, 1e18);
@@ -804,7 +805,7 @@ contract AsyncSwapFillTest is SetupHook {
 
     function test_fill_noApproval_reverts() public {
         uint256 swapAmount = 5e18;
-        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
         address filler = makeAddr("filler");
         // Mint tokens but do NOT approve the hook
@@ -821,7 +822,7 @@ contract AsyncSwapFillTest is SetupHook {
 
     function test_fill_insufficientBalance_reverts() public {
         uint256 swapAmount = 5e18;
-        (AsyncSwap.Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order, uint256 expectedOut) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
         address filler = makeAddr("filler");
         // Approve but don't mint enough
@@ -840,7 +841,7 @@ contract AsyncSwapFillTest is SetupHook {
 
     function test_cancel_doubleCancel_reverts() public {
         uint256 swapAmount = 5e18;
-        (AsyncSwap.Order memory order,) = _createSwapOrder(swapAmount, ORDER_TICK, true);
+        (Order memory order,) = _createSwapOrder(swapAmount, ORDER_TICK, true);
 
         hook.cancelOrder(order, true);
 
@@ -854,20 +855,20 @@ contract AsyncSwapFillTest is SetupHook {
 
     function test_swapCancelSwap_storageCleared() public {
         uint256 swapAmount = 5e18;
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        Order memory order = _makeOrder(address(this), ORDER_TICK);
 
         // Swap
         _swap(true, swapAmount, ORDER_TICK, 0);
-        assertEq(hook.getBalanceIn(order, true), _netInput(swapAmount));
+        assertEq(hook.getBalanceIn(order.toId(), true), _netInput(swapAmount));
 
         // Cancel
         hook.cancelOrder(order, true);
-        assertEq(hook.getBalanceIn(order, true), 0);
-        assertEq(hook.getBalanceOut(order, true), 0);
+        assertEq(hook.getBalanceIn(order.toId(), true), 0);
+        assertEq(hook.getBalanceOut(order.toId(), true), 0);
 
         // Swap again — should start fresh, not accumulate
         _swap(true, swapAmount, ORDER_TICK, 0);
-        assertEq(hook.getBalanceIn(order, true), _netInput(swapAmount), "should be fresh after cancel");
+        assertEq(hook.getBalanceIn(order.toId(), true), _netInput(swapAmount), "should be fresh after cancel");
     }
 
     // ========================================
@@ -891,18 +892,18 @@ contract AsyncSwapFillTest is SetupHook {
         vm.prank(bob);
         hook.swap(poolKey, true, 3e18, ORDER_TICK, 0, 0);
 
-        AsyncSwap.Order memory orderA = AsyncSwap.Order({poolId: poolId, swapper: alice, tick: ORDER_TICK});
-        AsyncSwap.Order memory orderB = AsyncSwap.Order({poolId: poolId, swapper: bob, tick: ORDER_TICK});
+        Order memory orderA = Order({poolId: poolId, swapper: alice, tick: ORDER_TICK});
+        Order memory orderB = Order({poolId: poolId, swapper: bob, tick: ORDER_TICK});
 
-        uint256 outA = hook.getBalanceOut(orderA, true);
-        uint256 outB = hook.getBalanceOut(orderB, true);
+        uint256 outA = hook.getBalanceOut(orderA.toId(), true);
+        uint256 outB = hook.getBalanceOut(orderB.toId(), true);
 
         address filler = makeAddr("filler");
         MockERC20(Currency.unwrap(currency1)).mint(filler, outA + outB);
         vm.prank(filler);
         MockERC20(Currency.unwrap(currency1)).approve(address(hook), type(uint256).max);
 
-        AsyncSwap.Order[] memory orders = new AsyncSwap.Order[](2);
+        Order[] memory orders = new Order[](2);
         orders[0] = orderA;
         orders[1] = orderB;
         bool[] memory directions = new bool[](2);
@@ -915,8 +916,8 @@ contract AsyncSwapFillTest is SetupHook {
         vm.prank(filler);
         hook.batchFill(orders, directions, amounts);
 
-        assertEq(hook.getBalanceOut(orderA, true), 0, "order A should be fully filled");
-        assertEq(hook.getBalanceOut(orderB, true), 0, "order B should be fully filled");
+        assertEq(hook.getBalanceOut(orderA.toId(), true), 0, "order A should be fully filled");
+        assertEq(hook.getBalanceOut(orderB.toId(), true), 0, "order B should be fully filled");
         assertGt(manager.balanceOf(filler, currency0.toId()), 0, "filler should have claim tokens");
     }
 
@@ -939,11 +940,11 @@ contract AsyncSwapFillTest is SetupHook {
         vm.prank(bob);
         hook.swap(poolKey, false, 5e18, ORDER_TICK, 0, 0);
 
-        AsyncSwap.Order memory orderA = AsyncSwap.Order({poolId: poolId, swapper: alice, tick: ORDER_TICK});
-        AsyncSwap.Order memory orderB = AsyncSwap.Order({poolId: poolId, swapper: bob, tick: ORDER_TICK});
+        Order memory orderA = Order({poolId: poolId, swapper: alice, tick: ORDER_TICK});
+        Order memory orderB = Order({poolId: poolId, swapper: bob, tick: ORDER_TICK});
 
-        uint256 outA = hook.getBalanceOut(orderA, true);
-        uint256 outB = hook.getBalanceOut(orderB, false);
+        uint256 outA = hook.getBalanceOut(orderA.toId(), true);
+        uint256 outB = hook.getBalanceOut(orderB.toId(), false);
 
         // Solver fills both — uses output from each to cover the other
         address solver = makeAddr("solver");
@@ -953,7 +954,7 @@ contract AsyncSwapFillTest is SetupHook {
         MockERC20(Currency.unwrap(currency1)).approve(address(hook), type(uint256).max);
         MockERC20(Currency.unwrap(currency0)).approve(address(hook), type(uint256).max);
 
-        AsyncSwap.Order[] memory orders = new AsyncSwap.Order[](2);
+        Order[] memory orders = new Order[](2);
         orders[0] = orderA;
         orders[1] = orderB;
         bool[] memory directions = new bool[](2);
@@ -966,8 +967,8 @@ contract AsyncSwapFillTest is SetupHook {
         hook.batchFill(orders, directions, amounts);
         vm.stopPrank();
 
-        assertEq(hook.getBalanceOut(orderA, true), 0, "order A should be fully filled");
-        assertEq(hook.getBalanceOut(orderB, false), 0, "order B should be fully filled");
+        assertEq(hook.getBalanceOut(orderA.toId(), true), 0, "order A should be fully filled");
+        assertEq(hook.getBalanceOut(orderB.toId(), false), 0, "order B should be fully filled");
 
         // Alice should have received token1
         assertGt(MockERC20(Currency.unwrap(currency1)).balanceOf(alice), 0, "alice should have token1");
@@ -976,7 +977,7 @@ contract AsyncSwapFillTest is SetupHook {
     }
 
     function test_batchFill_lengthMismatch_reverts() public {
-        AsyncSwap.Order[] memory orders = new AsyncSwap.Order[](2);
+        Order[] memory orders = new Order[](2);
         bool[] memory directions = new bool[](1);
         uint256[] memory amounts = new uint256[](2);
 
@@ -989,7 +990,7 @@ contract AsyncSwapFillTest is SetupHook {
         _swap(true, swapAmount, ORDER_TICK, 0);
 
         // Set deadline on the order (no expiry for this one)
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
+        Order memory order = _makeOrder(address(this), ORDER_TICK);
 
         // Create a second order with a deadline
         address bob = makeAddr("bob");
@@ -1000,10 +1001,10 @@ contract AsyncSwapFillTest is SetupHook {
         vm.prank(bob);
         hook.swap(poolKey, true, 3e18, ORDER_TICK, 0, block.timestamp + 1 hours);
 
-        AsyncSwap.Order memory orderB = AsyncSwap.Order({poolId: poolId, swapper: bob, tick: ORDER_TICK});
+        Order memory orderB = Order({poolId: poolId, swapper: bob, tick: ORDER_TICK});
 
-        uint256 outA = hook.getBalanceOut(order, true);
-        uint256 outB = hook.getBalanceOut(orderB, true);
+        uint256 outA = hook.getBalanceOut(order.toId(), true);
+        uint256 outB = hook.getBalanceOut(orderB.toId(), true);
 
         address filler = makeAddr("filler");
         _setupFiller(filler, currency1, outA + outB);
@@ -1011,7 +1012,7 @@ contract AsyncSwapFillTest is SetupHook {
         // Warp past deadline
         vm.warp(block.timestamp + 2 hours);
 
-        AsyncSwap.Order[] memory orders = new AsyncSwap.Order[](2);
+        Order[] memory orders = new Order[](2);
         orders[0] = orderB;
         orders[1] = order;
         bool[] memory directions = new bool[](2);

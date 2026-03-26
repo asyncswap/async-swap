@@ -10,9 +10,11 @@ import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
 import {TickMath} from "v4-core/src/libraries/TickMath.sol";
+import {Order, OrderLibrary} from "src/types/Order.sol";
 
 contract AsyncSwapOracleTest is SetupHook {
     using PoolIdLibrary for PoolKey;
+    using OrderLibrary for Order;
 
     MockAsyncSwapOracle oracle;
     address filler = makeAddr("filler");
@@ -43,8 +45,8 @@ contract AsyncSwapOracleTest is SetupHook {
 
     function test_previewSurplusCapture_inactive_withoutOracle() public {
         hook.swap(poolKey, true, 1e18, -500, 0, 0);
-        AsyncSwap.Order memory order = AsyncSwap.Order({poolId: poolId, swapper: address(this), tick: -500});
-        uint256 fillAmount = hook.getBalanceOut(order, true);
+        Order memory order = Order({poolId: poolId, swapper: address(this), tick: -500});
+        uint256 fillAmount = hook.getBalanceOut(order.toId(), true);
 
         AsyncSwap.SurplusPreview memory preview = hook.previewSurplusCapture(order, true, fillAmount);
         assertFalse(preview.active);
@@ -56,8 +58,8 @@ contract AsyncSwapOracleTest is SetupHook {
         hook.setOracleConfig(poolId, oracle, 300, 100, 5000, 2500, 2500);
 
         hook.swap(poolKey, true, 1e18, -500, 0, 0);
-        AsyncSwap.Order memory order = AsyncSwap.Order({poolId: poolId, swapper: address(this), tick: -500});
-        uint256 fillAmount = hook.getBalanceOut(order, true);
+        Order memory order = Order({poolId: poolId, swapper: address(this), tick: -500});
+        uint256 fillAmount = hook.getBalanceOut(order.toId(), true);
 
         AsyncSwap.SurplusPreview memory preview = hook.previewSurplusCapture(order, true, fillAmount);
         assertTrue(preview.active);
@@ -71,8 +73,8 @@ contract AsyncSwapOracleTest is SetupHook {
         hook.setOracleConfig(poolId, oracle, 60, 100, 5000, 2500, 2500);
 
         hook.swap(poolKey, true, 1e18, -500, 0, 0);
-        AsyncSwap.Order memory order = AsyncSwap.Order({poolId: poolId, swapper: address(this), tick: -500});
-        uint256 fillAmount = hook.getBalanceOut(order, true);
+        Order memory order = Order({poolId: poolId, swapper: address(this), tick: -500});
+        uint256 fillAmount = hook.getBalanceOut(order.toId(), true);
 
         AsyncSwap.SurplusPreview memory preview = hook.previewSurplusCapture(order, true, fillAmount);
         assertFalse(preview.active);
@@ -84,8 +86,8 @@ contract AsyncSwapOracleTest is SetupHook {
         hook.setTreasury(treasury);
 
         hook.swap(poolKey, true, 1e18, -500, 0, 0);
-        AsyncSwap.Order memory order = AsyncSwap.Order({poolId: poolId, swapper: address(this), tick: -500});
-        uint256 fillAmount = hook.getBalanceOut(order, true);
+        Order memory order = Order({poolId: poolId, swapper: address(this), tick: -500});
+        uint256 fillAmount = hook.getBalanceOut(order.toId(), true);
 
         uint256 userClaimsBefore = manager.balanceOf(address(this), currency0.toId());
         uint256 fillerClaimsBefore = manager.balanceOf(filler, currency0.toId());
@@ -117,8 +119,8 @@ contract AsyncSwapOracleTest is SetupHook {
         hook.setTreasury(treasury);
 
         hook.swap(poolKey, true, 1e18, -500, 0, 0);
-        AsyncSwap.Order memory order = AsyncSwap.Order({poolId: poolId, swapper: address(this), tick: -500});
-        uint256 fillAmount = hook.getBalanceOut(order, true);
+        Order memory order = Order({poolId: poolId, swapper: address(this), tick: -500});
+        uint256 fillAmount = hook.getBalanceOut(order.toId(), true);
 
         uint256 userClaimsBefore = manager.balanceOf(address(this), currency0.toId());
         uint256 fillerClaimsBefore = manager.balanceOf(filler, currency0.toId());

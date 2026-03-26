@@ -14,9 +14,11 @@ import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
 import {FullMath} from "v4-core/src/libraries/FullMath.sol";
 import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
+import {Order, OrderLibrary} from "src/types/Order.sol";
 
 contract AsyncSwapNativeTest is Test, Deployers {
     using PoolIdLibrary for PoolKey;
+    using OrderLibrary for Order;
 
     AsyncSwap hook;
     PoolKey poolKey;
@@ -39,7 +41,7 @@ contract AsyncSwapNativeTest is Test, Deployers {
         deployFreshManagerAndRouters();
 
         address hookAddr = address(HOOK_FLAGS);
-        deployCodeTo("AsyncSwap.sol:AsyncSwap", abi.encode(address(manager), address(this)), hookAddr);
+        deployCodeTo("AsyncSwap.sol:AsyncSwap", abi.encode(address(manager), address(this), HOOK_FEE), hookAddr);
         hook = AsyncSwap(hookAddr);
 
         token1 = new MockERC20("Token One", "TK1", 18);
@@ -71,8 +73,8 @@ contract AsyncSwapNativeTest is Test, Deployers {
         token1.approve(address(hook), type(uint256).max);
     }
 
-    function _order(address swapper, int24 tick) internal view returns (AsyncSwap.Order memory) {
-        return AsyncSwap.Order({poolId: poolId, swapper: swapper, tick: tick});
+    function _order(address swapper, int24 tick) internal view returns (Order memory) {
+        return Order({poolId: poolId, swapper: swapper, tick: tick});
     }
 
     function _netInput(uint256 amount) internal pure returns (uint256) {
@@ -86,10 +88,10 @@ contract AsyncSwapNativeTest is Test, Deployers {
         vm.prank(alice);
         hook.swap{value: amountIn}(poolKey, true, amountIn, ORDER_TICK, 0, 0);
 
-        AsyncSwap.Order memory order = _order(alice, ORDER_TICK);
+        Order memory order = _order(alice, ORDER_TICK);
 
-        assertEq(hook.getBalanceIn(order, true), _netInput(amountIn), "input not recorded");
-        assertGt(hook.getBalanceOut(order, true), 0, "output not recorded");
+        assertEq(hook.getBalanceIn(order.toId(), true), _netInput(amountIn), "input not recorded");
+        assertGt(hook.getBalanceOut(order.toId(), true), 0, "output not recorded");
         assertEq(manager.balanceOf(address(hook), poolKey.currency0.toId()), amountIn, "native claim not minted");
     }
 
@@ -99,8 +101,8 @@ contract AsyncSwapNativeTest is Test, Deployers {
         vm.prank(alice);
         hook.swap{value: amountIn}(poolKey, true, amountIn, ORDER_TICK, 0, 0);
 
-        AsyncSwap.Order memory order = _order(alice, ORDER_TICK);
-        uint256 expectedOut = hook.getBalanceOut(order, true);
+        Order memory order = _order(alice, ORDER_TICK);
+        uint256 expectedOut = hook.getBalanceOut(order.toId(), true);
 
         uint256 aliceTokenBefore = token1.balanceOf(alice);
         uint256 fillerClaimsBefore = manager.balanceOf(filler, poolKey.currency0.toId());
@@ -114,8 +116,8 @@ contract AsyncSwapNativeTest is Test, Deployers {
             _netInput(amountIn),
             "filler claims wrong"
         );
-        assertEq(hook.getBalanceIn(order, true), 0, "remaining input should be zero");
-        assertEq(hook.getBalanceOut(order, true), 0, "remaining output should be zero");
+        assertEq(hook.getBalanceIn(order.toId(), true), 0, "remaining input should be zero");
+        assertEq(hook.getBalanceOut(order.toId(), true), 0, "remaining output should be zero");
     }
 
     function test_nativeOutput_fill_fullFill() public {
@@ -124,8 +126,8 @@ contract AsyncSwapNativeTest is Test, Deployers {
         vm.prank(alice);
         hook.swap(poolKey, false, amountIn, ORDER_TICK, 0, 0);
 
-        AsyncSwap.Order memory order = _order(alice, ORDER_TICK);
-        uint256 expectedOut = hook.getBalanceOut(order, false);
+        Order memory order = _order(alice, ORDER_TICK);
+        uint256 expectedOut = hook.getBalanceOut(order.toId(), false);
 
         uint256 aliceEthBefore = alice.balance;
         uint256 fillerClaimsBefore = manager.balanceOf(filler, poolKey.currency1.toId());
@@ -139,8 +141,8 @@ contract AsyncSwapNativeTest is Test, Deployers {
             _netInput(amountIn),
             "filler claims wrong"
         );
-        assertEq(hook.getBalanceIn(order, false), 0, "remaining input should be zero");
-        assertEq(hook.getBalanceOut(order, false), 0, "remaining output should be zero");
+        assertEq(hook.getBalanceIn(order.toId(), false), 0, "remaining input should be zero");
+        assertEq(hook.getBalanceOut(order.toId(), false), 0, "remaining output should be zero");
     }
 
     function test_nativeOutput_partialFill() public {
@@ -149,9 +151,9 @@ contract AsyncSwapNativeTest is Test, Deployers {
         vm.prank(alice);
         hook.swap(poolKey, false, amountIn, ORDER_TICK, 0, 0);
 
-        AsyncSwap.Order memory order = _order(alice, ORDER_TICK);
-        uint256 remainingOutBefore = hook.getBalanceOut(order, false);
-        uint256 remainingInBefore = hook.getBalanceIn(order, false);
+        Order memory order = _order(alice, ORDER_TICK);
+        uint256 remainingOutBefore = hook.getBalanceOut(order.toId(), false);
+        uint256 remainingInBefore = hook.getBalanceIn(order.toId(), false);
         uint256 fillAmount = remainingOutBefore / 2;
         uint256 aliceEthBefore = alice.balance;
         uint256 fillerClaimsBefore = manager.balanceOf(filler, poolKey.currency1.toId());
@@ -160,9 +162,9 @@ contract AsyncSwapNativeTest is Test, Deployers {
         hook.fill{value: fillAmount}(order, false, fillAmount);
 
         assertEq(alice.balance - aliceEthBefore, fillAmount, "alice native output mismatch");
-        assertEq(hook.getBalanceOut(order, false), remainingOutBefore - fillAmount, "remaining output mismatch");
+        assertEq(hook.getBalanceOut(order.toId(), false), remainingOutBefore - fillAmount, "remaining output mismatch");
         assertEq(
-            hook.getBalanceIn(order, false),
+            hook.getBalanceIn(order.toId(), false),
             remainingInBefore - (fillAmount * remainingInBefore / remainingOutBefore),
             "remaining input mismatch"
         );
@@ -179,14 +181,14 @@ contract AsyncSwapNativeTest is Test, Deployers {
         vm.prank(alice);
         hook.swap(poolKey, false, amountIn, ORDER_TICK, 0, 0);
 
-        AsyncSwap.Order memory order = _order(alice, ORDER_TICK);
-        uint256 remainingOut = hook.getBalanceOut(order, false);
+        Order memory order = _order(alice, ORDER_TICK);
+        uint256 remainingOut = hook.getBalanceOut(order.toId(), false);
         uint256 minFill = (remainingOut + 1) / 2;
 
         vm.prank(filler);
         hook.fill{value: minFill}(order, false, minFill);
 
-        assertEq(hook.getBalanceOut(order, false), remainingOut - minFill, "exact min fill should succeed");
+        assertEq(hook.getBalanceOut(order.toId(), false), remainingOut - minFill, "exact min fill should succeed");
     }
 
     function test_nativeOutput_cancelAfterPartialFill() public {
@@ -196,22 +198,22 @@ contract AsyncSwapNativeTest is Test, Deployers {
         vm.prank(alice);
         hook.swap(poolKey, false, amountIn, ORDER_TICK, 0, 0);
 
-        AsyncSwap.Order memory order = _order(alice, ORDER_TICK);
-        uint256 remainingOutBefore = hook.getBalanceOut(order, false);
+        Order memory order = _order(alice, ORDER_TICK);
+        uint256 remainingOutBefore = hook.getBalanceOut(order.toId(), false);
         uint256 fillAmount = remainingOutBefore / 2;
 
         vm.prank(filler);
         hook.fill{value: fillAmount}(order, false, fillAmount);
 
-        uint256 remainingIn = hook.getBalanceIn(order, false);
+        uint256 remainingIn = hook.getBalanceIn(order.toId(), false);
         uint256 aliceTokenBefore = token1.balanceOf(alice);
 
         vm.prank(alice);
         hook.cancelOrder(order, false);
 
         assertEq(token1.balanceOf(alice) - aliceTokenBefore, remainingIn, "cancel should return remaining token1 input");
-        assertEq(hook.getBalanceIn(order, false), 0, "input should be cleared");
-        assertEq(hook.getBalanceOut(order, false), 0, "output should be cleared");
+        assertEq(hook.getBalanceIn(order.toId(), false), 0, "input should be cleared");
+        assertEq(hook.getBalanceOut(order.toId(), false), 0, "output should be cleared");
     }
 
     function test_nativeInput_cancel_returns_eth() public {
@@ -221,15 +223,15 @@ contract AsyncSwapNativeTest is Test, Deployers {
         vm.prank(alice);
         hook.swap{value: amountIn}(poolKey, true, amountIn, ORDER_TICK, 0, 0);
 
-        AsyncSwap.Order memory order = _order(alice, ORDER_TICK);
+        Order memory order = _order(alice, ORDER_TICK);
         uint256 balanceBefore = alice.balance;
 
         vm.prank(alice);
         hook.cancelOrder(order, true);
 
         assertEq(alice.balance, balanceBefore + _netInput(amountIn), "alice did not receive native refund");
-        assertEq(hook.getBalanceIn(order, true), 0, "input should be cleared");
-        assertEq(hook.getBalanceOut(order, true), 0, "output should be cleared");
+        assertEq(hook.getBalanceIn(order.toId(), true), 0, "input should be cleared");
+        assertEq(hook.getBalanceOut(order.toId(), true), 0, "output should be cleared");
     }
 
     function test_nativeInput_wrongMsgValue_reverts() public {
@@ -254,8 +256,8 @@ contract AsyncSwapNativeTest is Test, Deployers {
         vm.prank(alice);
         hook.swap(poolKey, false, amountIn, ORDER_TICK, 0, 0);
 
-        AsyncSwap.Order memory order = _order(alice, ORDER_TICK);
-        uint256 expectedOut = hook.getBalanceOut(order, false);
+        Order memory order = _order(alice, ORDER_TICK);
+        uint256 expectedOut = hook.getBalanceOut(order.toId(), false);
 
         vm.prank(filler);
         vm.expectRevert(AsyncSwap.INVALID_NATIVE_OUTPUT_VALUE.selector);
@@ -268,8 +270,8 @@ contract AsyncSwapNativeTest is Test, Deployers {
         vm.prank(alice);
         hook.swap{value: amountIn}(poolKey, true, amountIn, ORDER_TICK, 0, 0);
 
-        AsyncSwap.Order memory order = _order(alice, ORDER_TICK);
-        uint256 expectedOut = hook.getBalanceOut(order, true);
+        Order memory order = _order(alice, ORDER_TICK);
+        uint256 expectedOut = hook.getBalanceOut(order.toId(), true);
 
         vm.prank(filler);
         vm.expectRevert(AsyncSwap.INVALID_NATIVE_OUTPUT_VALUE.selector);
@@ -290,9 +292,9 @@ contract AsyncSwapNativeTest is Test, Deployers {
         vm.prank(alice);
         hook.swap{value: amountIn}(poolKey, true, amountIn, ORDER_TICK, 0, 0);
 
-        AsyncSwap.Order memory order = _order(alice, ORDER_TICK);
+        Order memory order = _order(alice, ORDER_TICK);
         uint256 balBefore = alice.balance;
-        uint256 expectedRefund = hook.getBalanceIn(order, true);
+        uint256 expectedRefund = hook.getBalanceIn(order.toId(), true);
 
         hook.pause();
 

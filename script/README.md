@@ -32,6 +32,7 @@ http://127.0.0.1:8545
 ```
 
 More generally, `make` resolves RPC URLs in this order:
+
 1. `RPC_URL` env var
 2. `config/deployments.yaml` chain default
 3. local fallback `http://127.0.0.1:8545`
@@ -75,6 +76,7 @@ forge script script/00_DeployAsyncSwap.s.sol:DeployAsyncSwapScript \
 ```
 
 Notes:
+
 - on `CHAIN=anvil`, the script deploys a fresh `PoolManager` unless `POOLMANAGER_ADDRESS` is provided
 - on supported public chains, the script uses the chain-specific `PoolManager` address from `script/contracts.txt`
 
@@ -89,11 +91,13 @@ forge script script/01_DeployGovernance.s.sol:DeployGovernanceScript \
 ```
 
 This deploys:
+
 - `AsyncToken`
 - `TimelockController`
 - `AsyncGovernor`
 
 Bootstrap notes:
+
 - the deployer is granted temporary timelock proposer power so the initial ownership transfer can be scheduled
 - the governor is also granted proposer power
 - executors are open (`address(0)`)
@@ -165,6 +169,7 @@ make deploy-local
 ```
 
 If `CHAIN=anvil` and `AUTO_EXECUTE_LOCAL=true`, the make flow will automatically:
+
 - advance the local timelock delay
 - execute step `05`
 - execute step `06`
@@ -196,12 +201,14 @@ The previous shell wrapper has been removed to keep a single orchestration path.
 ## Helper Behavior
 
 `ScriptHelper.sol` reads configuration from env vars:
+
 - `CHAIN`
 - `RUN_MODE`
 
 If explicit contract addresses are not provided, it reads prior deployment outputs from `broadcast/<script>/<chain>/...` files.
 
 Named helper getters resolve:
+
 - deployed `AsyncSwap`
 - deployed `AsyncToken`
 - deployed `TimelockController`
@@ -261,6 +268,7 @@ make set-unichain-sepolia-eth-usdc-oracle
 ```
 
 That convenience target pulls its ETH/USDC defaults from `config/deployments.yaml`, including:
+
 - Chronicle oracle address
 - SelfKisser address
 - token addresses
@@ -280,6 +288,7 @@ make print-pool-id
 ```
 
 Notes:
+
 - the adapter is configured per `poolId`
 - Chronicle access may require the adapter contract to be whitelisted / self-kissed on the target network
 - the current adapter uses `sqrtPriceX96` as the oracle output format for surplus capture math
@@ -293,6 +302,7 @@ make deploy-local
 ```
 
 This will:
+
 1. deploy `AsyncSwap`
 2. deploy governance contracts
 3. connect ownership and token minting to the timelock
@@ -332,6 +342,7 @@ export FILL_AMOUNT=0   # if omitted, fill script uses full remaining output
 ```
 
 Notes:
+
 - `07_DeployDemoTokens` mints both demo ERC20s to both the user and the filler
 - `08_InitializeDemoPool` initializes an ERC20/ERC20 pool using the deployed demo tokens
 - `08_InitializeNativeTokenPool` initializes a native/token pool using `TOKEN1_ADDRESS` or the second deployed demo token

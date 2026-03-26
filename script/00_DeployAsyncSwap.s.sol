@@ -11,6 +11,7 @@ import {HookMiner} from "./utils/HookMiner.sol";
 contract DeployAsyncSwapScript is ScriptHelper {
     PoolManager public manager;
     AsyncSwap public hook;
+    uint24 constant MINIMUM_FEE = 1_2000; // PPM{1} 1.2% default minimum fee
 
     function _hookFlags() internal pure returns (uint160) {
         return uint160(
@@ -34,10 +35,11 @@ contract DeployAsyncSwapScript is ScriptHelper {
         }
 
         uint160 flags = _hookFlags();
-        (address minedHookAddress, bytes32 salt) =
-            HookMiner.find(CREATE2_FACTORY, flags, type(AsyncSwap).creationCode, abi.encode(managerAddress, deployer));
+        (address minedHookAddress, bytes32 salt) = HookMiner.find(
+            CREATE2_FACTORY, flags, type(AsyncSwap).creationCode, abi.encode(managerAddress, deployer, MINIMUM_FEE)
+        );
 
-        hook = new AsyncSwap{salt: salt}(IPoolManager(managerAddress), deployer);
+        hook = new AsyncSwap{salt: salt}(IPoolManager(managerAddress), deployer, MINIMUM_FEE);
         require(address(hook) == minedHookAddress, "HOOK_ADDRESS_MISMATCH");
 
         vm.stopBroadcast();

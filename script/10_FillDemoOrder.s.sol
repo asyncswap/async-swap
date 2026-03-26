@@ -9,9 +9,11 @@ import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
 import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
 import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
+import {Order, OrderLibrary} from "src/types/Order.sol";
 
 contract FillDemoOrderScript is ScriptHelper {
     using PoolIdLibrary for PoolKey;
+    using OrderLibrary for Order;
 
     function run() public {
         address asyncSwap = _deployedAsyncSwap();
@@ -35,8 +37,8 @@ contract FillDemoOrderScript is ScriptHelper {
             hooks: IHooks(asyncSwap)
         });
 
-        AsyncSwap.Order memory order = AsyncSwap.Order({poolId: key.toId(), swapper: user, tick: tick});
-        uint256 fillAmount = vm.envOr("FILL_AMOUNT", AsyncSwap(asyncSwap).getBalanceOut(order, zeroForOne));
+        Order memory order = Order({poolId: key.toId(), swapper: user, tick: tick});
+        uint256 fillAmount = vm.envOr("FILL_AMOUNT", AsyncSwap(asyncSwap).getBalanceOut(order.toId(), zeroForOne));
 
         address outputToken = zeroForOne ? tokenB : tokenA;
 

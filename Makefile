@@ -1,4 +1,4 @@
-.PHONY: help deploy-asyncswap deploy-governance transfer-asyncswap-ownership set-token-minter schedule-ownership-accept execute-ownership-accept revoke-bootstrap-roles deploy-oracle-adapter set-pool-oracle set-unichain-sepolia-eth-usdc-oracle print-pool-id demo-deploy-tokens demo-init-pool demo-init-native-pool demo-create-order demo-fill-order deploy-all deploy-local require-broadcast
+.PHONY: help deploy-asyncswap deploy-governance transfer-asyncswap-ownership set-token-minter schedule-ownership-accept execute-ownership-accept revoke-bootstrap-roles deploy-oracle-adapter set-pool-oracle set-unichain-sepolia-eth-usdc-oracle print-pool-id demo-deploy-tokens demo-init-pool demo-init-native-pool demo-create-order demo-fill-order deploy-all deploy-local deploy-protocol require-broadcast
 
 ifneq (,$(wildcard .env))
 include .env
@@ -19,9 +19,9 @@ QUORUM_PERCENT ?= 4
 AUTO_EXECUTE_LOCAL ?= true
 
 ifeq ($(CHAIN),anvil)
-FORGE_SCRIPT = forge script --rpc-url $(RPC_URL) --sender $(DEPLOYER_ADDRESS) --unlocked --broadcast -vvvv
+FORGE_SCRIPT = forge script --rpc-url $(RPC_URL) --sender $(DEPLOYER_ADDRESS) --unlocked --broadcast -vvvv --verify
 else
-FORGE_SCRIPT = forge script --rpc-url $(RPC_URL) --account $(ACCOUNT) --sender $(DEPLOYER_ADDRESS) --broadcast -vvvv --no-cache
+FORGE_SCRIPT = forge script --rpc-url $(RPC_URL) --account $(ACCOUNT) --sender $(DEPLOYER_ADDRESS) --broadcast -vvvv --no-cache --verify 
 endif
 
 help:
@@ -39,6 +39,7 @@ help:
 	@printf "  print-pool-id             Print the deterministic PoolId for token pair + hook\n"
 	@printf "  deploy-all                Run steps 00-04 in order\n"
 	@printf "  deploy-local              Run the full local anvil flow, including timelock fast-forward and steps 05-06\n"
+	@printf "  deploy-protocol           Full deployment: core + governance + pool + oracle + unpause + harden\n"
 	@printf "  demo-deploy-tokens        Deploy local demo ERC20 tokens for swap flow testing\n"
 	@printf "  demo-init-pool            Initialize an ERC20/ERC20 AsyncSwap demo pool\n"
 	@printf "  demo-init-native-pool     Initialize a native/token AsyncSwap demo pool\n"
@@ -131,3 +132,102 @@ deploy-local:
 	else \
 		printf "\nAUTO_EXECUTE_LOCAL=false, skipping execute/revoke steps.\n"; \
 	fi
+
+# ── Full Protocol Deployment ──────────────────────────────────────────────────
+# Deploys everything needed for an operational protocol on a live network:
+#   Phase 1: Core contracts + governance (steps 00-04)
+#   Phase 2: Wait for timelock delay, then finalize (steps 05-06)
+#   Phase 3: Initialize pool + deploy oracle + configure oracle
+#   Phase 4: Unpause the protocol
+#
+# Required env vars:
+#   DEPLOYER_ADDRESS, ACCOUNT, CHAIN
+#   TOKEN1_ADDRESS           - the non-native token (e.g. USDC)
+#   SQRT_PRICE_X96           - initial pool price (default: 1:1)
+#   TICK_SPACING             - pool tick spacing (default: 240)
+#   TREASURY_ADDRESS         - fee collection address
+#
+# For oracle configuration on Unichain Sepolia (auto-read from deployments.yaml):
+#   POOL_ID                  - set automatically after pool init via print-pool-id
+#   CHRONICLE_ORACLE, CHRONICLE_SELF_KISSER - auto from config
+#
+# Usage:
+#   make deploy-protocol CHAIN=unichain-sepolia ACCOUNT=deployer \
+#     DEPLOYER_ADDRESS=0x... TOKEN1_ADDRESS=0x... TREASURY_ADDRESS=0x...
+# ──────────────────────────────────────────────────────────────────────────────
+
+SQRT_PRICE_X96 ?= 79228162514264337593543950336
+TICK_SPACING ?= 240
+TREASURY_ADDRESS ?= $(DEPLOYER_ADDRESS)
+
+deploy-protocol: require-account-env require-broadcast
+	@printf "\n╔══════════════════════════════════════════════╗\n"
+	@printf "║       AsyncSwap Protocol Deployment          ║\n"
+	@printf "║  Chain: $(CHAIN)                              \n"
+	@printf "╚══════════════════════════════════════════════╝\n\n"
+	@# ── Phase 1: Deploy core + governance + schedule ownership ──
+	@printf "==> Phase 1: Deploy core contracts + governance\n"
+	$(MAKE) deploy-asyncswap
+	@printf "\n==> Deploying governance stack\n"
+	$(MAKE) deploy-governance
+	@printf "\n==> Transferring AsyncSwap ownership to timelock\n"
+	$(MAKE) transfer-asyncswap-ownership
+	@printf "\n==> Setting token minter to timelock\n"
+	$(MAKE) set-token-minter
+	@printf "\n==> Scheduling ownership acceptance through timelock\n"
+	$(MAKE) schedule-ownership-accept
+	@# ── Phase 2: Initialize pool BEFORE ownership transfer executes ──
+	@# (deployer is still protocolOwner so can call beforeInitialize)
+	@printf "\n==> Phase 2: Initialize native/token pool\n"
+	$(MAKE) demo-init-native-pool
+	@# ── Phase 3: Deploy + configure oracle BEFORE ownership transfer ──
+	@printf "\n==> Phase 3: Deploy oracle adapter\n"
+	$(MAKE) deploy-oracle-adapter
+	@printf "\n==> Computing pool ID\n"
+	$(eval POOL_ID := $(shell bash script/print-pool-id.sh))
+	@printf "  Pool ID: $(POOL_ID)\n"
+	@# Set oracle config while deployer still owns the hook
+	@if [ "$(CHAIN)" = "unichain-sepolia" ]; then \
+		printf "\n==> Configuring Chronicle ETH/USD oracle for native/USDC pool\n"; \
+		POOL_ID=$(POOL_ID) $(MAKE) set-unichain-sepolia-eth-usdc-oracle; \
+	else \
+		printf "\n==> Skipping oracle config (not unichain-sepolia). Configure manually with: make set-pool-oracle\n"; \
+	fi
+	@# ── Phase 4: Set treasury while deployer still owns the hook ──
+	@printf "\n==> Setting treasury to $(TREASURY_ADDRESS)\n"
+	cast send --rpc-url $(RPC_URL) $(if $(filter anvil,$(CHAIN)),--unlocked,--account $(ACCOUNT)) \
+		--from $(DEPLOYER_ADDRESS) \
+		$$(cat broadcast/00_DeployAsyncSwap.s.sol/$$(ruby script/read-config.rb $(CONFIG_FILE) chains.$(CHAIN).chainId)/run-latest.json | python3 -c "import sys,json; txs=json.load(sys.stdin)['transactions']; print([t['contractAddress'] for t in txs if t.get('contractName')=='AsyncSwap'][0])") \
+		"setTreasury(address)" $(TREASURY_ADDRESS)
+	@# ── Phase 5: Unpause while deployer still owns ──
+	@printf "\n==> Unpausing protocol\n"
+	cast send --rpc-url $(RPC_URL) $(if $(filter anvil,$(CHAIN)),--unlocked,--account $(ACCOUNT)) \
+		--from $(DEPLOYER_ADDRESS) \
+		$$(cat broadcast/00_DeployAsyncSwap.s.sol/$$(ruby script/read-config.rb $(CONFIG_FILE) chains.$(CHAIN).chainId)/run-latest.json | python3 -c "import sys,json; txs=json.load(sys.stdin)['transactions']; print([t['contractAddress'] for t in txs if t.get('contractName')=='AsyncSwap'][0])") \
+		"unpause()"
+	@# ── Phase 6: Wait for timelock then finalize governance ──
+	@printf "\n==> Phase 6: Waiting for timelock delay ($(TIMELOCK_DELAY)s)\n"
+	@if [ "$(CHAIN)" = "anvil" ]; then \
+		cast rpc --rpc-url $(RPC_URL) evm_increaseTime $(TIMELOCK_DELAY) >/dev/null; \
+		cast rpc --rpc-url $(RPC_URL) evm_mine >/dev/null; \
+		printf "  (fast-forwarded on anvil)\n"; \
+	else \
+		printf "  *** On a live network, wait $(TIMELOCK_DELAY) seconds before running:\n"; \
+		printf "      make execute-ownership-accept\n"; \
+		printf "      make revoke-bootstrap-roles\n"; \
+		printf "  Or re-run this target after the delay has elapsed.\n"; \
+	fi
+	@# Execute ownership transfer + revoke bootstrap roles
+	@printf "\n==> Executing ownership acceptance\n"
+	$(MAKE) execute-ownership-accept
+	@printf "\n==> Revoking bootstrap roles\n"
+	$(MAKE) revoke-bootstrap-roles
+	@printf "\n╔══════════════════════════════════════════════╗\n"
+	@printf "║         Protocol Deployment Complete!         ║\n"
+	@printf "║                                               ║\n"
+	@printf "║  AsyncSwap: deployed + unpaused               ║\n"
+	@printf "║  Governance: hardened (timelock owns hook)     ║\n"
+	@printf "║  Pool: initialized                            ║\n"
+	@printf "║  Oracle: configured                           ║\n"
+	@printf "║  Treasury: $(TREASURY_ADDRESS)                 \n"
+	@printf "╚══════════════════════════════════════════════╝\n"
