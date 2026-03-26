@@ -10,13 +10,14 @@ import {SwapParams} from "v4-core/src/types/PoolOperation.sol";
 import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 import {IERC20Minimal} from "v4-core/src/interfaces/external/IERC20Minimal.sol";
-import {AsyncSwap} from "./AsyncSwap.sol";
+import {Order, OrderLibrary} from "./types/Order.sol";
 
 /// @title AsyncRouter
 /// @notice Thin router that calls PM.swap() so beforeSwap fires on the hook.
 /// Only callable by the hook itself — captures msg.sender (the user) from the hook.
 contract AsyncRouter is IUnlockCallback {
     using PoolIdLibrary for PoolKey;
+    using OrderLibrary for Order;
 
     IPoolManager public immutable POOL_MANAGER;
     address public immutable HOOK;
@@ -86,7 +87,7 @@ contract AsyncRouter is IUnlockCallback {
         SwapData memory cb = abi.decode(data, (SwapData));
 
         // Build the Order struct and hookData that beforeSwap expects
-        AsyncSwap.Order memory order = AsyncSwap.Order({poolId: cb.key.toId(), swapper: cb.user, tick: cb.tick});
+        Order memory order = Order({poolId: cb.key.toId(), swapper: cb.user, tick: cb.tick});
 
         // Call PM.swap() — this triggers hook.beforeSwap() since msg.sender is this router, not the hook
         BalanceDelta delta = POOL_MANAGER.swap(

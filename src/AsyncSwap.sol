@@ -21,6 +21,7 @@ import {AsyncRouter} from "./AsyncRouter.sol";
 import {CurrencySettler} from "./libraries/CurrencySettler.sol";
 import {IntentAuth} from "./IntentAuth.sol";
 import {AsyncToken} from "./governance/AsyncToken.sol";
+import {Order, OrderLibrary} from "src/types/Order.sol";
 
 /// @title AsyncSwap
 /// @notice An intent-based async swap hook built on Uniswap V4.
@@ -33,6 +34,7 @@ import {AsyncToken} from "./governance/AsyncToken.sol";
 contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
     using PoolIdLibrary for PoolKey;
     using CurrencySettler for Currency;
+    using OrderLibrary for Order;
 
     /// @notice The Router — deployed by constructor, immutable
     AsyncRouter public immutable router;
@@ -65,15 +67,6 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
     mapping(bytes32 orderId => mapping(bool zeroForOne => uint256 amount)) public feeRemaining; // {tok}
     /// Order deadline per orderId and direction (0 = no expiry)
     mapping(bytes32 orderId => mapping(bool zeroForOne => uint256 deadline)) public orderDeadline; // {s}
-
-    /// @param poolId The pool this order belongs to
-    /// @param swapper The creator of the order
-    /// @param tick The tick (price point) at which to execute the order
-    struct Order {
-        PoolId poolId;
-        address swapper;
-        int24 tick;
-    }
 
     /// @notice Which participant is disadvantaged by the quoted execution.
     /// @dev V1 uses pair-relative oracle (sqrtPriceX96) for detection.

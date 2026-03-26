@@ -16,6 +16,7 @@ import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
 import {FullMath} from "v4-core/src/libraries/FullMath.sol";
 import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
+import {Order, OrderLibrary} from "src/types/Order.sol";
 
 /// @title AsyncSwapUsdDecimalMismatchTest
 /// @notice Tests that the USD surplus path correctly scales fairClaimShare
@@ -30,6 +31,7 @@ import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
 ///         to claimShare when oracle prices match the tick exchange rate.
 contract AsyncSwapUsdDecimalMismatchTest is Test, Deployers {
     using PoolIdLibrary for PoolKey;
+    using OrderLibrary for Order;
 
     AsyncSwap hook;
     AsyncRouter asyncRouter;
@@ -107,8 +109,8 @@ contract AsyncSwapUsdDecimalMismatchTest is Test, Deployers {
         return Currency.unwrap(poolKey.currency0) == address(token6);
     }
 
-    function _makeOrder(address swapper, int24 tick) internal view returns (AsyncSwap.Order memory) {
-        return AsyncSwap.Order({poolId: poolId, swapper: swapper, tick: tick});
+    function _makeOrder(address swapper, int24 tick) internal view returns (Order memory) {
+        return Order({poolId: poolId, swapper: swapper, tick: tick});
     }
 
     /// @notice When oracle prices match the tick 0 raw exchange rate,
@@ -125,8 +127,8 @@ contract AsyncSwapUsdDecimalMismatchTest is Test, Deployers {
 
         bool zeroForOne = _isToken6Currency0();
         hook.swap(poolKey, zeroForOne, 1000e6, ORDER_TICK, 0, 0);
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
-        uint256 fillAmount = hook.getBalanceOut(order, zeroForOne);
+        Order memory order = _makeOrder(address(this), ORDER_TICK);
+        uint256 fillAmount = hook.getBalanceOut(order.toId(), zeroForOne);
 
         AsyncSwap.SurplusPreview memory preview = hook.previewUsdSurplusCapture(order, zeroForOne, fillAmount);
 
@@ -144,8 +146,8 @@ contract AsyncSwapUsdDecimalMismatchTest is Test, Deployers {
 
         bool zeroForOne = _isToken6Currency0();
         hook.swap(poolKey, zeroForOne, 1000e6, ORDER_TICK, 0, 0);
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
-        uint256 fillAmount = hook.getBalanceOut(order, zeroForOne);
+        Order memory order = _makeOrder(address(this), ORDER_TICK);
+        uint256 fillAmount = hook.getBalanceOut(order.toId(), zeroForOne);
 
         AsyncSwap.SurplusPreview memory preview = hook.previewUsdSurplusCapture(order, zeroForOne, fillAmount);
 
@@ -166,8 +168,8 @@ contract AsyncSwapUsdDecimalMismatchTest is Test, Deployers {
 
         bool zeroForOne = !_isToken6Currency0();
         hook.swap(poolKey, zeroForOne, 1e18, ORDER_TICK, 0, 0);
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
-        uint256 fillAmount = hook.getBalanceOut(order, zeroForOne);
+        Order memory order = _makeOrder(address(this), ORDER_TICK);
+        uint256 fillAmount = hook.getBalanceOut(order.toId(), zeroForOne);
 
         AsyncSwap.SurplusPreview memory preview = hook.previewUsdSurplusCapture(order, zeroForOne, fillAmount);
 
@@ -190,8 +192,8 @@ contract AsyncSwapUsdDecimalMismatchTest is Test, Deployers {
 
         bool zeroForOne = _isToken6Currency0();
         hook.swap(poolKey, zeroForOne, 1000e6, ORDER_TICK, 0, 0);
-        AsyncSwap.Order memory order = _makeOrder(address(this), ORDER_TICK);
-        uint256 fillAmount = hook.getBalanceOut(order, zeroForOne);
+        Order memory order = _makeOrder(address(this), ORDER_TICK);
+        uint256 fillAmount = hook.getBalanceOut(order.toId(), zeroForOne);
 
         AsyncSwap.SurplusPreview memory preview = hook.previewUsdSurplusCapture(order, zeroForOne, fillAmount);
 
@@ -231,8 +233,8 @@ contract AsyncSwapUsdDecimalMismatchTest is Test, Deployers {
         priceOracle.setPrice(address(tokenB), 1e18, block.timestamp);
 
         hook.swap(key2, true, 1e18, ORDER_TICK, 0, 0);
-        AsyncSwap.Order memory order = AsyncSwap.Order({poolId: pid2, swapper: address(this), tick: ORDER_TICK});
-        uint256 fillAmount = hook.getBalanceOut(order, true);
+        Order memory order = Order({poolId: pid2, swapper: address(this), tick: ORDER_TICK});
+        uint256 fillAmount = hook.getBalanceOut(order.toId(), true);
 
         AsyncSwap.SurplusPreview memory preview = hook.previewUsdSurplusCapture(order, true, fillAmount);
         assertFalse(preview.active, "same-decimal fair fill should not capture surplus");

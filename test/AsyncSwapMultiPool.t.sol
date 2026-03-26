@@ -13,9 +13,11 @@ import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
 import {FullMath} from "v4-core/src/libraries/FullMath.sol";
 import {LPFeeLibrary} from "v4-core/src/libraries/LPFeeLibrary.sol";
+import {Order, OrderLibrary} from "src/types/Order.sol";
 
 contract AsyncSwapMultiPoolTest is Test, Deployers {
     using PoolIdLibrary for PoolKey;
+    using OrderLibrary for Order;
 
     AsyncSwap hook;
     AsyncRouter asyncRouter;
@@ -109,11 +111,11 @@ contract AsyncSwapMultiPoolTest is Test, Deployers {
         hook.swap(poolKey1, true, swapAmount1, ORDER_TICK, 0, 0);
         hook.swap(poolKey2, true, swapAmount2, ORDER_TICK, 0, 0);
 
-        AsyncSwap.Order memory order1 = AsyncSwap.Order({poolId: poolId1, swapper: address(this), tick: ORDER_TICK});
-        AsyncSwap.Order memory order2 = AsyncSwap.Order({poolId: poolId2, swapper: address(this), tick: ORDER_TICK});
+        Order memory order1 = Order({poolId: poolId1, swapper: address(this), tick: ORDER_TICK});
+        Order memory order2 = Order({poolId: poolId2, swapper: address(this), tick: ORDER_TICK});
 
-        assertEq(hook.getBalanceIn(order1, true), _netInput(swapAmount1), "pool1 balanceIn");
-        assertEq(hook.getBalanceIn(order2, true), _netInput(swapAmount2), "pool2 balanceIn");
+        assertEq(hook.getBalanceIn(order1.toId(), true), _netInput(swapAmount1), "pool1 balanceIn");
+        assertEq(hook.getBalanceIn(order2.toId(), true), _netInput(swapAmount2), "pool2 balanceIn");
     }
 
     // ========================================
@@ -127,14 +129,14 @@ contract AsyncSwapMultiPoolTest is Test, Deployers {
         hook.swap(poolKey1, true, swapAmount1, ORDER_TICK, 0, 0);
         hook.swap(poolKey2, true, swapAmount2, ORDER_TICK, 0, 0);
 
-        AsyncSwap.Order memory order1 = AsyncSwap.Order({poolId: poolId1, swapper: address(this), tick: ORDER_TICK});
-        AsyncSwap.Order memory order2 = AsyncSwap.Order({poolId: poolId2, swapper: address(this), tick: ORDER_TICK});
+        Order memory order1 = Order({poolId: poolId1, swapper: address(this), tick: ORDER_TICK});
+        Order memory order2 = Order({poolId: poolId2, swapper: address(this), tick: ORDER_TICK});
 
         // Cancel pool 1
         hook.cancelOrder(order1, true);
 
-        assertEq(hook.getBalanceIn(order1, true), 0, "pool1 should be cancelled");
-        assertEq(hook.getBalanceIn(order2, true), _netInput(swapAmount2), "pool2 should be unaffected");
+        assertEq(hook.getBalanceIn(order1.toId(), true), 0, "pool1 should be cancelled");
+        assertEq(hook.getBalanceIn(order2.toId(), true), _netInput(swapAmount2), "pool2 should be unaffected");
     }
 
     // ========================================
@@ -148,10 +150,10 @@ contract AsyncSwapMultiPoolTest is Test, Deployers {
         hook.swap(poolKey1, true, swapAmount1, ORDER_TICK, 0, 0);
         hook.swap(poolKey2, true, swapAmount2, ORDER_TICK, 0, 0);
 
-        AsyncSwap.Order memory order1 = AsyncSwap.Order({poolId: poolId1, swapper: address(this), tick: ORDER_TICK});
-        AsyncSwap.Order memory order2 = AsyncSwap.Order({poolId: poolId2, swapper: address(this), tick: ORDER_TICK});
+        Order memory order1 = Order({poolId: poolId1, swapper: address(this), tick: ORDER_TICK});
+        Order memory order2 = Order({poolId: poolId2, swapper: address(this), tick: ORDER_TICK});
 
-        uint256 out1 = hook.getBalanceOut(order1, true);
+        uint256 out1 = hook.getBalanceOut(order1.toId(), true);
 
         // Fill pool 1 — filler provides currency1 (output for zeroForOne on pool1)
         address filler = makeAddr("filler");
@@ -163,12 +165,12 @@ contract AsyncSwapMultiPoolTest is Test, Deployers {
         hook.fill(order1, true, out1);
 
         // Pool 1 fully filled
-        assertEq(hook.getBalanceIn(order1, true), 0, "pool1 should be fully filled");
-        assertEq(hook.getBalanceOut(order1, true), 0, "pool1 out should be zero");
+        assertEq(hook.getBalanceIn(order1.toId(), true), 0, "pool1 should be fully filled");
+        assertEq(hook.getBalanceOut(order1.toId(), true), 0, "pool1 out should be zero");
 
         // Pool 2 unaffected
-        assertEq(hook.getBalanceIn(order2, true), _netInput(swapAmount2), "pool2 balanceIn should be unaffected");
-        assertGt(hook.getBalanceOut(order2, true), 0, "pool2 balanceOut should be unaffected");
+        assertEq(hook.getBalanceIn(order2.toId(), true), _netInput(swapAmount2), "pool2 balanceIn should be unaffected");
+        assertGt(hook.getBalanceOut(order2.toId(), true), 0, "pool2 balanceOut should be unaffected");
     }
 
     // ========================================
@@ -179,8 +181,8 @@ contract AsyncSwapMultiPoolTest is Test, Deployers {
         hook.swap(poolKey1, true, 5e18, ORDER_TICK, 0, 0);
         hook.swap(poolKey2, true, 5e18, ORDER_TICK, 0, 0);
 
-        AsyncSwap.Order memory order1 = AsyncSwap.Order({poolId: poolId1, swapper: address(this), tick: ORDER_TICK});
-        AsyncSwap.Order memory order2 = AsyncSwap.Order({poolId: poolId2, swapper: address(this), tick: ORDER_TICK});
+        Order memory order1 = Order({poolId: poolId1, swapper: address(this), tick: ORDER_TICK});
+        Order memory order2 = Order({poolId: poolId2, swapper: address(this), tick: ORDER_TICK});
 
         bytes32 orderId1 = keccak256(abi.encode(order1));
         bytes32 orderId2 = keccak256(abi.encode(order2));
@@ -198,13 +200,15 @@ contract AsyncSwapMultiPoolTest is Test, Deployers {
         hook.swap(poolKey1, true, 2e18, ORDER_TICK, 0, 0);
         hook.swap(poolKey2, true, 7e18, ORDER_TICK, 0, 0);
 
-        AsyncSwap.Order memory order1 = AsyncSwap.Order({poolId: poolId1, swapper: address(this), tick: ORDER_TICK});
-        AsyncSwap.Order memory order2 = AsyncSwap.Order({poolId: poolId2, swapper: address(this), tick: ORDER_TICK});
+        Order memory order1 = Order({poolId: poolId1, swapper: address(this), tick: ORDER_TICK});
+        Order memory order2 = Order({poolId: poolId2, swapper: address(this), tick: ORDER_TICK});
 
         // Pool 1 accumulated
-        assertEq(hook.getBalanceIn(order1, true), _netInput(3e18) + _netInput(2e18), "pool1 should accumulate 3+2");
+        assertEq(
+            hook.getBalanceIn(order1.toId(), true), _netInput(3e18) + _netInput(2e18), "pool1 should accumulate 3+2"
+        );
 
         // Pool 2 independent
-        assertEq(hook.getBalanceIn(order2, true), _netInput(7e18), "pool2 should have 7");
+        assertEq(hook.getBalanceIn(order2.toId(), true), _netInput(7e18), "pool2 should have 7");
     }
 }

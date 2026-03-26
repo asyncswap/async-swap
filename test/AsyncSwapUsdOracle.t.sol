@@ -10,9 +10,11 @@ import {IAsyncSwapOracle} from "../src/interfaces/IAsyncSwapOracle.sol";
 import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
+import {Order, OrderLibrary} from "src/types/Order.sol";
 
 contract AsyncSwapUsdOracleTest is SetupHook {
     using PoolIdLibrary for PoolKey;
+    using OrderLibrary for Order;
 
     MockTokenPriceOracle priceOracle;
     address filler = makeAddr("filler");
@@ -41,8 +43,8 @@ contract AsyncSwapUsdOracleTest is SetupHook {
         priceOracle.setPrice(Currency.unwrap(currency1), 1e18, block.timestamp);
 
         _swap(true, 1e18, 0, 0);
-        AsyncSwap.Order memory order = _makeOrder(address(this), 0);
-        uint256 fillAmount = hook.getBalanceOut(order, true);
+        Order memory order = _makeOrder(address(this), 0);
+        uint256 fillAmount = hook.getBalanceOut(order.toId(), true);
 
         AsyncSwap.SurplusPreview memory preview = hook.previewUsdSurplusCapture(order, true, fillAmount);
         assertFalse(preview.active, "should not capture surplus on fair fill");
@@ -55,8 +57,8 @@ contract AsyncSwapUsdOracleTest is SetupHook {
         priceOracle.setPrice(Currency.unwrap(currency1), 1e18, block.timestamp);
 
         _swap(true, 1e18, 0, 0);
-        AsyncSwap.Order memory order = _makeOrder(address(this), 0);
-        uint256 fillAmount = hook.getBalanceOut(order, true);
+        Order memory order = _makeOrder(address(this), 0);
+        uint256 fillAmount = hook.getBalanceOut(order.toId(), true);
 
         AsyncSwap.SurplusPreview memory preview = hook.previewUsdSurplusCapture(order, true, fillAmount);
         assertTrue(preview.active, "should capture surplus when user overpays");
@@ -73,8 +75,8 @@ contract AsyncSwapUsdOracleTest is SetupHook {
         priceOracle.setPrice(Currency.unwrap(currency1), 1e18, block.timestamp);
 
         _swap(true, 1e18, 0, 0);
-        AsyncSwap.Order memory order = _makeOrder(address(this), 0);
-        uint256 fillAmount = hook.getBalanceOut(order, true);
+        Order memory order = _makeOrder(address(this), 0);
+        uint256 fillAmount = hook.getBalanceOut(order.toId(), true);
 
         AsyncSwap.SurplusPreview memory preview = hook.previewUsdSurplusCapture(order, true, fillAmount);
         assertFalse(preview.active, "filler protection is informational only");
@@ -88,8 +90,8 @@ contract AsyncSwapUsdOracleTest is SetupHook {
         // currency1 has no price → getPrice returns 0
 
         _swap(true, 1e18, 0, 0);
-        AsyncSwap.Order memory order = _makeOrder(address(this), 0);
-        uint256 fillAmount = hook.getBalanceOut(order, true);
+        Order memory order = _makeOrder(address(this), 0);
+        uint256 fillAmount = hook.getBalanceOut(order.toId(), true);
 
         // Should not revert — graceful fallback
         AsyncSwap.SurplusPreview memory preview = hook.previewUsdSurplusCapture(order, true, fillAmount);
@@ -103,8 +105,8 @@ contract AsyncSwapUsdOracleTest is SetupHook {
         priceOracle.setPrice(Currency.unwrap(currency1), 1e18, block.timestamp - 1000);
 
         _swap(true, 1e18, 0, 0);
-        AsyncSwap.Order memory order = _makeOrder(address(this), 0);
-        uint256 fillAmount = hook.getBalanceOut(order, true);
+        Order memory order = _makeOrder(address(this), 0);
+        uint256 fillAmount = hook.getBalanceOut(order.toId(), true);
 
         AsyncSwap.SurplusPreview memory preview = hook.previewUsdSurplusCapture(order, true, fillAmount);
         assertFalse(preview.active, "stale prices should skip capture");
@@ -115,8 +117,8 @@ contract AsyncSwapUsdOracleTest is SetupHook {
         priceOracle.setPrice(Currency.unwrap(currency1), 1e18, block.timestamp);
 
         _swap(true, 1e18, 0, 0);
-        AsyncSwap.Order memory order = _makeOrder(address(this), 0);
-        uint256 fillAmount = hook.getBalanceOut(order, true);
+        Order memory order = _makeOrder(address(this), 0);
+        uint256 fillAmount = hook.getBalanceOut(order.toId(), true);
 
         uint256 userClaimsBefore = manager.balanceOf(address(this), currency0.toId());
         vm.prank(filler);
