@@ -1,3 +1,5 @@
+![async swap banner](./assets/banner.png)
+
 ## AsyncSwap
 
 AsyncSwap is an intent-based async swap hook built on Uniswap v4.
