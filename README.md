@@ -2,7 +2,7 @@
 
 ## AsyncSwap
 
-AsyncSwap is an intent-based async swap hook built on Uniswap v4.
+AsyncSwap is an intent-based hook built on Uniswap v4.
 
 Instead of executing trades against AMM liquidity immediately, AsyncSwap records a priced order at a chosen tick, escrows the user's input, and lets external fillers complete the output side later.
 
