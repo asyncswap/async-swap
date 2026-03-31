@@ -38,6 +38,7 @@ contract AsyncRouter is IUnlockCallback {
     error UNSUPPORTED_INPUT_TOKEN();
     error INPUT_TRANSFER_FAILED();
     error INVALID_NATIVE_VALUE();
+    error NATIVE_WITHDRAW_FAILED();
 
     constructor(IPoolManager _pm, address _hook) {
         POOL_MANAGER = _pm;
@@ -56,6 +57,15 @@ contract AsyncRouter is IUnlockCallback {
         }
 
         POOL_MANAGER.unlock(abi.encode(data));
+    }
+
+    /// @notice Withdraw native ETH held by the router.
+    /// @dev Only the hook can instruct the router to release ETH.
+    function withdrawNative(address payable to, uint256 amount) external {
+        if (msg.sender != HOOK) revert ONLY_HOOK();
+
+        (bool success,) = to.call{value: amount}("");
+        if (!success) revert NATIVE_WITHDRAW_FAILED();
     }
 
     /// @param amount {tok} Exact input amount to settle
@@ -112,6 +122,4 @@ contract AsyncRouter is IUnlockCallback {
 
         return "";
     }
-
-    receive() external payable {}
 }

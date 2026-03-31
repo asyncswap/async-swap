@@ -34,7 +34,7 @@ contract AsyncSwapOracleTest is SetupHook {
 
     function test_setOracleConfig_nonOwner_reverts() public {
         vm.prank(makeAddr("mallory"));
-        vm.expectRevert(bytes("NOT OWNER"));
+        vm.expectRevert(IntentAuth.NOT_PROTOCOL_OWNER.selector);
         hook.setOracleConfig(poolId, oracle, 300, 100, 5000, 2500, 2500);
     }
 

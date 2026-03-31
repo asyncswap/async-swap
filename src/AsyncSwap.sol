@@ -103,6 +103,13 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
     /// @notice Emitted when a swapper cancels an unfilled order and reclaims input tokens
     event Cancel(bytes32 orderId, address swapper, uint256 amountReturned);
 
+    /// @notice Emitted when native ETH is withdrawn from the hook.
+    /// Ether transfers emit logs https://github.com/ethereum/EIPs/blob/41095dcc574c5b7d8c8e30e667f510cb628bd767/EIPS/eip-7708.md
+    event NativeWithdrawn(address indexed to, uint256 amount);
+
+    /// @notice Emitted when native ETH is withdrawn from the router.
+    event RouterNativeWithdrawn(address indexed to, uint256 amount);
+
     /// @notice Error if caller is not poolmanager address
     error CALLER_NOT_POOL_MANAGER();
 
@@ -151,6 +158,12 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
     /// @notice Order has expired and can no longer be filled
     error ORDER_EXPIRED();
 
+    /// @notice Native ETH transfer failed during withdrawal
+    error NATIVE_WITHDRAW_FAILED();
+
+    /// @notice Unlock callback action is not supported
+    error INVALID_CALLBACK_ACTION();
+
     /// @notice Initialize PoolManager storage variable and deploy the router
     constructor(IPoolManager _pm, address _initialOwner, uint24 _minimumFee)
         IntentAuth(_pm, _initialOwner, _minimumFee)
@@ -159,9 +172,23 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
     }
 
     /// @notice Set the governance token used for participant rewards. Only callable by protocolOwner.
-    function setRewardToken(AsyncToken _token) external {
-        require(msg.sender == protocolOwner, "NOT OWNER");
+    function setRewardToken(AsyncToken _token) external onlyProtocolOwner {
         rewardToken = _token;
+    }
+
+    /// @notice Withdraw native ETH held directly by this hook.
+    function withdrawNative(address payable to, uint256 amount) external onlyProtocolOwner {
+        (bool success,) = to.call{value: amount}("");
+        if (!success) revert NATIVE_WITHDRAW_FAILED();
+
+        emit NativeWithdrawn(to, amount);
+    }
+
+    /// @notice Withdraw native ETH held by the router.
+    function withdrawRouterNative(address payable to, uint256 amount) external onlyProtocolOwner {
+        router.withdrawNative(to, amount);
+
+        emit RouterNativeWithdrawn(to, amount);
     }
 
     /// @notice Mint a one-time reward to a participant if they haven't already received one.
@@ -244,10 +271,24 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
         uint256 minAmountOut,
         uint256 deadline
     ) external payable {
+        /// checks
         if (paused) revert PAUSED();
         require(amountIn > 0, "ZERO_AMOUNT");
         if (deadline != 0 && deadline <= block.timestamp) revert ORDER_EXPIRED();
 
+        // Effects
+        // Store deadline for this order (after router call so orderId exists)
+        Order memory order = Order({poolId: key.toId(), swapper: msg.sender, tick: tick});
+        bytes32 orderId = order.toId();
+        if (deadline > 0) {
+            // Only update if no existing deadline or new deadline is earlier
+            uint256 existing = orderDeadline[orderId][zeroForOne];
+            if (existing == 0 || deadline < existing) {
+                orderDeadline[orderId][zeroForOne] = deadline;
+            }
+        }
+
+        // Interaction
         router.executeSwap{value: msg.value}(
             AsyncRouter.SwapData({
                 user: msg.sender,
@@ -259,17 +300,6 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
                 value: msg.value
             })
         );
-
-        // Store deadline for this order (after router call so orderId exists)
-        Order memory order = Order({poolId: key.toId(), swapper: msg.sender, tick: tick});
-        bytes32 orderId = keccak256(abi.encode(order));
-        if (deadline > 0) {
-            // Only update if no existing deadline or new deadline is earlier
-            uint256 existing = orderDeadline[orderId][zeroForOne];
-            if (existing == 0 || deadline < existing) {
-                orderDeadline[orderId][zeroForOne] = deadline;
-            }
-        }
 
         // One-time swapper reward
         _tryMintReward(msg.sender, hasSwapReward);
@@ -287,7 +317,7 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
         returns (bytes4)
     {
         /// @dev only owner of this hook is allowed to initialize pools
-        require(sender == protocolOwner, "NOT HOOK OWNER");
+        require(sender == protocolOwner, NOT_PROTOCOL_OWNER());
         require(address(key.hooks) == address(this));
         /// @dev pool must use dynamic fee flag for governance-controlled fees
         require(key.fee == LPFeeLibrary.DYNAMIC_FEE_FLAG, "USE DYNAMIC FEE");
@@ -852,7 +882,9 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
         Currency inputCurrency = zeroForOne ? key.currency0 : key.currency1;
 
         POOL_MANAGER.unlock(
-            abi.encode(CancelCallback({currency: inputCurrency, to: order.swapper, amount: refundAmount}))
+            abi.encode(
+                CallbackAction.Take, CancelCallback({currency: inputCurrency, to: order.swapper, amount: refundAmount})
+            )
         );
 
         emit Cancel(orderId, order.swapper, refundAmount);
@@ -877,7 +909,8 @@ contract AsyncSwap is IntentAuth, IHooks, IUnlockCallback {
     function unlockCallback(bytes calldata data) external returns (bytes memory) {
         require(msg.sender == address(POOL_MANAGER), CALLER_NOT_POOL_MANAGER_CALLBACK());
 
-        CancelCallback memory cb = abi.decode(data, (CancelCallback));
+        (CallbackAction action, CancelCallback memory cb) = abi.decode(data, (CallbackAction, CancelCallback));
+        if (action != CallbackAction.Take) revert INVALID_CALLBACK_ACTION();
 
         // Burn the hook's claim tokens (creates +delta)
         POOL_MANAGER.burn(address(this), cb.currency.toId(), cb.amount);

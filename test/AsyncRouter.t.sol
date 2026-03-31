@@ -106,6 +106,11 @@ contract AsyncRouterTest is Test, Deployers {
         asyncRouter.executeSwap(data);
     }
 
+    function test_withdrawNative_onlyHook_reverts() public {
+        vm.expectRevert(AsyncRouter.ONLY_HOOK.selector);
+        asyncRouter.withdrawNative(payable(address(this)), 1 ether);
+    }
+
     // ========================================
     // unlockCallback — only PoolManager can call
     // ========================================

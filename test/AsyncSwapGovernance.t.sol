@@ -6,9 +6,17 @@ import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
 import {AsyncSwap} from "../src/AsyncSwap.sol";
 import {IntentAuth} from "../src/IntentAuth.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
-import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
+import {PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
 import {FullMath} from "v4-core/src/libraries/FullMath.sol";
+
+contract ForceSend {
+    constructor() payable {}
+
+    function destroy(address payable to) external {
+        selfdestruct(to);
+    }
+}
 
 contract AsyncSwapGovernanceTest is SetupHook {
     using PoolIdLibrary for PoolKey;
@@ -54,7 +62,7 @@ contract AsyncSwapGovernanceTest is SetupHook {
 
     function test_transferOwnership_nonOwner_reverts() public {
         vm.prank(mallory);
-        vm.expectRevert(bytes("NOT OWNER"));
+        vm.expectRevert(IntentAuth.NOT_PROTOCOL_OWNER.selector);
         hook.transferOwnership(bob);
     }
 
@@ -83,7 +91,7 @@ contract AsyncSwapGovernanceTest is SetupHook {
 
     function test_setTreasury_nonOwner_reverts() public {
         vm.prank(mallory);
-        vm.expectRevert(bytes("NOT OWNER"));
+        vm.expectRevert(IntentAuth.NOT_PROTOCOL_OWNER.selector);
         hook.setTreasury(treasury);
     }
 
@@ -94,7 +102,7 @@ contract AsyncSwapGovernanceTest is SetupHook {
 
     function test_setMinimumFee_nonOwner_reverts() public {
         vm.prank(mallory);
-        vm.expectRevert(bytes("NOT OWNER"));
+        vm.expectRevert(IntentAuth.NOT_PROTOCOL_OWNER.selector);
         hook.setMinimumFee(15_000);
     }
 
@@ -105,7 +113,7 @@ contract AsyncSwapGovernanceTest is SetupHook {
 
     function test_setPoolFee_nonOwner_reverts() public {
         vm.prank(mallory);
-        vm.expectRevert(bytes("NOT OWNER"));
+        vm.expectRevert(IntentAuth.NOT_PROTOCOL_OWNER.selector);
         hook.setPoolFee(poolId, 15_000);
     }
 
@@ -126,7 +134,7 @@ contract AsyncSwapGovernanceTest is SetupHook {
 
     function test_setFeeRefundToggle_nonOwner_reverts() public {
         vm.prank(mallory);
-        vm.expectRevert(bytes("NOT OWNER"));
+        vm.expectRevert(IntentAuth.NOT_PROTOCOL_OWNER.selector);
         hook.setFeeRefundToggle(true);
     }
 
@@ -164,6 +172,54 @@ contract AsyncSwapGovernanceTest is SetupHook {
         assertEq(hook.accruedFees(currency0), 0, "fees not cleared");
     }
 
+    function test_directEthTransferToHook_reverts() public {
+        vm.deal(address(this), 1 ether);
+        (bool success,) = payable(address(hook)).call{value: 1 ether}("");
+        assertFalse(success, "hook should reject direct ETH");
+    }
+
+    function test_directEthTransferToRouter_reverts() public {
+        vm.deal(address(this), 1 ether);
+        (bool success,) = payable(address(hook.router())).call{value: 1 ether}("");
+        assertFalse(success, "router should reject direct ETH");
+    }
+
+    function test_withdrawNative_transfersEthToRecipient() public {
+        uint256 amount = 1 ether;
+        ForceSend forceSend = new ForceSend{value: amount}();
+        forceSend.destroy(payable(address(hook)));
+
+        uint256 treasuryBefore = treasury.balance;
+        hook.withdrawNative(payable(treasury), amount);
+
+        assertEq(address(hook).balance, 0, "hook balance not cleared");
+        assertEq(treasury.balance - treasuryBefore, amount, "treasury did not receive native ETH");
+    }
+
+    function test_withdrawNative_nonOwner_reverts() public {
+        vm.prank(mallory);
+        vm.expectRevert(IntentAuth.NOT_PROTOCOL_OWNER.selector);
+        hook.withdrawNative(payable(treasury), 1 ether);
+    }
+
+    function test_withdrawRouterNative_transfersEthToRecipient() public {
+        uint256 amount = 1 ether;
+        ForceSend forceSend = new ForceSend{value: amount}();
+        forceSend.destroy(payable(address(hook.router())));
+
+        uint256 treasuryBefore = treasury.balance;
+        hook.withdrawRouterNative(payable(treasury), amount);
+
+        assertEq(address(hook.router()).balance, 0, "router balance not cleared");
+        assertEq(treasury.balance - treasuryBefore, amount, "treasury did not receive router ETH");
+    }
+
+    function test_withdrawRouterNative_nonOwner_reverts() public {
+        vm.prank(mallory);
+        vm.expectRevert(IntentAuth.NOT_PROTOCOL_OWNER.selector);
+        hook.withdrawRouterNative(payable(treasury), 1 ether);
+    }
+
     function test_updatedPoolFee_changesFutureAccrual() public {
         uint256 amountIn = 1e18;
         hook.setTreasury(treasury);
@@ -188,14 +244,14 @@ contract AsyncSwapGovernanceTest is SetupHook {
 
     function test_pause_nonOwner_reverts() public {
         vm.prank(mallory);
-        vm.expectRevert(bytes("NOT OWNER"));
+        vm.expectRevert(IntentAuth.NOT_PROTOCOL_OWNER.selector);
         hook.pause();
     }
 
     function test_unpause_nonOwner_reverts() public {
         hook.pause();
         vm.prank(mallory);
-        vm.expectRevert(bytes("NOT OWNER"));
+        vm.expectRevert(IntentAuth.NOT_PROTOCOL_OWNER.selector);
         hook.unpause();
     }
 }

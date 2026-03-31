@@ -11,6 +11,11 @@ contract IntentAuth {
     /// @notice The PoolManager contract address
     IPoolManager public immutable POOL_MANAGER;
 
+    enum CallbackAction {
+        Take,
+        SweepNative
+    }
+
     uint24 public minimumFee; // PPM{1} minimum fee ratio (denominator 1_000_000)
     bool public paused;
     address public protocolOwner;
@@ -46,6 +51,7 @@ contract IntentAuth {
     error NO_SURPLUS_ACCRUED();
     error TREASURY_NOT_SET();
     error PAUSED();
+    error NOT_PROTOCOL_OWNER();
 
     event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
@@ -76,8 +82,13 @@ contract IntentAuth {
         emit OwnershipTransferred(address(0), _initialOwner);
     }
 
-    function transferOwnership(address newOwner) external {
-        require(msg.sender == protocolOwner, "NOT OWNER");
+    /// @notice onlyProtocolOwner
+    modifier onlyProtocolOwner() {
+        require(msg.sender == protocolOwner, NOT_PROTOCOL_OWNER());
+        _;
+    }
+
+    function transferOwnership(address newOwner) external onlyProtocolOwner {
         pendingOwner = newOwner;
         emit OwnershipTransferStarted(protocolOwner, newOwner);
     }
@@ -89,17 +100,19 @@ contract IntentAuth {
         pendingOwner = address(0);
     }
 
-    function setTreasury(address _treasury) external {
-        require(msg.sender == protocolOwner, "NOT OWNER");
+    function setTreasury(address _treasury) external onlyProtocolOwner {
         emit TreasuryUpdated(treasury, _treasury);
         treasury = _treasury;
     }
 
-    function setMinimumFee(uint24 _minimumFee) external {
-        require(msg.sender == protocolOwner, "NOT OWNER");
+    function setMinimumFee(uint24 _minimumFee) external onlyProtocolOwner {
         require(_minimumFee <= 1_000_000, "FEE TOO HIGH");
         emit MinimumFeeUpdated(minimumFee, _minimumFee);
         minimumFee = _minimumFee;
+    }
+
+    function setClaimOperator(address operator, bool approved) external onlyProtocolOwner {
+        POOL_MANAGER.setOperator(operator, approved);
     }
 
     function claimFees(Currency currency) external {
@@ -109,7 +122,9 @@ contract IntentAuth {
         if (amount == 0) revert NO_FEES_ACCRUED();
 
         delete accruedFees[currency];
-        POOL_MANAGER.unlock(abi.encode(CancelCallback({currency: currency, to: treasury, amount: amount})));
+        POOL_MANAGER.unlock(
+            abi.encode(CallbackAction.Take, CancelCallback({currency: currency, to: treasury, amount: amount}))
+        );
 
         emit FeesClaimed(currency, treasury, amount);
     }
@@ -121,30 +136,29 @@ contract IntentAuth {
         if (amount == 0) revert NO_SURPLUS_ACCRUED();
 
         delete accruedSurplus[currency];
-        POOL_MANAGER.unlock(abi.encode(CancelCallback({currency: currency, to: treasury, amount: amount})));
+        POOL_MANAGER.unlock(
+            abi.encode(CallbackAction.Take, CancelCallback({currency: currency, to: treasury, amount: amount}))
+        );
 
         emit SurplusClaimed(currency, treasury, amount);
     }
 
     /// @param _poolId The pool identifier
     /// @param _fee PPM{1} The new fee ratio (denominator 1_000_000)
-    function setPoolFee(PoolId _poolId, uint24 _fee) external {
-        require(msg.sender == protocolOwner, "NOT OWNER");
+    function setPoolFee(PoolId _poolId, uint24 _fee) external onlyProtocolOwner {
         require(_fee >= minimumFee, "FEE BELOW MINIMUM");
         require(_fee <= 1_000_000, "FEE TOO HIGH"); // 1_000_000 PPM = 100%
         emit PoolFeeUpdated(_poolId, poolFee[_poolId], _fee);
         poolFee[_poolId] = _fee;
     }
 
-    function setFeeRefundToggle(bool _enabled) external {
-        require(msg.sender == protocolOwner, "NOT OWNER");
+    function setFeeRefundToggle(bool _enabled) external onlyProtocolOwner {
         emit FeeRefundToggleUpdated(feeRefundToggle, _enabled);
         feeRefundToggle = _enabled;
     }
 
     /// @notice Set the global token price oracle for USD-value fairness (v1.1).
-    function setTokenPriceOracle(ITokenPriceOracle _oracle) external {
-        require(msg.sender == protocolOwner, "NOT OWNER");
+    function setTokenPriceOracle(ITokenPriceOracle _oracle) external onlyProtocolOwner {
         tokenPriceOracle = _oracle;
     }
 
@@ -163,8 +177,7 @@ contract IntentAuth {
         uint16 _userSurplusBps,
         uint16 _fillerSurplusBps,
         uint16 _protocolSurplusBps
-    ) external {
-        require(msg.sender == protocolOwner, "NOT OWNER");
+    ) external onlyProtocolOwner {
         require(
             uint256(_userSurplusBps) + uint256(_fillerSurplusBps) + uint256(_protocolSurplusBps) == 10_000, // BPS{1} must sum to 10_000 (100%)
             "INVALID_SPLIT"
@@ -188,14 +201,12 @@ contract IntentAuth {
         );
     }
 
-    function pause() external {
-        require(msg.sender == protocolOwner, "NOT OWNER");
+    function pause() external onlyProtocolOwner {
         paused = true;
         emit Paused(msg.sender);
     }
 
-    function unpause() external {
-        require(msg.sender == protocolOwner, "NOT OWNER");
+    function unpause() external onlyProtocolOwner {
         paused = false;
         emit Unpaused(msg.sender);
     }
