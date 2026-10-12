@@ -1,0 +1,45 @@
+name: Publish protocol reference
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 8 * * 1"
+  push:
+    branches: [v1]
+    paths:
+      - ".github/workflows/publish-protocol-docs.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-protocol-docs
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out documentation publisher
+        uses: actions/checkout@v5
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Check out current protocol contracts
+        run: git clone --depth 1 --branch dev https://github.com/asyncswap/protocol.git "$RUNNER_TEMP/protocol"
+
+      - name: Build Forge documentation
+        working-directory: ${{ runner.temp }}/protocol
+        run: |
+          forge soldeer install
+          forge doc --build --out "$RUNNER_TEMP/forge-docs"
+          test -f "$RUNNER_TEMP/forge-docs/book/index.html"
+
+      - name: Publish to the existing GitHub Pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ${{ runner.temp }}/forge-docs/book
+          cname: docs.asyncswap.org
