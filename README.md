@@ -1,3 +1,10 @@
+# Async Swap — archived repository
+
+> Development has moved to [asyncswap/contracts](https://github.com/asyncswap/contracts).
+> This repository is archived and retained for historical reference. Use the new repository for current contracts, documentation, and contributions.
+
+---
+
 ![async swap banner](./assets/banner.png)
 
 [![Foundry Tests](https://github.com/asyncswap/async-swap/actions/workflows/test.yml/badge.svg)](https://github.com/asyncswap/async-swap/actions/workflows/test.yml)
